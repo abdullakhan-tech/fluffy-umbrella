@@ -1,5 +1,7 @@
 import os
 import time
+import ipaddress
+import secrets
 from collections import defaultdict, deque
 from pathlib import Path
 from threading import Lock
@@ -44,6 +46,33 @@ _RATE_WINDOW_SECONDS = 60
 _RATE_LIMIT = max(1, int(os.getenv("ZAYTHAR_CHAT_RATE_LIMIT", "20")))
 _requests_by_ip = defaultdict(deque)
 _rate_lock = Lock()
+
+@app.middleware("http")
+async def protect_remote_api(request: Request, call_next):
+    """Require a shared bearer token for API calls arriving from non-local clients.
+
+    This is a deployment safety gate, not per-user authentication. Local Android
+    Termux/desktop browser use remains available without a token.
+    """
+    if request.url.path.startswith("/api/") and request.url.path != "/api/health":
+        host = request.client.host if request.client else ""
+        try:
+            is_local = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            is_local = False
+        if not is_local:
+            expected = os.getenv("ZAYTHAR_API_TOKEN", "").strip()
+            supplied = request.headers.get("authorization", "")
+            valid = bool(expected) and supplied.startswith("Bearer ") and secrets.compare_digest(
+                supplied[7:].strip(), expected
+            )
+            if not valid:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Remote API access requires a valid ZAYTHAR_API_TOKEN bearer token."},
+                )
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def chat_rate_limit(request: Request, call_next):
