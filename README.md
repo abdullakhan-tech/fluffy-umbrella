@@ -5,7 +5,7 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
 ## Implemented Features
 
 - **Google Sign-In & Auth Gate**: Authenticated session management via Jetpack `CredentialManager` (`GetSignInWithGoogleOption` interactive sign-in and `GetGoogleIdOption` silent auto-sign-in) gating all Cloud Firestore collections per user UID.
-- **Overview & 3D Neural Core Visualizer**: Custom Compose `Canvas` 3D Fibonacci-sphere neural network with touch/drag parallax, animated orbital rings, live system telemetry indicators (Firebase AI Logic, LLM Web Grounding, Active Plugins, and session uptime), and a Command Deck launcher.
+- **Overview & 3D Neural Core Visualizer**: Custom Compose `Canvas` 3D Fibonacci-sphere neural network with touch/drag parallax, animated orbital rings, activity-aware Ready/Listening/Thinking states, live system telemetry indicators (Firebase AI Logic, LLM Web Grounding, Active Plugins, and session uptime), and a Command Deck launcher.
 - **Multi-Session Chat History & AI Assistant**:
   - Persistent multi-thread Cloud Firestore chat sessions (`/users/{userId}/chat_sessions/{sessionId}/messages/{messageId}`) with thread creation, switching, renaming, deletion, and automatic thread titling from the first prompt.
   - Real-time streaming multilingual chat (English, Urdu, Arabic, Hindi, French, Spanish, German, Chinese, Japanese) with Android `SpeechRecognizer` voice input (`RECORD_AUDIO`) and Android `TextToSpeech` spoken replies.
@@ -23,7 +23,7 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
   - Interactive streaming **Code Copilot** workbench supporting Kotlin, Python, TypeScript, SQL, and Bash across Generate, Debug, Refactor, Unit Tests, and Security Audit modes.
   - Live Gemini-powered **Image & Video Studio** art direction & storyboard generator.
 - **Collaboration Nexus & Knowledge Base**:
-  - Concurrent Multi-Agent runner executing 1–4 specialists in parallel via Kotlin Coroutines (`async` / `awaitAll`) with Lead Coordinator synthesis, plus Cloud Firestore Notes (`memories`) and Knowledge Graph (`knowledge_facts`).
+  - Concurrent Multi-Agent runner executing 1–4 specialists in parallel via Kotlin Coroutines (`async` / `awaitAll`), per-agent failure isolation, configured Gemini model fallback, and Lead Coordinator synthesis, plus Cloud Firestore Notes (`memories`) and Knowledge Graph (`knowledge_facts`).
 
 ## Architecture
 
