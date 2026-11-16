@@ -222,3 +222,43 @@ applyVisualControls();
   window.addEventListener('resize',()=>canvases.forEach(canvas=>render(canvas,performance.now())),{passive:true});
   if(matchMedia('(hover:hover) and (pointer:fine)').matches)start();else start();
 })();
+
+
+// Real multi-agent team runner: specialists execute concurrently on the backend;
+// the browser only renders returned deliverables and never handles provider secrets.
+(function initAgentOrchestrator(){
+  const runButton=$('#runAgentTeam'),taskInput=$('#agentTask'),status=$('#agentRunStatus'),resultBox=$('#agentRunResult');
+  if(!runButton||!taskInput||!status||!resultBox)return;
+  runButton.addEventListener('click',async()=>{
+    const task=taskInput.value.trim();
+    const agents=$$('input[name="teamAgent"]:checked').map(input=>input.value);
+    if(!task){toast('Pehle team ke liye task likhein.');taskInput.focus();return}
+    if(!agents.length||agents.length>4){toast('1 se 4 specialists select karein.');return}
+    runButton.disabled=true;runButton.textContent='TEAM PROCESSING…';
+    status.textContent='Specialists are working in parallel. Waiting for coordinator synthesis…';
+    resultBox.replaceChildren();
+    try{
+      const response=await fetch('/api/agents/run',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          task,agents,provider:store.get('aiProvider','hybrid'),
+          language:({'en-US':'English','ur-PK':'Urdu','ar-SA':'Arabic','hi-IN':'Hindi','fr-FR':'French','es-ES':'Spanish','de-DE':'German','zh-CN':'Chinese','ja-JP':'Japanese'})[$('#chatLanguage')?.value]||'English'
+        })
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.detail||'Agent service unavailable');
+      status.textContent='Completed '+data.completed_agents+' of '+data.total_agents+' specialists · coordinator: '+(data.provider||'AI');
+      const heading=document.createElement('h3');heading.textContent='COORDINATED RESULT';resultBox.append(heading);
+      const answer=document.createElement('div');answer.className='agent-final';answer.textContent=data.reply||'Coordinator returned no final response.';resultBox.append(answer);
+      const subheading=document.createElement('h3');subheading.textContent='SPECIALIST DELIVERABLES';resultBox.append(subheading);
+      (data.agents||[]).forEach(item=>{
+        const card=document.createElement('article');card.className='agent-result-card';
+        const title=document.createElement('b');title.textContent=(item.agent||'AGENT').toUpperCase()+' · '+(item.status||'UNKNOWN').toUpperCase();
+        const body=document.createElement('p');body.textContent=item.status==='completed'?item.output:(item.error||'Specialist failed.');
+        card.append(title,body);resultBox.append(card);
+      });
+      if($('#messages')){addMessage('assistant','[MULTI-AGENT RESULT]\n'+(data.reply||''));}
+    }catch(error){status.textContent='Team run failed. Check backend and provider configuration.';const detail=document.createElement('p');detail.textContent=error.message||'Unknown orchestration error';resultBox.append(detail);toast('Agent team could not complete the task.')}
+    finally{runButton.disabled=false;runButton.textContent='INITIALIZE AGENT TEAM ↗'}
+  });
+})();
