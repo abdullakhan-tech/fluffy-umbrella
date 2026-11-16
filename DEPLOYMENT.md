@@ -11,6 +11,7 @@
 Use the repository setup scripts:
 - Windows: `powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_windows.ps1`, add keys to `.env`, then run `scripts\\run_windows.bat`.
 - Linux/macOS: `bash scripts/setup.sh`, add keys to `.env`, then run `bash scripts/run.sh`.
+- Android: install Termux from F-Droid or official GitHub releases, clone the repository, run `bash scripts/setup_termux.sh`, add keys to `.env`, then run `bash scripts/run_termux.sh` and open `http://127.0.0.1:8000` on the same phone. This is the web app in Termux, not a native APK.
 
 For production, bind to the host-provided port and configure trusted proxy/network access. Do not expose the development server directly to the public internet.
 
