@@ -110,9 +110,14 @@ def test_memory_crud_is_bound_to_authenticated_user(auth_headers):
     listed = client.get("/api/memory", headers=auth_headers)
     assert listed.status_code == 200
     assert listed.json()["memories"][0]["content"] == "Synthetic preference"
+    updated = client.put(f"/api/memory/{memory_id}", headers=auth_headers, json={"content": "Updated synthetic preference"})
+    assert updated.status_code == 200
+    assert client.get("/api/memory", headers=auth_headers).json()["memories"][0]["content"] == "Updated synthetic preference"
     deleted = client.delete(f"/api/memory/{memory_id}", headers=auth_headers)
     assert deleted.status_code == 200
     assert client.get("/api/memory", headers=auth_headers).json()["memories"] == []
+    client.post("/api/memory", headers=auth_headers, json={"content": "clear me"})
+    assert client.delete("/api/memory", headers=auth_headers).json()["deleted_count"] == 1
 
 
 def test_client_cannot_choose_memory_owner_or_session(auth_headers):
@@ -137,6 +142,7 @@ def test_memory_and_knowledge_are_isolated_between_users(register_user):
     memory_id = saved.json()["id"]
     assert client.get("/api/memory", headers=bob_headers).json()["memories"] == []
     assert client.delete(f"/api/memory/{memory_id}", headers=bob_headers).status_code == 404
+    assert client.put(f"/api/memory/{memory_id}", headers=bob_headers, json={"content": "hijack"}).status_code == 404
     assert client.get("/api/memory", headers=alice_headers).json()["memories"][0]["content"] == "Alice private note"
 
     fact = client.post("/api/knowledge", headers=alice_headers, json={
