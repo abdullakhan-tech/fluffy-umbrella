@@ -89,6 +89,20 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
+      # A disposable debug key is generated on the runner because the project
+      # points its debug build type at a root-level debug.keystore.
+      - name: Generate temporary debug signing key
+        run: >-
+          keytool -genkeypair -v
+          -keystore debug.keystore
+          -storepass android
+          -alias androiddebugkey
+          -keypass android
+          -keyalg RSA
+          -keysize 2048
+          -validity 10000
+          -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Run Android tests and assemble debug APK with Firebase emulators
         run: >-
           firebase emulators:exec
