@@ -1,8 +1,8 @@
 """Password authentication and opaque, revocable bearer sessions.
 
 Session tokens are returned once and only their SHA-256 digests are stored.
-User-owned data uses a server-derived owner namespace; client session IDs are
-never accepted as an authorization boundary.
+User-owned data is keyed by the authenticated database user ID; client session IDs
+are never accepted as an authorization boundary.
 """
 import hashlib
 import hmac
@@ -105,7 +105,7 @@ def verify_password(username: str, password: str) -> dict | None:
         return None
     normalized = username.strip().lower()
     if not USERNAME_RE.fullmatch(normalized):
-        _password_digest(password[:128], _DUMMY_SALT)
+        hmac.compare_digest(_password_digest(password[:128], _DUMMY_SALT), _DUMMY_HASH)
         return None
     with _connect() as db:
         row = db.execute(
@@ -113,7 +113,7 @@ def verify_password(username: str, password: str) -> dict | None:
             (normalized,),
         ).fetchone()
     if row is None:
-        _password_digest(password, _DUMMY_SALT)
+        hmac.compare_digest(_password_digest(password, _DUMMY_SALT), _DUMMY_HASH)
         return None
     try:
         salt = bytes.fromhex(row["password_salt"])
