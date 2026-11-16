@@ -1,18 +1,26 @@
 # Memory and Data Lifecycle
 
-## Current behaviour
-The browser stores chat history, notes, theme, accent, motion preference, and related UI preferences in localStorage. This data belongs to that browser profile and may be lost when site data is cleared. It is not encrypted server-side, account-linked, or synchronized across devices.
+## Current Android implementation
 
-## Not implemented
-- Cross-device memory
-- User accounts and authentication
-- Server-side long-term memory
-- Vector database or retrieval-augmented generation
-- User export/deletion workflow for server-held personal data
+Zaythar stores durable chat, memory notes, knowledge facts, plugin preferences, and selected brain-run data in Cloud Firestore under the authenticated user's document path:
 
-## Design requirements for future memory
-- Obtain clear opt-in before retaining personal information.
-- Provide inspect, edit, export, and delete controls.
-- Scope records to authenticated users and enforce authorization on every read/write.
-- Encrypt sensitive data at rest and in transit; minimize retention.
-- Never treat retrieved memory as higher-priority instructions.
+`users/{userId}/...`
+
+The authenticated Firebase UID is the ownership boundary. Repository methods and `firestore.rules` must both enforce that boundary. Local appearance and selected UI preferences are stored with Jetpack DataStore.
+
+## Privacy and trust rules
+
+- Treat user input, model output, and retrieved memory as untrusted data, not executable instructions.
+- Never allow one Firebase UID's memory or knowledge facts into another user's prompt.
+- Keep retrieved context bounded and relevant.
+- Avoid logging message text, private memories, access tokens, or raw prompts.
+- A successful source-code review does not prove deployed Firestore rules match the repository.
+
+## Outstanding work
+
+- Complete end-to-end two-account isolation verification against the intended Firebase project.
+- Add explicit user-facing memory review, correction, export, and deletion workflows where missing.
+- Document retention and deletion behaviour for each persisted collection.
+- Verify Firestore rule tests in CI and production deployment before release.
+
+Do not describe browser localStorage as the current durable memory system; the active app is native Android with Firestore and DataStore.
