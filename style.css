@@ -56,3 +56,16 @@ body.motion-off *,body.motion-off *:before,body.motion-off *:after{animation:non
 .profile-name input{width:100%;background:#171d26;border:1px solid #424b59;color:var(--text);padding:10px;font:14px 'Rajdhani'}
 .model-card:focus-visible,.nav:focus-visible,.action-btn:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
 @media(max-width:850px){.model-grid{grid-template-columns:1fr}.model-card{min-height:220px}.model-glyph{width:85px;height:85px;font-size:44px}}
+
+/* LIVE 3D NEURAL CORE */
+.neural-stage{position:relative;isolation:isolate;overflow:hidden;touch-action:pan-y}
+.neural-stage>#neuralCanvas,.neural-stage>.neuralCanvasMini{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.neural-stage>.orbit{z-index:2;pointer-events:none}
+.neural-stage>.core-ring{z-index:3;pointer-events:none}
+.neural-stage>.core-sphere{z-index:4}
+.neural-stage>.neuralCanvasMini{opacity:.9}
+#neuralState,#rendererState{color:var(--green)}
+#openaiBar,#geminiBar,#uptimeBar,#rendererBar{transition:width .5s ease}
+#openaiBar,#geminiBar{background:linear-gradient(90deg,#7d142b,var(--accent2))}
+#uptimeBar,#rendererBar{background:linear-gradient(90deg,#17694d,var(--green))}
+@media(prefers-reduced-motion:reduce){.neural-stage>.core-sphere,.neural-stage>.orbit,.neural-stage>.core-ring{animation:none!important}}
