@@ -7,8 +7,8 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Zaythar Neural Core orchestration layer with OpenAI and Gemini provider adapters
 - Provider selection: OpenAI, Gemini, or hybrid (tries OpenAI first, then Gemini)
 - Bounded recent conversation context is sent to the selected model
-- SQLite-backed, browser-session-scoped long-term memory with list, add, delete and clear API endpoints
-- Shared session-scoped knowledge graph storing explicit subject–predicate–object facts, with add/list/delete/clear API operations and per-session fact limits
+- SQLite-backed, authenticated account-owned long-term memory with list, add, delete and clear API endpoints
+- Per-account knowledge graph storing explicit subject–predicate–object facts, with add/list/delete/clear API operations and per-session fact limits
 - Multi-agent runs receive relevant session memories and graph facts as untrusted context; bounded coordinator summaries are saved back to session memory
 - Knowledge Base notes sync to server-side memory when the backend is online
 - Safe local tool router for arithmetic and UTC time; arbitrary code execution is not permitted
@@ -33,11 +33,11 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - **Overview / Neural Core:** animated visual design; non-API telemetry figures are illustrative UI values
 - **AI Assistant:** working chat when the backend and provider key are configured
 - **AI Settings / Persona Builder:** local preferences persist in this browser and persona values are sent with chat requests
-- **Collaboration Nexus:** real backend orchestration of selected specialist model calls in parallel, followed by coordinator synthesis. Agents receive session-scoped memory and explicit graph facts, while coordinator summaries are persisted for later runs. The graph does not automatically convert model-generated statements into verified facts. Agents do not yet share a durable task queue, independently call tools, or run unattended loops.
+- **Collaboration Nexus:** real backend orchestration of selected specialist model calls in parallel, followed by coordinator synthesis. Agents receive account-owned memory and explicit graph facts, while coordinator summaries are persisted for later runs. The graph does not automatically convert model-generated statements into verified facts. Agents do not yet share a durable task queue, independently call tools, or run unattended loops.
 - **Image & Video Studio:** prepares a creative brief; image/video provider is not integrated
 - **Code Copilot:** sample secure API request, not a full code execution environment
 - **Prompt Nexus:** searchable prompt templates
-- **Knowledge Base:** notes saved in this browser and synced to session-scoped SQLite memory when online; Collaboration Nexus also exposes an explicit triple-based knowledge graph. No verified account identity, cross-device sync, vector search or RAG yet
+- **Knowledge Base:** notes saved in this browser and synced to authenticated account-owned SQLite memory when online; Collaboration Nexus also exposes an explicit triple-based knowledge graph. Cross-device sync, vector search and RAG are not yet implemented
 - **Profile:** local interface profile, not a verified account or subscription
 - **API & Security:** setup guidance and backend configuration status; no API key entry field in the browser
 
@@ -87,11 +87,11 @@ Host the FastAPI app on a Python-capable service for AI chat. Static-only hostin
 ## Remaining major upgrades
 - Training a proprietary foundation model from scratch (the current Neural Core orchestrates hosted models; it is not a newly trained LLM)
 - Real agent orchestration and a broader permissioned tool ecosystem
-- Authentication and authorization for multi-user memory; session IDs are not an account security boundary
+- MFA, email verification, password reset, administrator roles, encrypted-at-rest storage and shared production rate limiting
 - Media generation provider integration
 - Document upload, parsing, embeddings and retrieval-augmented generation
-- Authenticated user accounts and encrypted server-side synced memory
-- Authentication and authorization for multi-user memory; session IDs are not an account security boundary
+- Cross-device sync and encryption at rest for server-side memory
+- MFA, email verification, password reset, administrator roles, encrypted-at-rest storage and shared production rate limiting
 - Production-grade shared rate limiting, abuse protection, monitoring and deployment validation
 
 
@@ -125,7 +125,7 @@ This is bounded, request-scoped orchestration—not unrestricted autonomous agen
 
 
 ## Shared agent memory and knowledge graph
-The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, scoped to the same browser-generated session ID used by the existing memory feature. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives recent session memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per session, fields are limited to 300 characters, and list responses are bounded.
+The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, scoped to the same namespace derived from the authenticated account ID; client-provided session IDs are not accepted. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives only the authenticated account's recent memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per session, fields are limited to 300 characters, and list responses are bounded.
 
 API:
 - `GET /api/knowledge?session_id=...`
