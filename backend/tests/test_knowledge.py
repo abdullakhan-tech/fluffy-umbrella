@@ -37,3 +37,11 @@ def test_knowledge_caps_facts_per_session(isolated_db, monkeypatch):
     knowledge.add_fact("session", "first", "relation", "object")
     with pytest.raises(ValueError, match="limit"):
         knowledge.add_fact("session", "second", "relation", "object")
+
+
+def test_knowledge_context_uses_real_line_breaks(isolated_db):
+    knowledge.add_fact("session", "first", "relates", "one")
+    knowledge.add_fact("session", "second", "relates", "two")
+    context = knowledge.knowledge_context("session")
+    assert "\\n" not in context
+    assert context.count("\n") == 1
