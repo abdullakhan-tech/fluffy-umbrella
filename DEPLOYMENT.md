@@ -7,12 +7,12 @@
 - Optional `OPENAI_MODEL` (defaults to `gpt-4o-mini`)
 
 ## Local run
-```bash
-pip install -r backend/requirements.txt
-cp .env.example .env
-# Edit .env and add OPENAI_API_KEY
-uvicorn backend.main:app --host 0.0.0.0 --port 8000
-```
+
+Use the repository setup scripts:
+- Windows: `powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_windows.ps1`, add keys to `.env`, then run `scripts\\run_windows.bat`.
+- Linux/macOS: `bash scripts/setup.sh`, add keys to `.env`, then run `bash scripts/run.sh`.
+
+For production, bind to the host-provided port and configure trusted proxy/network access. Do not expose the development server directly to the public internet.
 
 The FastAPI app serves the frontend from the same origin. GitHub Pages alone cannot run the Python API.
 
