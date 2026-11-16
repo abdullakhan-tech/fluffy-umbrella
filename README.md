@@ -11,13 +11,16 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Individual note deletion and conversation clearing
 - Backend health endpoint reports whether an API key is configured
 - Responsive desktop and mobile navigation
+- CSS-based holographic 3D core, animated orbit rings, floating specialist nodes, avatar rings and studio hologram
+- Optional 3D motion toggle with saved preference, reduced-motion support, and desktop pointer-depth effects
+- Selectable Research, Coding, Writing, Analysis and Creative specialist modes routed through the AI backend
 - API key never stored in frontend code
 
 ## Interface modules and current scope
 - **Overview / Neural Core:** animated visual design; non-API telemetry figures are illustrative UI values
 - **AI Assistant:** working chat when the backend and provider key are configured
 - **AI Settings / Persona Builder:** local preferences persist in this browser and persona values are sent with chat requests
-- **Collaboration Nexus:** visual preview only; no real multi-agent orchestration yet
+- **Collaboration Nexus:** selectable specialist modes (Research, Coding, Writing, Analysis and Creative) that send role-specific instructions to the same AI model; these are not independent autonomous agents
 - **Image & Video Studio:** prepares a creative brief; image/video provider is not integrated
 - **Code Copilot:** sample secure API request, not a full code execution environment
 - **Prompt Nexus:** searchable prompt templates
