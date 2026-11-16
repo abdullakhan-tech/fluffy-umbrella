@@ -60,6 +60,7 @@ All routes below require authentication. Ownership is derived from the server-si
 
 - `GET /api/memory` — list the current account's memories.
 - `POST /api/memory` — body: `{"content":"A private note"}`.
+- `PUT /api/memory/{memory_id}` — body: `{"content":"Updated note"}`; only the owner can update it.
 - `DELETE /api/memory/{memory_id}` — delete only a memory owned by the current account.
 - `DELETE /api/memory` — clear only the current account's memories.
 - `GET /api/knowledge` — list the current account's explicit facts.
