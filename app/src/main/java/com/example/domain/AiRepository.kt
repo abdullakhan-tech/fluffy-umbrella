@@ -452,7 +452,10 @@ class AiRepository(
             ProviderRoute.FLASH -> listOf("gemini-3.8-flash")
             ProviderRoute.LITE -> listOf("gemini-3.5-flash-lite")
         }
-        val sharedContext = buildSharedContext()
+        val sharedContext = runCatching { buildSharedContext() }.getOrElse { error ->
+            Log.w(TAG, "Shared memory unavailable; continuing without memory context.", error)
+            ""
+        }
 
         // Each specialist is isolated: one provider/model failure must not cancel its teammates.
         val deliverables = coroutineScope {
