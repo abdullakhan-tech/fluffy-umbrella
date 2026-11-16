@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-app = FastAPI(title="Zaythar AI API", version="1.2.0")
+app = FastAPI(title="Zaythar AI API", version="1.3.0")
+_PROCESS_STARTED = time.monotonic()
 
 class PersonaSettings(BaseModel):
     empathy: int = Field(default=70, ge=0, le=100)
@@ -69,6 +70,7 @@ def health():
         "providers": {"openai": bool(os.getenv("OPENAI_API_KEY")), "gemini": bool(os.getenv("GEMINI_API_KEY"))},
         "default_provider": os.getenv("ZAYTHAR_AI_PROVIDER", "hybrid"),
         "version": app.version,
+        "uptime_seconds": round(time.monotonic() - _PROCESS_STARTED),
     }
 
 @app.post("/api/chat")
