@@ -16,7 +16,7 @@ $('#saveSettings').onclick=()=>{savePrefs();toast('Preferences saved on this dev
 $('#initAvatar').onclick=()=>{savePrefs();toast('Persona preferences saved and will be sent with future chats.')};
 function toast(t){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.append(el)}el.textContent=t;el.classList.add('show');clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>el.classList.remove('show'),2600)}
 const messages=$('#messages'),promptBox=$('#prompt');let busy=false,activeAgent='general';
-const memorySession=store.get('memorySession',(()=>{const id=window.crypto?.randomUUID?.()||('zy-'+Math.random().toString(36).slice(2)+Date.now().toString(36));store.set('memorySession',id);return id})());
+function getMemorySession(){let id=store.get('memorySession',null);if(!id){id=window.crypto?.randomUUID?.()||('zy-'+Math.random().toString(36).slice(2)+Date.now().toString(36));store.set('memorySession',id)}return id}const memorySession=getMemorySession();
 function addMessage(role,text,save=true){const el=document.createElement('div');el.className='message '+role;el.textContent=text;messages.appendChild(el);messages.scrollTop=messages.scrollHeight;if(save)persistChat();return el}
 function persistChat(){store.set('chat',[...messages.querySelectorAll('.message')].map(x=>({role:x.classList.contains('user')?'user':'assistant',text:x.textContent})).slice(-100))}
 function loadChat(){const history=store.get('chat',[]);if(!history.length)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();history.forEach(m=>addMessage(m.role,m.text,false))}
