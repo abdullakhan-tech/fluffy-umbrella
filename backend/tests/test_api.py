@@ -53,7 +53,7 @@ def test_health_includes_real_process_uptime_and_provider_flags(monkeypatch):
 
 
 def test_multi_agent_endpoint_delegates_to_orchestrator(monkeypatch):
-    monkeypatch.setattr(main, "run_multi_agent", lambda task, agents, provider, language: {
+    monkeypatch.setattr(main, "run_multi_agent", lambda task, agents, provider, language, session_id="default": {
         "reply": "Coordinated output", "agents": [{"agent": "coding", "status": "completed"}],
         "completed_agents": 1, "total_agents": 1, "provider": "openai", "model": "test"
     })
