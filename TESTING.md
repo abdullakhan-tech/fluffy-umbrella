@@ -20,7 +20,14 @@ Windows PowerShell:
 
 ## Firebase Emulator Suite
 
-The repository includes `firestore.test.js`, `firestore.rules`, and `firebase.json`. Install Node.js and Firebase CLI, then run the Firestore rules tests against the configured emulator. The Android CI workflow starts Auth and Firestore emulators and runs the Android unit-test and debug-APK tasks.
+The repository includes `firestore.test.js`, `firestore.rules`, `firebase.json`, and pinned Node test dependencies in `package.json`.
+
+```bash
+npm install
+firebase emulators:exec --project demo-no-project --only auth,firestore --non-interactive "npm run test:firestore"
+```
+
+The Android CI workflow starts Auth and Firestore emulators, runs these security-rule tests, then runs Android unit tests and assembles the debug APK.
 
 ## What tests cover
 
