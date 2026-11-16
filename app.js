@@ -207,8 +207,6 @@ applyVisualControls();
   }
   function loop(now){
     if(!active)return;
-    pointer.x+=(pointer.targetX-pointer.x)*.045;pointer.y+=(pointer.targetY-pointer.y)*.045;
-    pointer.targetX=pointer.x;pointer.targetY=pointer.y;
     canvases.forEach(canvas=>render(canvas,now));
     if(!document.body.classList.contains('motion-off')&&!reduced.matches)raf=requestAnimationFrame(loop);
   }
