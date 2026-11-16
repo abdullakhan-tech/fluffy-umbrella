@@ -48,26 +48,27 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 2. Open the repository folder in PowerShell.
 3. Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_windows.ps1`. This creates `.venv`, installs dependencies, creates `.env` if missing, compiles the backend, and runs tests.
 4. Add at least one real provider key to `.env` (OpenAI or Gemini). Keep unused provider keys blank.
-5. Double-click `scripts\\run_windows.bat` or run it from Command Prompt.
-6. Open http://127.0.0.1:8000.
+5. Generate an invitation secret with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and set `ZAYTHAR_REGISTRATION_TOKEN` in `.env`.
+6. Double-click `scripts\\run_windows.bat` or run it from Command Prompt.
+7. Open http://127.0.0.1:8000 and choose **Create account** using the invitation token. Remove the token from `.env` and restart to disable further registrations.
 
 ### Android (Termux)
 1. Install Termux from F-Droid or the official Termux GitHub releases. Avoid the outdated Play Store build.
 2. Open Termux and clone the repository:
    `pkg update -y && pkg install -y git && git clone https://github.com/abdullakhan-tech/fluffy-umbrella.git && cd fluffy-umbrella`
 3. Run `bash scripts/setup_termux.sh`. It installs Python dependencies, creates `.venv` and `.env`, compiles the backend and runs tests.
-4. Edit `.env` with a real OpenAI or Gemini API key. Keep keys private; never paste them into chat or commit `.env`.
+4. Edit `.env` with a real OpenAI or Gemini API key and a generated `ZAYTHAR_REGISTRATION_TOKEN`. Keep both private; never paste them into chat or commit `.env`.
 5. Start the server with `bash scripts/run_termux.sh`.
-6. On the same phone, open `http://127.0.0.1:8000` in Chrome or another browser. Keep Termux running while using Zaythar AI; press Ctrl+C to stop.
+6. On the same phone, open `http://127.0.0.1:8000` in Chrome or another browser and choose **Create account** using the invitation token. Remove the token from `.env` and restart to disable further registrations. Keep Termux running while using Zaythar AI; press Ctrl+C to stop.
 
 Android note: this runs the current responsive web UI and Python backend locally inside Termux. It does not create/install a native Android APK, and Android background battery management may stop the server.
 
 ### Linux / macOS
 1. Install Python 3.10+ and Git.
 2. Run `bash scripts/setup.sh` from the repository root. It creates `.venv`, installs dependencies, creates `.env` if missing, compiles the backend, and runs tests.
-3. Add at least one real provider key to `.env`.
+3. Add at least one real provider key and a generated `ZAYTHAR_REGISTRATION_TOKEN` to `.env`.
 4. Start with `bash scripts/run.sh`.
-5. Open http://127.0.0.1:8000.
+5. Open http://127.0.0.1:8000 and create your account with the invitation token. Remove the token from `.env` and restart to disable further registrations.
 
 ### Manual setup
 ```bash
@@ -121,16 +122,16 @@ Example request:
 }
 ```
 
-This is bounded, request-scoped orchestration—not unrestricted autonomous agents. A run makes one orchestration call per successful specialist plus one coordinator call (up to five orchestration calls for four specialists). In hybrid mode, each orchestration call can attempt OpenAI and then Gemini if fallback is needed, so actual provider requests may be higher. Provider usage and cost scale with the selected team size. Failed specialist calls are isolated; if all specialists fail, the endpoint returns a service error. Specialist tools, persistent queues, cancellation, and account-level permissions are future work. Do not expose the endpoint publicly without authentication and production-grade rate limiting.
+This is bounded, request-scoped orchestration—not unrestricted autonomous agents. A run makes one orchestration call per successful specialist plus one coordinator call (up to five orchestration calls for four specialists). In hybrid mode, each orchestration call can attempt OpenAI and then Gemini if fallback is needed, so actual provider requests may be higher. Provider usage and cost scale with the selected team size. Failed specialist calls are isolated; if all specialists fail, the endpoint returns a service error. Specialist tools, persistent queues and cancellation are future work. The endpoint now requires an account bearer session; public deployments still need HTTPS, a trusted gateway and shared rate limiting.
 
 
 ## Shared agent memory and knowledge graph
 The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, scoped to the same namespace derived from the authenticated account ID; client-provided session IDs are not accepted. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives only the authenticated account's recent memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per session, fields are limited to 300 characters, and list responses are bounded.
 
 API:
-- `GET /api/knowledge?session_id=...`
-- `POST /api/knowledge` with `session_id`, `subject`, `predicate`, `object`, and optional `source`
-- `DELETE /api/knowledge/{fact_id}?session_id=...`
-- `DELETE /api/knowledge` with `session_id`
+- `GET /api/knowledge` (Bearer session required)
+- `POST /api/knowledge` with `subject`, `predicate`, `object`, and optional `source`
+- `DELETE /api/knowledge/{fact_id}` (Bearer session required)
+- `DELETE /api/knowledge` (Bearer session required)
 
-**Security boundary:** this is session scoping, not user authentication. A client can choose its session ID. Do not treat it as private multi-user storage or expose it publicly with sensitive data until authenticated user ownership and authorization are implemented.
+Ownership is derived from the authenticated server-side account ID. Client-supplied session IDs are rejected. See [API.md](API.md), [DEPLOYMENT.md](DEPLOYMENT.md), and [SECURITY.md](SECURITY.md) for account bootstrap and security limitations.
