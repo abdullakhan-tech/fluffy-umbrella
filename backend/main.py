@@ -8,6 +8,7 @@ from typing import Any, Dict, Literal, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Path as FastAPIPath, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -24,6 +25,21 @@ load_dotenv(BASE_DIR / ".env")
 
 app = FastAPI(title="Zaythar AI API", version="1.4.0")
 _PROCESS_STARTED = time.monotonic()
+
+
+@app.exception_handler(RequestValidationError)
+async def safe_validation_error(request: Request, exc: RequestValidationError):
+    # FastAPI's default validation payload can echo submitted values, including
+    # passwords and invitation tokens. Return locations/messages only.
+    safe_errors = [
+        {
+            "loc": list(error.get("loc", ())),
+            "msg": error.get("msg", "Invalid request."),
+            "type": error.get("type", "value_error"),
+        }
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": safe_errors})
 
 
 class StrictModel(BaseModel):
