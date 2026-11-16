@@ -14,8 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from backend import auth
 from backend.agents import run_multi_agent
 from backend.brain import run_brain
-from backend.knowledge import add_fact, clear_facts, delete_fact, list_facts
-from backend.memory import clear_memories, delete_memory, list_memories, memory_context, save_memory
+from backend.knowledge import add_user_fact, clear_user_facts, delete_user_fact, list_user_facts
+from backend.memory import clear_user_memories, delete_user_memory, list_user_memories, user_memory_context, save_user_memory
 from backend.reasoning import reasoning_hint, route_tool
 
 BASE_DIR = FilePath(__file__).resolve().parent.parent
@@ -141,11 +141,6 @@ def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
     return user
 
 
-def _owner_scope(user: dict) -> str:
-    # The scope is derived only from the authenticated database user ID.
-    return f"zaythar_user_{int(user['id'])}"
-
-
 @app.get("/api/health")
 def health():
     return {
@@ -224,7 +219,7 @@ def chat(body: ChatRequest, user: dict = Depends(require_user)):
         "creative": "Act as a creative director. Develop original concepts with concrete details.",
     }
     agent_instruction = agent_instructions.get(body.agent or "general", agent_instructions["general"])
-    saved_context = memory_context(_owner_scope(user))
+    saved_context = user_memory_context(int(user['id']))
     plan_hint = reasoning_hint(body.message)
     system_prompt = (
         "You are Zaythar AI Neural Core, a safe, helpful, multilingual personal assistant. "
@@ -258,7 +253,7 @@ def chat(body: ChatRequest, user: dict = Depends(require_user)):
 def run_agents(body: AgentRunRequest, user: dict = Depends(require_user)):
     """Run selected allow-listed specialists using only the authenticated user's context."""
     try:
-        return run_multi_agent(body.task, body.agents, body.provider, body.language, _owner_scope(user))
+        return run_multi_agent(body.task, body.agents, body.provider, body.language, user_id=int(user['id']))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError:
@@ -270,7 +265,7 @@ def run_agents(body: AgentRunRequest, user: dict = Depends(require_user)):
 @app.get("/api/knowledge")
 def get_knowledge(user: dict = Depends(require_user)):
     try:
-        return {"facts": list_facts(_owner_scope(user))}
+        return {"facts": list_user_facts(int(user["id"]))}
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -278,7 +273,7 @@ def get_knowledge(user: dict = Depends(require_user)):
 @app.post("/api/knowledge")
 def create_knowledge(body: KnowledgeFactRequest, user: dict = Depends(require_user)):
     try:
-        return add_fact(_owner_scope(user), body.subject, body.predicate, body.object, body.source)
+        return add_user_fact(int(user["id"]), body.subject, body.predicate, body.object, body.source)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -286,7 +281,7 @@ def create_knowledge(body: KnowledgeFactRequest, user: dict = Depends(require_us
 @app.delete("/api/knowledge/{fact_id}")
 def remove_knowledge(fact_id: int = FastAPIPath(..., ge=1), user: dict = Depends(require_user)):
     try:
-        if not delete_fact(_owner_scope(user), fact_id):
+        if not delete_user_fact(int(user["id"]), fact_id):
             raise HTTPException(status_code=404, detail="Knowledge fact not found")
         return {"deleted": True}
     except ValueError as exc:
@@ -295,32 +290,32 @@ def remove_knowledge(fact_id: int = FastAPIPath(..., ge=1), user: dict = Depends
 
 @app.delete("/api/knowledge")
 def remove_all_knowledge(user: dict = Depends(require_user)):
-    return {"deleted_count": clear_facts(_owner_scope(user))}
+    return {"deleted_count": clear_user_facts(int(user["id"]))}
 
 
 @app.get("/api/memory")
 def get_memory(user: dict = Depends(require_user)):
-    return {"memories": list_memories(_owner_scope(user))}
+    return {"memories": list_user_memories(int(user["id"]))}
 
 
 @app.post("/api/memory")
 def create_memory(body: MemoryRequest, user: dict = Depends(require_user)):
     try:
-        return save_memory(_owner_scope(user), body.content)
+        return save_user_memory(int(user["id"]), body.content)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
 
 @app.delete("/api/memory/{memory_id}")
 def remove_memory(memory_id: int = FastAPIPath(..., ge=1), user: dict = Depends(require_user)):
-    if not delete_memory(_owner_scope(user), memory_id):
+    if not delete_user_memory(int(user["id"]), memory_id):
         raise HTTPException(status_code=404, detail="Memory not found")
     return {"deleted": True}
 
 
 @app.delete("/api/memory")
 def remove_all_memory(user: dict = Depends(require_user)):
-    return {"deleted_count": clear_memories(_owner_scope(user))}
+    return {"deleted_count": clear_user_memories(int(user["id"]))}
 
 
 # Same-origin hosting: no permissive wildcard CORS is needed.
