@@ -1,6 +1,11 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const panels=$$('.panel'),navs=$$('.nav'),titles={overview:'SYSTEM OVERVIEW',assistant:'AI ASSISTANT',persona:'PERSONA BUILDER',settingsPanel:'AI CORE SETTINGS',collaboration:'COLLABORATION NEXUS',studio:'IMAGE & VIDEO STUDIO',code:'CODE COPILOT',prompts:'PROMPT NEXUS',knowledge:'KNOWLEDGE BASE',profile:'USER PROFILE',security:'API & SECURITY',models:'AI MODEL MATRIX'};
 const store={get(k,fallback){try{return JSON.parse(localStorage.getItem('zaythar:'+k))??fallback}catch{return fallback}},set(k,v){try{localStorage.setItem('zaythar:'+k,JSON.stringify(v))}catch(e){console.warn('Local storage unavailable',e)}}};
+const AUTH_TOKEN_KEY='zaythar:authToken';
+let activeUsername=null;
+function getAuthToken(){try{return sessionStorage.getItem(AUTH_TOKEN_KEY)||''}catch{return ''}}
+function setAuthToken(value){try{if(value)sessionStorage.setItem(AUTH_TOKEN_KEY,value);else sessionStorage.removeItem(AUTH_TOKEN_KEY)}catch{}}
+async function apiFetch(url,options={}){const headers=new Headers(options.headers||{});const token=getAuthToken();if(token)headers.set('Authorization','Bearer '+token);return fetch(url,{...options,headers})}
 function openPanel(id){panels.forEach(p=>p.classList.toggle('active-panel',p.id===id));navs.forEach(n=>n.classList.toggle('active',n.dataset.panel===id));$('#pageTitle').innerHTML=(titles[id]||id).replace(/ (.*)/,' <em>$1</em>');window.scrollTo({top:0,behavior:'smooth'})}
 navs.forEach(n=>n.addEventListener('click',()=>openPanel(n.dataset.panel)));$$('[data-panel]').filter(x=>!x.classList.contains('nav')).forEach(x=>x.addEventListener('click',()=>openPanel(x.dataset.panel)));
 function tick(){const d=new Date();$('#clock').textContent=d.toLocaleTimeString([], {hour12:false})}tick();setInterval(tick,1000);
@@ -16,26 +21,25 @@ $('#saveSettings').onclick=()=>{savePrefs();toast('Preferences saved on this dev
 $('#initAvatar').onclick=()=>{savePrefs();toast('Persona preferences saved and will be sent with future chats.')};
 function toast(t){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.append(el)}el.textContent=t;el.classList.add('show');clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>el.classList.remove('show'),2600)}
 const messages=$('#messages'),promptBox=$('#prompt');let busy=false,activeAgent='general';
-function getMemorySession(){let id=store.get('memorySession',null);if(!id){id=window.crypto?.randomUUID?.()||('zy-'+Math.random().toString(36).slice(2)+Date.now().toString(36));store.set('memorySession',id)}return id}const memorySession=getMemorySession();
+
 function addMessage(role,text,save=true){const el=document.createElement('div');el.className='message '+role;el.textContent=text;messages.appendChild(el);messages.scrollTop=messages.scrollHeight;if(save)persistChat();return el}
-function persistChat(){store.set('chat',[...messages.querySelectorAll('.message')].map(x=>({role:x.classList.contains('user')?'user':'assistant',text:x.textContent})).slice(-100))}
-function loadChat(){const history=store.get('chat',[]);if(!history.length)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();history.forEach(m=>addMessage(m.role,m.text,false))}
-loadChat();
+function persistChat(){if(!activeUsername)return;store.set('chat:'+activeUsername,[...messages.querySelectorAll('.message')].map(x=>({role:x.classList.contains('user')?'user':'assistant',text:x.textContent})).slice(-100))}
+function loadChat(){if(!activeUsername)return;const history=store.get('chat:'+activeUsername,[]);if(!history.length)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();history.forEach(m=>addMessage(m.role,m.text,false))}
 function localReply(q){if(/^(hi|hello|hey|salam|السلام)/i.test(q))return 'Salam! I am Zaythar AI. The backend is currently unavailable, so this is a limited local response.';return 'I could not reach the AI backend. Check that the FastAPI server is running and OPENAI_API_KEY is configured on the server.'}
 function currentPersona(){const ranges=$$('#persona input[type=range]').map(r=>Number(r.value));return {empathy:ranges[0]??70,cognitive_capacity:ranges[1]??70,adaptability:ranges[2]??70,creativity:ranges[3]??70,style:$('#persona select')?.value||'Balanced & helpful'}}
-async function send(q){q=q.trim();if(!q||busy)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();addMessage('user',q);promptBox.value='';busy=true;const pending=addMessage('assistant','PROCESSING REQUEST…');try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:$('#chatLanguage').value,persona:currentPersona(),settings:store.get('preferences',{}),agent:activeAgent,provider:store.get('aiProvider','hybrid'),session_id:memorySession,history:store.get('chat',[]).slice(-16).map(m=>({role:m.role,content:m.text}))})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||'Backend unavailable');pending.textContent=data.reply||'No response received.';persistChat();if($('#speakToggle')?.checked)speak(pending.textContent)}catch(e){pending.textContent=localReply(q);persistChat();toast(e.message||'AI service unavailable')}finally{busy=false;messages.scrollTop=messages.scrollHeight}}
+async function send(q){q=q.trim();if(!q||busy)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();addMessage('user',q);promptBox.value='';busy=true;const pending=addMessage('assistant','PROCESSING REQUEST…');try{const r=await apiFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:$('#chatLanguage').value,persona:currentPersona(),settings:store.get('preferences',{}),agent:activeAgent,provider:store.get('aiProvider','hybrid'),history:store.get('chat',[]).slice(-16).map(m=>({role:m.role,content:m.text}))})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||'Backend unavailable');pending.textContent=data.reply||'No response received.';persistChat();if($('#speakToggle')?.checked)speak(pending.textContent)}catch(e){pending.textContent=localReply(q);persistChat();toast(e.message||'AI service unavailable')}finally{busy=false;messages.scrollTop=messages.scrollHeight}}
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();send(promptBox.value)});$$('.suggestion').forEach(b=>b.onclick=()=>send(b.textContent));
 let recognition;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){recognition=new SR();recognition.continuous=false;recognition.interimResults=false;recognition.onresult=e=>send(e.results[0][0].transcript);recognition.onend=()=>$('#micBtn').textContent='🎙 VOICE';recognition.onerror=()=>{$('#micBtn').textContent='🎙 VOICE';toast('Microphone unavailable. Check browser permission.')}} 
 $('#micBtn').onclick=()=>{if(!recognition){toast('Voice input is not supported in this browser. Try Chrome over HTTPS.');return}recognition.lang=$('#chatLanguage').value;$('#micBtn').textContent='LISTENING…';try{recognition.start()}catch(e){toast('Voice capture is already active.')}};
 function speak(t){if(!('speechSynthesis'in window)){toast('Speech output is not supported in this browser.');return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=$('#chatLanguage').value;speechSynthesis.speak(u)}
 $('#speakToggle')?.addEventListener('change',e=>{store.set('speakReplies',e.target.checked);if(!e.target.checked&&'speechSynthesis'in window)speechSynthesis.cancel()});if($('#speakToggle'))$('#speakToggle').checked=store.get('speakReplies',false);
-$('#clearChat')?.addEventListener('click',()=>{messages.innerHTML='<div class="empty-chat">Your conversation will appear here.</div>';store.set('chat',[]);if('speechSynthesis'in window)speechSynthesis.cancel();toast('Conversation cleared.')});
+$('#clearChat')?.addEventListener('click',()=>{messages.innerHTML='<div class="empty-chat">Your conversation will appear here.</div>';if(activeUsername)store.set('chat:'+activeUsername,[]);if('speechSynthesis'in window)speechSynthesis.cancel();toast('Conversation cleared.')});
 $('#makeBrief').onclick=()=>{const p=$('#mediaPrompt').value.trim();$('#mediaResult').textContent=p?'Creative brief prepared: '+p+' — Style: '+document.querySelectorAll('.studio-controls select')[1].value+'. Connect an image/video provider to generate media.':'Enter a prompt first.'};
 $('#copyCode').onclick=async()=>{const t=$('pre code').textContent;try{await navigator.clipboard.writeText(t);$('#copyCode').textContent='COPIED'}catch(e){$('#copyCode').textContent='COPY BLOCKED'}};
 $$('.prompt-card').forEach(b=>b.onclick=()=>{openPanel('assistant');promptBox.value=b.dataset.prompt;promptBox.focus()});
 $('#promptSearch').addEventListener('input',e=>$$('.prompt-card').forEach(b=>b.style.display=b.textContent.toLowerCase().includes(e.target.value.toLowerCase())?'block':'none'));
-function renderNotes(){const list=$('#notesList');list.innerHTML='';store.get('notes',[]).forEach((note,i)=>{const row=document.createElement('div');row.className='note-item';const content=document.createElement('span');content.textContent=note.text;const del=document.createElement('button');del.type='button';del.className='note-delete';del.textContent='DELETE';del.setAttribute('aria-label','Delete note');del.onclick=()=>{const notes=store.get('notes',[]);notes.splice(i,1);store.set('notes',notes);renderNotes()};row.append(content,del);list.append(row)})}
-$('#saveNote').onclick=async()=>{const v=$('#knowledgeNote').value.trim();if(!v)return;const notes=store.get('notes',[]);notes.unshift({text:v,created:new Date().toISOString()});store.set('notes',notes.slice(0,200));$('#knowledgeNote').value='';renderNotes();try{const r=await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:memorySession,content:v})});if(!r.ok)throw new Error('Memory sync unavailable');toast('Note saved locally and to Zaythar long-term memory.')}catch(e){toast('Note saved on this device; server memory sync unavailable.')}};renderNotes();
+function renderNotes(){const list=$('#notesList');list.innerHTML='';store.get('notes',[]).forEach((note,i)=>{const row=document.createElement('div');row.className='note-item';const content=document.createElement('span');content.textContent=note.text;const del=document.createElement('button');del.type='button';del.className='note-delete';del.textContent='DELETE';del.setAttribute('aria-label','Delete note');del.onclick=()=>{const notes=store.get('notes:'+activeUsername,[]);notes.splice(i,1);store.set('notes:'+activeUsername,notes);renderNotes()};row.append(content,del);list.append(row)})}
+$('#saveNote').onclick=async()=>{const v=$('#knowledgeNote').value.trim();if(!v)return;if(!activeUsername){toast('Sign in before saving account notes.');return}const notes=store.get('notes:'+activeUsername,[]);notes.unshift({text:v,created:new Date().toISOString()});store.set('notes:'+activeUsername,notes.slice(0,200));$('#knowledgeNote').value='';renderNotes();try{const r=await apiFetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:v})});if(!r.ok)throw new Error('Memory sync unavailable');toast('Note saved locally and to Zaythar long-term memory.')}catch(e){toast('Note saved on this device; server memory sync unavailable.')}};renderNotes();
 async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();const ok=r.ok&&d.status==='ok';$('#apiStatus').textContent=ok?(d.ai_configured?'AI READY':'BACKEND ONLINE · KEY NEEDED'):'OFFLINE';$('#apiStatus').style.color=ok?'var(--green)':'var(--accent2)';$('#securityHealth').textContent=ok?(d.ai_configured?'ONLINE · AI CONFIGURED':'ONLINE · AI NOT CONFIGURED'):'OFFLINE';
   if(ok){
     const setProvider=(name,ready)=>{const label=$('#'+name+'State'),bar=$('#'+name+'Bar');if(label)label.textContent=ready?'READY':'NO KEY';if(bar)bar.style.width=ready?'100%':'0%';};
@@ -238,10 +242,10 @@ applyVisualControls();
     status.textContent='Specialists are working in parallel. Waiting for coordinator synthesis…';
     resultBox.replaceChildren();
     try{
-      const response=await fetch('/api/agents/run',{
+      const response=await apiFetch('/api/agents/run',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          task,agents,provider:store.get('aiProvider','hybrid'),session_id:memorySession,
+          task,agents,provider:store.get('aiProvider','hybrid'),
           language:({'en-US':'English','ur-PK':'Urdu','ar-SA':'Arabic','hi-IN':'Hindi','fr-FR':'French','es-ES':'Spanish','de-DE':'German','zh-CN':'Chinese','ja-JP':'Japanese'})[$('#chatLanguage')?.value]||'English'
         })
       });
@@ -271,7 +275,7 @@ applyVisualControls();
   if(!subject||!predicate||!object||!save||!list)return;
   async function refresh(){
     try{
-      const response=await fetch('/api/knowledge?session_id='+encodeURIComponent(memorySession));
+      const response=await apiFetch('/api/knowledge');
       if(!response.ok)throw new Error('Knowledge service unavailable');
       const data=await response.json();list.replaceChildren();
       (data.facts||[]).forEach(fact=>{
@@ -279,7 +283,7 @@ applyVisualControls();
         const label=document.createElement('span');label.textContent=fact.subject+' · '+fact.predicate+' · '+fact.object;
         const del=document.createElement('button');del.type='button';del.textContent='DELETE';del.setAttribute('aria-label','Delete knowledge fact');
         del.addEventListener('click',async()=>{
-          const response=await fetch('/api/knowledge/'+fact.id+'?session_id='+encodeURIComponent(memorySession),{method:'DELETE'});
+          const response=await apiFetch('/api/knowledge/'+fact.id,{method:'DELETE'});
           if(response.ok)refresh();else toast('Fact delete failed.');
         });
         row.append(label,del);list.append(row);
@@ -291,7 +295,7 @@ applyVisualControls();
     if(!values.subject||!values.predicate||!values.object){toast('Subject, relation aur object teeno fill karein.');return}
     save.disabled=true;
     try{
-      const response=await fetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,session_id:memorySession,source:'operator'})});
+      const response=await apiFetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,source:'operator'})});
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.detail||'Could not save fact');
       subject.value='';predicate.value='';object.value='';await refresh();toast('Knowledge fact saved.');
