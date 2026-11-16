@@ -35,7 +35,8 @@ The FastAPI app serves the frontend from the same origin. GitHub Pages alone can
 - Configure secrets in the host secret manager, never in Git.
 - Use HTTPS and a trusted domain.
 - Configure `/api/health` health checks.
-- Add rate limiting, monitoring, log redaction, and authentication before storing user data.
+- Verify account registration and bearer-session settings before storing user data.
+- Add a shared rate limiter, monitoring, log redaction and incident response.
 - Restrict CORS to trusted origins if frontend/backend are split.
 - Verify provider quotas and spending alerts; test rollback.
 
