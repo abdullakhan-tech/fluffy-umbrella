@@ -311,8 +311,9 @@ applyVisualControls();
 (function initAccountAccess(){
   const gate=$('#authGate'),form=$('#authForm'),modeButton=$('#authModeToggle');
   const tokenField=$('#registrationTokenWrap'),tokenInput=$('#registrationToken');
-  const title=$('#authTitle'),submit=$('#authSubmit'),status=$('#authStatus');
+  const title=$('#authTitle'),submit=$('#authSubmit'),status=$('#authStatus'),application=$('.app');
   if(!gate||!form)return;
+  function showGate(visible){gate.hidden=!visible;if(application){application.inert=visible;application.setAttribute('aria-hidden',String(visible))}}
   let mode='login';
   function setMode(next){
     mode=next;
@@ -358,19 +359,19 @@ applyVisualControls();
   });
   async function validateSession(){
     const token=getAuthToken();
-    if(!token){gate.hidden=false;setMode('login');return}
+    if(!token){showGate(true);setMode('login');return}
     try{
       const response=await apiFetch('/api/auth/me',{cache:'no-store'});
       if(!response.ok)throw new Error('Session expired');
       const data=await response.json();
       activeUsername=data.user.username;
-      gate.hidden=true;
+      showGate(false);
       loadChat();
       renderNotes();
     }catch{
       setAuthToken('');
       activeUsername=null;
-      gate.hidden=false;
+      showGate(true);
       setMode('login');
     }
   }
