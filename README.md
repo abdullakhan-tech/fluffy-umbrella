@@ -32,6 +32,26 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
 - **AI & Security**: `com.google.firebase:firebase-ai` + `FirebaseAppCheck` (`DebugAppCheckProviderFactory` in debug builds, `RecaptchaAppCheckProviderFactory` in release builds).
 - **Local Preferences**: Jetpack DataStore Preferences for client-only UI theme, accent, motion, cognitive tuning, and Internet grounding settings.
 
+## Quick start
+
+1. Install JDK 21 and Android SDK Platform 36.
+2. Configure your Firebase project and place its generated `google-services.json` at `app/google-services.json` (never commit it).
+3. Build and test:
+
+Linux/macOS:
+```bash
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+```
+
+Windows PowerShell:
+```powershell
+.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:testDebugUnitTest
+```
+
+See [Android setup](docs/ANDROID_SETUP.md) for Firebase, sign-in, App Check, and installation details. The Windows wrapper supports building the Android APK; a native Windows assistant client is not yet implemented.
+
 ## Project handbook
 
 - [Version-controlled Wiki](docs/wiki/Home.md)
