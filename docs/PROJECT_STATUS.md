@@ -1,35 +1,60 @@
 # Zaythar AI project status
 
-This page records what is visible in the repository. It does not claim that cloud services or device builds have been tested.
+This page distinguishes repository implementation from external service configuration and real-device verification.
 
-## Current Android app direction
+## Current Android application
 
-The current default branch contains a native Android project using:
+The default branch contains a native Android application using:
 
 - Kotlin and Jetpack Compose.
 - Firebase Authentication with Google sign-in.
 - Cloud Firestore with per-user document paths and repository security rules.
 - Firebase AI Logic for Gemini model access.
-- Android speech recognition and text-to-speech APIs.
+- Android speech recognition and TextToSpeech APIs.
 - Jetpack DataStore for local preferences.
+- Parallel specialist-agent execution with coordinator synthesis and bounded model fallback.
+- Activity-aware Compose neural orb (Ready, Listening, Thinking; Speaking is a future state hookup).
+- Local calculator, UTC clock, unit converter, JSON inspector, camera/photo picker, and plugin hub.
 
-The app module uses application ID **com.aistudio.zaythar.zxtmkr**, minimum Android API 26, compile SDK 36, and Java 21 compatibility.
+Application ID: `com.aistudio.zaythar.zxtmkr`. Minimum Android API 26, compile SDK 36, Java 21.
 
-## Configuration still required outside the repository
+## Build tooling
 
-- Register the Android application in the intended Firebase project.
-- Add the matching app/google-services.json file.
-- Enable Google sign-in in Firebase Authentication and register signing fingerprints.
-- Enable Cloud Firestore and deploy the reviewed firestore.rules.
+- Official Gradle 9.3.1 wrapper is committed (`gradlew`, `gradlew.bat`, wrapper JAR and properties).
+- Main-branch GitHub Actions workflow runs Android unit tests and assembles a debug APK.
+- The workflow uses a temporary compile-only Firebase configuration; it is not a usable Firebase project credential.
+- CI uploads the debug APK only after tests and assembly succeed.
+
+## Configuration required outside the repository
+
+- Register the Android app in the intended Firebase project.
+- Add the matching `app/google-services.json` locally.
+- Enable Google sign-in and register signing fingerprints.
+- Enable Cloud Firestore and deploy the reviewed `firestore.rules`.
 - Enable Firebase AI Logic with the Gemini Developer API.
 - Configure Firebase App Check for debug and production builds.
 
-Firebase AI Logic is the chosen Gemini integration. A raw GEMINI_API_KEY is not required in the Android app.
+The Android Firebase AI Logic integration does not require a standalone Gemini API key.
+
+## Platform status
+
+- Android: native app source, Gradle wrapper, and CI build workflow are present.
+- Windows: Gradle wrapper can build from Windows with JDK/Android SDK installed, but a native Windows desktop assistant is not implemented.
+- Termux: wrapper scripts are POSIX-compatible; a full Android SDK build toolchain on-device is not guaranteed. Android Studio or CI is recommended for APK builds.
 
 ## Verification status
 
-The latest repository commit inspected while preparing this document initializes the Android project structure. No workflow run or combined status was returned for that commit by the connected GitHub checks. A successful Android build, live Gemini request, Google sign-in, App Check attestation, and Firestore access have therefore **not** been independently verified in this update.
+The main-branch Android workflow for the latest neural-orb and wrapper updates is pending/running. A previous workflow run on an older CI branch passed, but it does not verify the current main commit.
 
-## Known documentation note
+A successful CI compile does not prove Google sign-in, live Gemini requests, App Check attestation, deployed Firestore rules, or real-device behaviour. Verify those against the intended Firebase project and physical Android device before release.
 
-Some older root-level documentation describes an earlier browser/FastAPI/OpenAI design. Treat the Android setup and Gemini integration guides in docs/ as the current Android onboarding path. Reconcile any legacy backend documentation before reintroducing or deploying that backend.
+## Known outstanding work
+
+- Confirm latest main-branch build and unit-test run passes.
+- Run Firestore Emulator Suite rule tests in CI and verify two-account isolation.
+- Verify live Gemini multi-agent execution and provider model availability with the real Firebase project.
+- Complete user-facing memory review/export/deletion controls.
+- Hook the neural orb's Speaking state to actual TextToSpeech lifecycle.
+- Build and test a native Windows companion separately.
+
+Older root documentation describing a browser/FastAPI/OpenAI design has been reconciled to the native Android architecture; do not deploy the old backend unless it is deliberately restored and independently tested.
