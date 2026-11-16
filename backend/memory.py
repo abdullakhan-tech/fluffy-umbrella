@@ -1,4 +1,4 @@
-"""SQLite-backed, session-scoped long-term memory for Zaythar AI."""
+"""SQLite-backed memory using server-derived account namespaces for API ownership."""
 import os
 import sqlite3
 from pathlib import Path
