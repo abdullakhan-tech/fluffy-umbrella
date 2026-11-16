@@ -22,14 +22,16 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Live backend health telemetry: configured provider availability and real server-process uptime (not fabricated compute/bandwidth metrics)
 - CSS-based holographic core, floating specialist nodes, avatar rings and studio hologram
 - Optional 3D motion toggle with saved preference, reduced-motion support, and desktop pointer-depth effects
-- Selectable Research, Coding, Writing, Analysis and Creative specialist modes routed through the AI backend
+- Five allow-listed specialist roles: Research, Coding, Writing, Analysis and Creative
+- Multi-agent orchestrator: runs 1–4 selected specialists concurrently, isolates individual failures, then synthesizes successful deliverables with a coordinator model call
+- Dedicated `POST /api/agents/run` endpoint with task-size, provider and specialist-count validation; shares the chat endpoint's per-process rate limiter
 - API key never stored in frontend code
 
 ## Interface modules and current scope
 - **Overview / Neural Core:** animated visual design; non-API telemetry figures are illustrative UI values
 - **AI Assistant:** working chat when the backend and provider key are configured
 - **AI Settings / Persona Builder:** local preferences persist in this browser and persona values are sent with chat requests
-- **Collaboration Nexus:** selectable specialist modes (Research, Coding, Writing, Analysis and Creative) that send role-specific instructions to the same AI model; these are not independent autonomous agents
+- **Collaboration Nexus:** real backend orchestration of selected specialist model calls in parallel, followed by a coordinator synthesis call. Each specialist currently receives the same user task with a different role prompt; they do not yet share a durable task queue, independently call tools, or run unattended loops.
 - **Image & Video Studio:** prepares a creative brief; image/video provider is not integrated
 - **Code Copilot:** sample secure API request, not a full code execution environment
 - **Prompt Nexus:** searchable prompt templates
@@ -70,3 +72,20 @@ Host the FastAPI app on a Python-capable service for AI chat. Static-only hostin
 
 ## Neural visualizer and telemetry
 The overview and assistant core include a canvas-rendered 3D neural field. Nodes are projected from a 3D sphere, nearby nodes are linked as synapses, orbital paths animate around the field, and pointer movement adds parallax on supported devices. Rendering scales for high-DPI displays, pauses when the tab is hidden, and respects reduced-motion preferences. The overview's provider indicators and uptime are read from `/api/health`; no fake GPU, bandwidth, or memory-utilization claims are made.
+
+
+## Multi-agent orchestration
+The Collaboration Nexus calls `POST /api/agents/run`. Choose between one and four specialists from the allow-list (`research`, `coding`, `analysis`, `writing`, `creative`). The backend dispatches specialist model requests concurrently using the selected OpenAI, Gemini, or hybrid provider route, isolates failed specialist calls, and sends successful deliverables to a lead coordinator for synthesis. The response includes the coordinated answer and each specialist's status/output.
+
+Example request:
+
+```json
+{
+  "task": "Review this API design for reliability and security",
+  "agents": ["research", "coding", "analysis"],
+  "provider": "hybrid",
+  "language": "English"
+}
+```
+
+This is bounded, request-scoped orchestration—not unrestricted autonomous agents. A run can make up to five model calls (four specialists plus one coordinator), so provider usage and cost scale with the selected team size. Failed specialist calls are isolated; if all specialists fail, the endpoint returns a service error. Specialist tools, persistent queues, cancellation, and account-level permissions are future work. Do not expose the endpoint publicly without authentication and production-grade rate limiting.
