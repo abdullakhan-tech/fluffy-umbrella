@@ -39,3 +39,14 @@ def test_chat_rate_limit_returns_retry_after(monkeypatch):
     assert first.status_code == 503  # request reaches the endpoint; no key is configured
     assert second.status_code == 429
     assert second.headers["retry-after"] == "60"
+
+
+def test_health_includes_real_process_uptime_and_provider_flags(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    response = client.get("/api/health")
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["providers"] == {"openai": True, "gemini": False}
+    assert isinstance(payload["uptime_seconds"], int)
+    assert payload["uptime_seconds"] >= 0
