@@ -71,3 +71,37 @@ def test_multi_agent_endpoint_rejects_more_than_four_specialists():
         "agents": ["research", "coding", "analysis", "writing", "creative"]
     })
     assert response.status_code == 422
+
+
+def test_knowledge_api_crud(monkeypatch):
+    response = client.post("/api/knowledge", json={
+        "session_id": "operator_test", "subject": "Zaythar",
+        "predicate": "uses", "object": "shared graph"
+    })
+    assert response.status_code == 200
+    fact_id = response.json()["id"]
+    listed = client.get("/api/knowledge?session_id=operator_test")
+    assert listed.status_code == 200
+    assert listed.json()["facts"][0]["object"] == "shared graph"
+    deleted = client.delete(f"/api/knowledge/{fact_id}?session_id=operator_test")
+    assert deleted.status_code == 200
+    assert client.get("/api/knowledge?session_id=operator_test").json()["facts"] == []
+
+
+def test_knowledge_api_rejects_invalid_session():
+    response = client.post("/api/knowledge", json={
+        "session_id": "../unsafe", "subject": "A", "predicate": "B", "object": "C"
+    })
+    assert response.status_code == 422
+
+
+def test_agent_request_accepts_session_context(monkeypatch):
+    monkeypatch.setattr(main, "run_multi_agent", lambda task, agents, provider, language, session_id: {
+        "reply": "Context-aware result", "agents": [], "completed_agents": 1,
+        "total_agents": 1, "provider": "openai", "model": "test", "session_id": session_id
+    })
+    response = client.post("/api/agents/run", json={
+        "task": "Continue project", "agents": ["analysis"], "session_id": "operator_1"
+    })
+    assert response.status_code == 200
+    assert response.json()["session_id"] == "operator_1"
