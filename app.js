@@ -15,14 +15,14 @@ $$('[data-accent]').forEach(b=>b.onclick=()=>{document.documentElement.style.set
 $('#saveSettings').onclick=()=>{savePrefs();toast('Preferences saved on this device.')};
 $('#initAvatar').onclick=()=>{savePrefs();toast('Persona preferences saved and will be sent with future chats.')};
 function toast(t){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.append(el)}el.textContent=t;el.classList.add('show');clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>el.classList.remove('show'),2600)}
-const messages=$('#messages'),promptBox=$('#prompt');let busy=false;
+const messages=$('#messages'),promptBox=$('#prompt');let busy=false,activeAgent='general';
 function addMessage(role,text,save=true){const el=document.createElement('div');el.className='message '+role;el.textContent=text;messages.appendChild(el);messages.scrollTop=messages.scrollHeight;if(save)persistChat();return el}
 function persistChat(){store.set('chat',[...messages.querySelectorAll('.message')].map(x=>({role:x.classList.contains('user')?'user':'assistant',text:x.textContent})).slice(-100))}
 function loadChat(){const history=store.get('chat',[]);if(!history.length)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();history.forEach(m=>addMessage(m.role,m.text,false))}
 loadChat();
 function localReply(q){if(/^(hi|hello|hey|salam|السلام)/i.test(q))return 'Salam! I am Zaythar AI. The backend is currently unavailable, so this is a limited local response.';return 'I could not reach the AI backend. Check that the FastAPI server is running and OPENAI_API_KEY is configured on the server.'}
 function currentPersona(){const ranges=$$('#persona input[type=range]').map(r=>Number(r.value));return {empathy:ranges[0]??70,cognitive_capacity:ranges[1]??70,adaptability:ranges[2]??70,creativity:ranges[3]??70,style:$('#persona select')?.value||'Balanced & helpful'}}
-async function send(q){q=q.trim();if(!q||busy)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();addMessage('user',q);promptBox.value='';busy=true;const pending=addMessage('assistant','PROCESSING REQUEST…');try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:$('#chatLanguage').value,persona:currentPersona(),settings:store.get('preferences',{})})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||'Backend unavailable');pending.textContent=data.reply||'No response received.';persistChat();if($('#speakToggle')?.checked)speak(pending.textContent)}catch(e){pending.textContent=localReply(q);persistChat();toast(e.message||'AI service unavailable')}finally{busy=false;messages.scrollTop=messages.scrollHeight}}
+async function send(q){q=q.trim();if(!q||busy)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();addMessage('user',q);promptBox.value='';busy=true;const pending=addMessage('assistant','PROCESSING REQUEST…');try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:$('#chatLanguage').value,persona:currentPersona(),settings:store.get('preferences',{}),agent:activeAgent})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||'Backend unavailable');pending.textContent=data.reply||'No response received.';persistChat();if($('#speakToggle')?.checked)speak(pending.textContent)}catch(e){pending.textContent=localReply(q);persistChat();toast(e.message||'AI service unavailable')}finally{busy=false;messages.scrollTop=messages.scrollHeight}}
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();send(promptBox.value)});$$('.suggestion').forEach(b=>b.onclick=()=>send(b.textContent));
 let recognition;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){recognition=new SR();recognition.continuous=false;recognition.interimResults=false;recognition.onresult=e=>send(e.results[0][0].transcript);recognition.onend=()=>$('#micBtn').textContent='🎙 VOICE';recognition.onerror=()=>{$('#micBtn').textContent='🎙 VOICE';toast('Microphone unavailable. Check browser permission.')}} 
 $('#micBtn').onclick=()=>{if(!recognition){toast('Voice input is not supported in this browser. Try Chrome over HTTPS.');return}recognition.lang=$('#chatLanguage').value;$('#micBtn').textContent='LISTENING…';try{recognition.start()}catch(e){toast('Voice capture is already active.')}};
@@ -71,5 +71,16 @@ $$('input[type=range]').forEach((range,index)=>{
     const values=store.get('rangeValues',{});
     values[index]=Number(range.value);
     store.set('rangeValues',values);
+  });
+});
+
+$$('[data-agent]').forEach(agent=>{
+  agent.addEventListener('click',()=>{
+    activeAgent=agent.dataset.agent;
+    openPanel('assistant');
+    const names={general:'General AI',research:'Research specialist',coding:'Coding specialist',writing:'Writing specialist',analysis:'Analysis specialist',creative:'Creative specialist'};
+    toast((names[activeAgent]||'AI specialist')+' selected. Describe your task.');
+    promptBox.placeholder='Message '+(names[activeAgent]||'Zaythar AI')+'...';
+    promptBox.focus();
   });
 });
