@@ -31,3 +31,12 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
 - **Authentication & Cloud Data**: Firebase Auth (Google Sign-In via `CredentialManager`), Cloud Firestore (`users/{userId}` profiles, `chat_sessions`, `messages`, `plugins`, `brain_runs`, `memories`, and `knowledge_facts` subcollections) backed by zero-trust `firestore.rules`.
 - **AI & Security**: `com.google.firebase:firebase-ai` + `FirebaseAppCheck` (`DebugAppCheckProviderFactory` in debug builds, `RecaptchaAppCheckProviderFactory` in release builds).
 - **Local Preferences**: Jetpack DataStore Preferences for client-only UI theme, accent, motion, cognitive tuning, and Internet grounding settings.
+
+## Project handbook
+
+- [Version-controlled Wiki](docs/wiki/Home.md)
+- [JARVIS execution and safety model](docs/JARVIS_EXECUTION_MODEL.md)
+- [Android setup](docs/ANDROID_SETUP.md)
+- [Gemini / Firebase setup](docs/GEMINI_SETUP.md)
+- [Current project status](docs/PROJECT_STATUS.md)
+- [Specialist agent profiles](.github/agents/)
