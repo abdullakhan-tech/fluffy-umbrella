@@ -216,7 +216,10 @@ class AiRepository(
             "Input must contain 1 to 4,000 characters."
         }
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-        val sharedContext = buildSharedContext()
+        val sharedContext = runCatching { buildSharedContext() }.getOrElse { error ->
+            Log.w(TAG, "Shared memory unavailable; continuing without memory context.", error)
+            ""
+        }
         val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
 
         val tripleSchema = Schema.obj(
