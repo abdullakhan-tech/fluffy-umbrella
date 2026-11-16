@@ -92,16 +92,16 @@ jobs:
       # A disposable CI-only key is generated because the project points its
       # debug build type at a root-level debug.keystore. Never use it for release signing.
       - name: Generate temporary debug signing key
-        run: >-
-          keytool -genkeypair -v
-          -keystore debug.keystore
-          -storepass android
-          -alias androiddebugkey
-          -keypass android
-          -keyalg RSA
-          -keysize 2048
-          -validity 10000
-          -dname "CN=Android Debug,O=Android,C=US"
+        run: |
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
           chmod 600 debug.keystore
 
       - name: Run Android tests and assemble debug APK with Firebase emulators
