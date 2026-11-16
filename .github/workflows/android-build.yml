@@ -9,7 +9,7 @@ on:
       - "settings.gradle.kts"
       - ".github/workflows/android-build.yml"
   push:
-    branches: [main]
+    branches: [main, "ci/android-gradle-build"]
     paths:
       - "app/**"
       - "gradle/**"
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: android-build-${{ github.ref }}
+  group: android-build-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
