@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const panels=$$('.panel'),navs=$$('.nav'),titles={overview:'SYSTEM OVERVIEW',assistant:'AI ASSISTANT',persona:'PERSONA BUILDER',settingsPanel:'AI CORE SETTINGS',collaboration:'COLLABORATION NEXUS',studio:'IMAGE & VIDEO STUDIO',code:'CODE COPILOT',prompts:'PROMPT NEXUS',knowledge:'KNOWLEDGE BASE',profile:'USER PROFILE',security:'API & SECURITY',models:'AI MODEL MATRIX',models:'AI MODEL MATRIX'};
+const panels=$$('.panel'),navs=$$('.nav'),titles={overview:'SYSTEM OVERVIEW',assistant:'AI ASSISTANT',persona:'PERSONA BUILDER',settingsPanel:'AI CORE SETTINGS',collaboration:'COLLABORATION NEXUS',studio:'IMAGE & VIDEO STUDIO',code:'CODE COPILOT',prompts:'PROMPT NEXUS',knowledge:'KNOWLEDGE BASE',profile:'USER PROFILE',security:'API & SECURITY',models:'AI MODEL MATRIX'};
 const store={get(k,fallback){try{return JSON.parse(localStorage.getItem('zaythar:'+k))??fallback}catch{return fallback}},set(k,v){try{localStorage.setItem('zaythar:'+k,JSON.stringify(v))}catch(e){console.warn('Local storage unavailable',e)}}};
 function openPanel(id){panels.forEach(p=>p.classList.toggle('active-panel',p.id===id));navs.forEach(n=>n.classList.toggle('active',n.dataset.panel===id));$('#pageTitle').innerHTML=(titles[id]||id).replace(/ (.*)/,' <em>$1</em>');window.scrollTo({top:0,behavior:'smooth'})}
 navs.forEach(n=>n.addEventListener('click',()=>openPanel(n.dataset.panel)));$$('[data-panel]').filter(x=>!x.classList.contains('nav')).forEach(x=>x.addEventListener('click',()=>openPanel(x.dataset.panel)));
@@ -36,7 +36,14 @@ $$('.prompt-card').forEach(b=>b.onclick=()=>{openPanel('assistant');promptBox.va
 $('#promptSearch').addEventListener('input',e=>$$('.prompt-card').forEach(b=>b.style.display=b.textContent.toLowerCase().includes(e.target.value.toLowerCase())?'block':'none'));
 function renderNotes(){const list=$('#notesList');list.innerHTML='';store.get('notes',[]).forEach((note,i)=>{const row=document.createElement('div');row.className='note-item';const content=document.createElement('span');content.textContent=note.text;const del=document.createElement('button');del.type='button';del.className='note-delete';del.textContent='DELETE';del.setAttribute('aria-label','Delete note');del.onclick=()=>{const notes=store.get('notes',[]);notes.splice(i,1);store.set('notes',notes);renderNotes()};row.append(content,del);list.append(row)})}
 $('#saveNote').onclick=async()=>{const v=$('#knowledgeNote').value.trim();if(!v)return;const notes=store.get('notes',[]);notes.unshift({text:v,created:new Date().toISOString()});store.set('notes',notes.slice(0,200));$('#knowledgeNote').value='';renderNotes();try{const r=await fetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:memorySession,content:v})});if(!r.ok)throw new Error('Memory sync unavailable');toast('Note saved locally and to Zaythar long-term memory.')}catch(e){toast('Note saved on this device; server memory sync unavailable.')}};renderNotes();
-async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();const ok=r.ok&&d.status==='ok';$('#apiStatus').textContent=ok?(d.ai_configured?'AI READY':'BACKEND ONLINE · KEY NEEDED'):'OFFLINE';$('#apiStatus').style.color=ok?'var(--green)':'var(--accent2)';$('#securityHealth').textContent=ok?(d.ai_configured?'ONLINE · AI CONFIGURED':'ONLINE · AI NOT CONFIGURED'):'OFFLINE';}catch(e){$('#apiStatus').textContent='OFFLINE';$('#apiStatus').style.color='var(--accent2)';$('#securityHealth').textContent='OFFLINE'}}health();
+async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();const ok=r.ok&&d.status==='ok';$('#apiStatus').textContent=ok?(d.ai_configured?'AI READY':'BACKEND ONLINE · KEY NEEDED'):'OFFLINE';$('#apiStatus').style.color=ok?'var(--green)':'var(--accent2)';$('#securityHealth').textContent=ok?(d.ai_configured?'ONLINE · AI CONFIGURED':'ONLINE · AI NOT CONFIGURED'):'OFFLINE';
+  if(ok){
+    const setProvider=(name,ready)=>{const label=$('#'+name+'State'),bar=$('#'+name+'Bar');if(label)label.textContent=ready?'READY':'NO KEY';if(bar)bar.style.width=ready?'100%':'0%';};
+    setProvider('openai',!!d.providers?.openai);setProvider('gemini',!!d.providers?.gemini);
+    const seconds=Number(d.uptime_seconds)||0;
+    if($('#uptimeState'))$('#uptimeState').textContent=seconds<60?seconds+'s':Math.floor(seconds/60)+'m';
+    if($('#uptimeBar'))$('#uptimeBar').style.width=Math.min(100,seconds/3600*100)+'%';
+  }}catch(e){$('#apiStatus').textContent='OFFLINE';$('#apiStatus').style.color='var(--accent2)';$('#securityHealth').textContent='OFFLINE'}}health();
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='/'){e.preventDefault();openPanel('assistant');promptBox.focus()}});
 
 
@@ -143,3 +150,77 @@ function applyVisualControls(){
   });
 }
 applyVisualControls();
+
+
+// Interactive neural-field renderer: deterministic 3D projection, pointer parallax,
+// responsive DPR scaling, and reduced-motion / visibility handling.
+(function initNeuralField(){
+  const canvases=[$('#neuralCanvas'),$('.neuralCanvasMini')].filter(Boolean);
+  if(!canvases.length)return;
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const nodes=Array.from({length:76},(_,i)=>{
+    const y=1-(i/(75))*2;
+    const radius=Math.sqrt(Math.max(0,1-y*y));
+    const angle=i*2.399963229728653;
+    return {x:Math.cos(angle)*radius,y,z:Math.sin(angle)*radius,phase:i*0.73};
+  });
+  const pointer={x:0,y:0,targetX:0,targetY:0};
+  let frame=0,angle=0,raf=0,active=true;
+  const palette=()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#ff3155';
+  function render(canvas,now){
+    const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;
+    const dpr=Math.min(window.devicePixelRatio||1,2),w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
+    const ctx=canvas.getContext('2d');if(!ctx)return;
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);
+    const cx=rect.width/2,cy=rect.height/2,scale=Math.min(rect.width,rect.height)*.39;
+    const spin=angle+(now*.00012);
+    const cos=Math.cos(spin),sin=Math.sin(spin),tiltX=pointer.targetY*.22,tiltY=pointer.targetX*.22;
+    const projected=nodes.map(n=>{
+      let x=n.x*cos-n.z*sin,z=n.x*sin+n.z*cos,y=n.y;
+      const yy=y*Math.cos(tiltX)-z*Math.sin(tiltX),zz=y*Math.sin(tiltX)+z*Math.cos(tiltX);
+      const depth=2.7+zz*.55, perspective=2.7/depth;
+      return {x:cx+x*scale*perspective,y:cy+yy*scale*perspective,z:zz,alpha:.28+(.72*(zz+1)/2),r:1.1+((zz+1)/2)*1.5};
+    });
+    const accent=palette();
+    ctx.lineWidth=.65;
+    for(let i=0;i<projected.length;i++){
+      for(let j=i+1;j<projected.length;j++){
+        const a=projected[i],b=projected[j],dx=a.x-b.x,dy=a.y-b.y,dist=Math.hypot(dx,dy);
+        if(dist<rect.width*.105){
+          ctx.strokeStyle=accent;ctx.globalAlpha=(1-dist/(rect.width*.105))*.24*Math.min(a.alpha,b.alpha);
+          ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha=1;
+    projected.forEach((p,i)=>{
+      const pulse=.65+.35*Math.sin(now*.002+nodes[i].phase);
+      ctx.fillStyle=accent;ctx.globalAlpha=p.alpha*pulse;
+      ctx.shadowBlur=8*pulse;ctx.shadowColor=accent;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*pulse,0,Math.PI*2);ctx.fill();
+    });
+    ctx.shadowBlur=0;ctx.globalAlpha=1;
+    ctx.strokeStyle=accent;ctx.globalAlpha=.34;ctx.lineWidth=1;
+    [0.82,1.02,1.2].forEach((r,k)=>{ctx.beginPath();ctx.ellipse(cx,cy,scale*r,scale*(.22+k*.025),spin*.25+k*.7,0,Math.PI*2);ctx.stroke()});
+    ctx.globalAlpha=1;
+  }
+  function loop(now){
+    if(!active)return;
+    pointer.x+=(pointer.targetX-pointer.x)*.045;pointer.y+=(pointer.targetY-pointer.y)*.045;
+    pointer.targetX=pointer.x;pointer.targetY=pointer.y;
+    canvases.forEach(canvas=>render(canvas,now));
+    if(!document.body.classList.contains('motion-off')&&!reduced.matches)raf=requestAnimationFrame(loop);
+  }
+  function start(){if(!active)return;cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);if($('#neuralState'))$('#neuralState').textContent='SYNAPTIC FIELD ONLINE';if($('#rendererState'))$('#rendererState').textContent='ACTIVE';if($('#rendererBar'))$('#rendererBar').style.width='100%'}
+  function stop(){cancelAnimationFrame(raf);canvases.forEach(canvas=>render(canvas,performance.now()))}
+  const stage=$('.neural-stage');
+  stage?.addEventListener('pointermove',e=>{const r=stage.getBoundingClientRect();pointer.targetX=((e.clientX-r.left)/r.width-.5)*2;pointer.targetY=((e.clientY-r.top)/r.height-.5)*2});
+  stage?.addEventListener('pointerleave',()=>{pointer.targetX=0;pointer.targetY=0});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else start()});
+  const motionObserver=new MutationObserver(()=>{if(document.body.classList.contains('motion-off')||reduced.matches)stop();else start()});
+  motionObserver.observe(document.body,{attributes:true,attributeFilter:['class']});
+  reduced.addEventListener?.('change',()=>reduced.matches?stop():start());
+  window.addEventListener('resize',()=>canvases.forEach(canvas=>render(canvas,performance.now())),{passive:true});
+  if(matchMedia('(hover:hover) and (pointer:fine)').matches)start();else start();
+})();
