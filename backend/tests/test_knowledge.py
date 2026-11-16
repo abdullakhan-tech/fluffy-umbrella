@@ -45,3 +45,15 @@ def test_knowledge_context_uses_real_line_breaks(isolated_db):
     context = knowledge.knowledge_context("session")
     assert "\\n" not in context
     assert context.count("\n") == 1
+
+
+def test_account_knowledge_uses_user_id_not_legacy_session_string(isolated_db):
+    knowledge.add_fact("zaythar_user_3", "Legacy", "must not leak", "to new account")
+    own = knowledge.add_user_fact(3, "Zaythar", "has", "private account fact")
+    other = knowledge.add_user_fact(4, "Other", "has", "separate fact")
+    assert [fact["object"] for fact in knowledge.list_user_facts(3)] == ["private account fact"]
+    assert [fact["object"] for fact in knowledge.list_user_facts(4)] == ["separate fact"]
+    assert knowledge.delete_user_fact(4, own["id"]) is False
+    assert knowledge.delete_user_fact(3, own["id"]) is True
+    assert knowledge.clear_user_facts(4) == 1
+    assert knowledge.list_user_facts(3) == []
