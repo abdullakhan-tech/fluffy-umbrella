@@ -1,6 +1,6 @@
 # Zaythar AI
 
-A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic command-center interface. Responsive web UI, browser voice input/output, local browser memory, and a FastAPI backend.
+A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic command-center interface. Responsive web UI, browser voice input/output, authenticated account-owned memory, and a FastAPI backend.
 
 ## Working features
 - Multilingual chat (English, Urdu, Arabic, Hindi, French, Spanish, German, Chinese and Japanese)
@@ -9,7 +9,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Bounded recent conversation context is sent to the selected model
 - SQLite-backed, authenticated account-owned long-term memory with list, add, delete and clear API endpoints
 - Per-account knowledge graph storing explicit subject–predicate–object facts, with add/list/delete/clear API operations and per-session fact limits
-- Multi-agent runs receive relevant session memories and graph facts as untrusted context; bounded coordinator summaries are saved back to session memory
+- Multi-agent runs receive the signed-in account's memories and graph facts as untrusted context; bounded coordinator summaries are saved back to that account's memory
 - Knowledge Base notes sync to server-side memory when the backend is online
 - Safe local tool router for arithmetic and UTC time; arbitrary code execution is not permitted
 - Lightweight task-decomposition hints guide planning without exposing private chain-of-thought
@@ -25,7 +25,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - CSS-based holographic core, floating specialist nodes, avatar rings and studio hologram
 - Optional 3D motion toggle with saved preference, reduced-motion support, and desktop pointer-depth effects
 - Five allow-listed specialist roles: Research, Coding, Writing, Analysis and Creative
-- Multi-agent orchestrator: runs 1–4 selected specialists concurrently, isolates individual failures, shares session memory and explicit graph facts, then synthesizes successful deliverables with a coordinator model call
+- Multi-agent orchestrator: runs 1–4 selected specialists concurrently, isolates individual failures, shares account-owned memory and explicit graph facts, then synthesizes successful deliverables with a coordinator model call
 - Dedicated `POST /api/agents/run` endpoint with task-size, provider and specialist-count validation; shares the chat endpoint's per-process rate limiter
 - API key never stored in frontend code
 
@@ -80,20 +80,18 @@ python -m pytest -q
 uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-The backend loads the root `.env` file. The example file contains blank provider keys intentionally; health status will not claim a provider is configured until a real key is added. Never commit a real `.env` file or put a provider key in frontend JavaScript.
+The backend loads the root `.env` file. The example file contains blank provider keys and invitation token intentionally. Health status reports only whether providers are configured. Never commit a real `.env` file or put provider keys, invitation secrets or bearer tokens in frontend JavaScript.
 
 ## Deployment
 Host the FastAPI app on a Python-capable service for AI chat. Static-only hosting such as GitHub Pages cannot run the Python backend. For a separate frontend/backend origin, configure a narrowly scoped CORS allowlist before enabling cross-origin requests; the current backend intentionally does not enable wildcard CORS.
 
 ## Remaining major upgrades
 - Training a proprietary foundation model from scratch (the current Neural Core orchestrates hosted models; it is not a newly trained LLM)
-- Real agent orchestration and a broader permissioned tool ecosystem
-- MFA, email verification, password reset, administrator roles, encrypted-at-rest storage and shared production rate limiting
+- MFA, email verification, password reset, account recovery and administrator roles
+- Encryption at rest, cross-device sync and production-grade shared rate limiting
 - Media generation provider integration
 - Document upload, parsing, embeddings and retrieval-augmented generation
-- Cross-device sync and encryption at rest for server-side memory
-- MFA, email verification, password reset, administrator roles, encrypted-at-rest storage and shared production rate limiting
-- Production-grade shared rate limiting, abuse protection, monitoring and deployment validation
+- Monitoring, abuse protection and deployment validation
 
 
 ## Holographic UI expansion
@@ -126,7 +124,7 @@ This is bounded, request-scoped orchestration—not unrestricted autonomous agen
 
 
 ## Shared agent memory and knowledge graph
-The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, scoped to the same namespace derived from the authenticated account ID; client-provided session IDs are not accepted. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives only the authenticated account's recent memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per session, fields are limited to 300 characters, and list responses are bounded.
+The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, scoped to the same namespace derived from the authenticated account ID; client-provided session IDs are not accepted. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives only the authenticated account's recent memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per account, fields are limited to 300 characters, and list responses are bounded.
 
 API:
 - `GET /api/knowledge` (Bearer session required)
