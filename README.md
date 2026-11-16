@@ -42,13 +42,33 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - **API & Security:** setup guidance and backend configuration status; no API key entry field in the browser
 
 ## Run locally
-1. Install Python 3.10+.
-2. From the repository root, install dependencies: `pip install -r backend/requirements.txt`.
-3. Copy `.env.example` to `.env` and set at least one server-side key: `OPENAI_API_KEY` and/or `GEMINI_API_KEY`. Set `ZAYTHAR_AI_PROVIDER=hybrid` for OpenAI-first fallback to Gemini.
-4. Start the app: `uvicorn backend.main:app --reload`.
+
+### Windows
+1. Install Python 3.10+ and Git.
+2. Open the repository folder in PowerShell.
+3. Run `powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_windows.ps1`. This creates `.venv`, installs dependencies, creates `.env` if missing, compiles the backend, and runs tests.
+4. Add at least one real provider key to `.env` (OpenAI or Gemini). Keep unused provider keys blank.
+5. Double-click `scripts\\run_windows.bat` or run it from Command Prompt.
+6. Open http://127.0.0.1:8000.
+
+### Linux / macOS
+1. Install Python 3.10+ and Git.
+2. Run `bash scripts/setup.sh` from the repository root. It creates `.venv`, installs dependencies, creates `.env` if missing, compiles the backend, and runs tests.
+3. Add at least one real provider key to `.env`.
+4. Start with `bash scripts/run.sh`.
 5. Open http://127.0.0.1:8000.
 
-The backend loads the root `.env` file. Never commit a real `.env` file or put a provider key in frontend JavaScript.
+### Manual setup
+```bash
+python -m venv .venv
+# Activate .venv, then:
+python -m pip install -r backend/requirements.txt
+python -m compileall -q backend
+python -m pytest -q
+uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The backend loads the root `.env` file. The example file contains blank provider keys intentionally; health status will not claim a provider is configured until a real key is added. Never commit a real `.env` file or put a provider key in frontend JavaScript.
 
 ## Deployment
 Host the FastAPI app on a Python-capable service for AI chat. Static-only hosting such as GitHub Pages cannot run the Python backend. For a separate frontend/backend origin, configure a narrowly scoped CORS allowlist before enabling cross-origin requests; the current backend intentionally does not enable wildcard CORS.
