@@ -50,3 +50,24 @@ def test_health_includes_real_process_uptime_and_provider_flags(monkeypatch):
     assert payload["providers"] == {"openai": True, "gemini": False}
     assert isinstance(payload["uptime_seconds"], int)
     assert payload["uptime_seconds"] >= 0
+
+
+def test_multi_agent_endpoint_delegates_to_orchestrator(monkeypatch):
+    monkeypatch.setattr(main, "run_multi_agent", lambda task, agents, provider, language: {
+        "reply": "Coordinated output", "agents": [{"agent": "coding", "status": "completed"}],
+        "completed_agents": 1, "total_agents": 1, "provider": "openai", "model": "test"
+    })
+    response = client.post("/api/agents/run", json={
+        "task": "Review this function", "agents": ["coding"],
+        "provider": "hybrid", "language": "English"
+    })
+    assert response.status_code == 200
+    assert response.json()["reply"] == "Coordinated output"
+
+
+def test_multi_agent_endpoint_rejects_more_than_four_specialists():
+    response = client.post("/api/agents/run", json={
+        "task": "Do a task",
+        "agents": ["research", "coding", "analysis", "writing", "creative"]
+    })
+    assert response.status_code == 422
