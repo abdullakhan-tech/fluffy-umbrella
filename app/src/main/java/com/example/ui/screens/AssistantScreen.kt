@@ -251,7 +251,11 @@ fun AssistantScreen(
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "PERSONAL INTELLIGENCE / READY",
+                                    text = when {
+                    isListening -> "PERSONAL INTELLIGENCE / LISTENING"
+                    isBusy -> "NEURAL CORE / THINKING"
+                    else -> "PERSONAL INTELLIGENCE / READY"
+                },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = cyber.cyberGreen
                                 )
@@ -347,7 +351,11 @@ private fun AssistantOrbCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "PERSONAL INTELLIGENCE / READY",
+                text = when {
+                    isListening -> "PERSONAL INTELLIGENCE / LISTENING"
+                    isBusy -> "NEURAL CORE / THINKING"
+                    else -> "PERSONAL INTELLIGENCE / READY"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = cyber.cyberGreen
             )
