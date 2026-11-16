@@ -52,6 +52,8 @@ import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+enum class NeuralCoreActivity { READY, LISTENING, THINKING, SPEAKING }
+
 private data class NeuralNode3D(
     val x: Float,
     val y: Float,
@@ -72,12 +74,30 @@ fun NeuralCoreVisualizer(
     modifier: Modifier = Modifier,
     size: Dp = 250.dp,
     motionEnabled: Boolean = true,
-    coreLabel: String = "Z"
+    coreLabel: String = "Z",
+    activity: NeuralCoreActivity = NeuralCoreActivity.READY
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
-    val accent = cyber.accent
-    val accentSoft = cyber.accentSoft
+    val baseAccent = cyber.accent
+    val accent = when (activity) {
+        NeuralCoreActivity.READY -> baseAccent
+        NeuralCoreActivity.LISTENING -> Color(0xFF35D8FF)
+        NeuralCoreActivity.THINKING -> Color(0xFFB18CFF)
+        NeuralCoreActivity.SPEAKING -> Color(0xFF75F2C2)
+    }
+    val accentSoft = when (activity) {
+        NeuralCoreActivity.READY -> cyber.accentSoft
+        NeuralCoreActivity.LISTENING -> Color(0xFF9AEFFF)
+        NeuralCoreActivity.THINKING -> Color(0xFFD7C5FF)
+        NeuralCoreActivity.SPEAKING -> Color(0xFFB8FFE2)
+    }
+    val activityEnergy = when (activity) {
+        NeuralCoreActivity.READY -> 1f
+        NeuralCoreActivity.LISTENING -> 1.28f
+        NeuralCoreActivity.THINKING -> 1.16f
+        NeuralCoreActivity.SPEAKING -> 1.38f
+    }
 
     val systemReduceMotion = remember {
         val scale = runCatching {
@@ -160,7 +180,7 @@ fun NeuralCoreVisualizer(
                 }
             }
             .semantics {
-                contentDescription = "Interactive 3D neural core visualizer"
+                contentDescription = "Interactive 3D neural core, ${activity.name.lowercase()} state"
             },
         contentAlignment = Alignment.Center
     ) {
@@ -171,7 +191,7 @@ fun NeuralCoreVisualizer(
             val cy = h / 2f
             val radiusScale = minOf(w, h) * 0.39f
             val nowSec = elapsedMillis * 0.001f
-            val spin = elapsedMillis * 0.00018f + tiltY
+            val spin = elapsedMillis * 0.00018f * activityEnergy + tiltY
             val cosSpin = cos(spin)
             val sinSpin = sin(spin)
             val cosTilt = cos(tiltX)
@@ -194,6 +214,34 @@ fun NeuralCoreVisualizer(
                 )
             }
 
+            // Deep-space halo and soft atmospheric bloom behind the neural lattice.
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        accent.copy(alpha = 0.22f * cyber.glowStrength),
+                        accent.copy(alpha = 0.07f),
+                        Color.Transparent
+                    ),
+                    center = Offset(cx, cy),
+                    radius = radiusScale * 1.62f
+                ),
+                radius = radiusScale * 1.62f,
+                center = Offset(cx, cy)
+            )
+
+            // Fine radial energy filaments add depth without a heavyweight 3D dependency.
+            for (ray in 0 until 36) {
+                val angle = ray * (2f * PI.toFloat() / 36f) + spin * 0.22f
+                val inner = radiusScale * 0.72f
+                val outer = radiusScale * (1.12f + 0.05f * sin(nowSec * 1.4f + ray))
+                drawLine(
+                    color = accentSoft.copy(alpha = 0.08f * activityEnergy),
+                    start = Offset(cx + cos(angle) * inner, cy + sin(angle) * inner),
+                    end = Offset(cx + cos(angle) * outer, cy + sin(angle) * outer),
+                    strokeWidth = if (ray % 3 == 0) 1.5f else 0.7f
+                )
+            }
+
             val linkDist = w * 0.145f
             for (i in projected.indices) {
                 val a = projected[i]
@@ -201,7 +249,7 @@ fun NeuralCoreVisualizer(
                     val b = projected[j]
                     val d = hypot(a.x - b.x, a.y - b.y)
                     if (d < linkDist) {
-                        val lineAlpha = (1f - d / linkDist) * 0.32f * minOf(a.alpha, b.alpha)
+                        val lineAlpha = (1f - d / linkDist) * 0.42f * activityEnergy * minOf(a.alpha, b.alpha)
                         drawLine(
                             color = accent.copy(alpha = lineAlpha.coerceIn(0f, 1f)),
                             start = Offset(a.x, a.y),
@@ -216,8 +264,21 @@ fun NeuralCoreVisualizer(
                 val pulse = if (animate) 0.65f + 0.35f * sin(nowSec * 2.2f + nodes[idx].phase) else 0.85f
                 drawCircle(
                     color = accentSoft.copy(alpha = (p.alpha * pulse).coerceIn(0f, 1f)),
-                    radius = p.radius * pulse * 1.4f,
+                    radius = p.radius * pulse * 1.65f * activityEnergy,
                     center = Offset(p.x, p.y)
+                )
+            }
+
+            // A second, slower counter-rotating orbital track creates a layered 3D silhouette.
+            rotate(degrees = if (animate) (elapsedMillis * -0.0065f) % 360f else -18f) {
+                drawOval(
+                    color = Color.White.copy(alpha = 0.24f),
+                    topLeft = Offset(cx - radiusScale * 1.23f, cy - radiusScale * 0.31f),
+                    size = Size(radiusScale * 2.46f, radiusScale * 0.62f),
+                    style = Stroke(
+                        width = 1.1f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 9f), 0f)
+                    )
                 )
             }
 
@@ -230,6 +291,18 @@ fun NeuralCoreVisualizer(
                         width = 1.5f,
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                     )
+                )
+            }
+
+            // Fine luminous latitude bands imply a volumetric, glass-like sphere.
+            for (band in -2..2) {
+                val bandY = cy + band * radiusScale * 0.19f
+                val bandWidth = radiusScale * 2f * sqrt(max(0.08f, 1f - (band * 0.19f) * (band * 0.19f)))
+                drawOval(
+                    color = accentSoft.copy(alpha = (0.10f + 0.025f * (2 - kotlin.math.abs(band))) * activityEnergy),
+                    topLeft = Offset(cx - bandWidth / 2f, bandY - radiusScale * 0.055f),
+                    size = Size(bandWidth, radiusScale * 0.11f),
+                    style = Stroke(width = 0.85f)
                 )
             }
 
@@ -266,7 +339,7 @@ fun NeuralCoreVisualizer(
                         center = Offset(0.35f, 0.25f)
                     )
                 )
-                .border(1.5.dp, accentSoft.copy(alpha = 0.7f), CircleShape),
+                .border(1.5.dp, accentSoft.copy(alpha = 0.9f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
