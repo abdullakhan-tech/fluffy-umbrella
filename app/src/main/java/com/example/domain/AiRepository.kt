@@ -217,7 +217,7 @@ class AiRepository(
         }
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
         val sharedContext = runCatching { buildSharedContext() }.getOrElse { error ->
-            Log.w(TAG, "Shared memory unavailable; continuing without memory context.", error)
+            Log.w(TAG, "Shared memory unavailable; continuing without memory context.")
             ""
         }
         val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
@@ -496,7 +496,7 @@ class AiRepository(
                             throw e
                         } catch (e: Exception) {
                             lastFailure = e
-                            Log.w(TAG, "Specialist ${role.id} failed on $candidateModel", e)
+                            Log.w(TAG, "Specialist ${role.id} failed on $candidateModel (${e::class.simpleName ?: "Exception"})")
                         }
                     }
                     completed ?: SpecialistDeliverable(
@@ -555,7 +555,7 @@ class AiRepository(
                 throw e
             } catch (e: Exception) {
                 coordinatorFailure = e
-                Log.w(TAG, "Coordinator failed on $candidateModel", e)
+                Log.w(TAG, "Coordinator failed on $candidateModel (${e::class.simpleName ?: "Exception"})")
             }
         }
         if (coordinatorReply.isBlank()) {
