@@ -230,3 +230,15 @@ def test_remote_clients_do_not_get_a_loopback_or_shared_token_bypass(monkeypatch
     remote_client = TestClient(main.app, client=("203.0.113.10", 12345))
     assert remote_client.get("/api/memory").status_code == 401
     assert remote_client.get("/api/health").status_code == 200
+
+
+def test_validation_errors_do_not_echo_passwords_or_invitation_tokens():
+    password = "synthetic-secret-password-123"
+    response = client.post("/api/auth/register", json={
+        "username": "invalid username",
+        "password": password,
+        "registration_token": REGISTRATION_TOKEN,
+    })
+    assert response.status_code == 422
+    assert password not in response.text
+    assert REGISTRATION_TOKEN not in response.text
