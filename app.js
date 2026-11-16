@@ -37,3 +37,39 @@ function renderNotes(){const list=$('#notesList');list.innerHTML='';store.get('n
 $('#saveNote').onclick=()=>{const v=$('#knowledgeNote').value.trim();if(!v)return;const notes=store.get('notes',[]);notes.unshift({text:v,created:new Date().toISOString()});store.set('notes',notes.slice(0,200));$('#knowledgeNote').value='';renderNotes();toast('Note saved on this device.')};renderNotes();
 async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();const ok=r.ok&&d.status==='ok';$('#apiStatus').textContent=ok?(d.ai_configured?'AI READY':'BACKEND ONLINE · KEY NEEDED'):'OFFLINE';$('#apiStatus').style.color=ok?'var(--green)':'var(--accent2)';$('#securityHealth').textContent=ok?(d.ai_configured?'ONLINE · AI CONFIGURED':'ONLINE · AI NOT CONFIGURED'):'OFFLINE';}catch(e){$('#apiStatus').textContent='OFFLINE';$('#apiStatus').style.color='var(--accent2)';$('#securityHealth').textContent='OFFLINE'}}health();
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='/'){e.preventDefault();openPanel('assistant');promptBox.focus()}});
+
+
+// Holographic interface controls: local visual enhancements, not hardware telemetry.
+const motionButton=$('#motionBtn');
+if(motionButton){
+  const enabled=store.get('motion3d',true);
+  document.body.classList.toggle('motion-off',!enabled);
+  motionButton.setAttribute('aria-pressed',String(enabled));
+  motionButton.textContent=enabled?'3D FX ON':'3D FX OFF';
+  motionButton.addEventListener('click',()=>{
+    const next=!document.body.classList.contains('motion-off');
+    document.body.classList.toggle('motion-off',!next);
+    store.set('motion3d',next);
+    motionButton.setAttribute('aria-pressed',String(next));
+    motionButton.textContent=next?'3D FX ON':'3D FX OFF';
+    toast(next?'Holographic effects enabled.':'Motion effects paused.');
+  });
+}
+if(matchMedia('(hover:hover) and (pointer:fine)').matches){
+  $$('.card,.module,.mini-stat,.plan-card').forEach(el=>{
+    el.addEventListener('pointermove',e=>{
+      if(document.body.classList.contains('motion-off'))return;
+      const r=el.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+      el.style.transform='perspective(950px) rotateX('+((.5-y)*4)+'deg) rotateY('+((x-.5)*5)+'deg) translateZ(5px)';
+    });
+    el.addEventListener('pointerleave',()=>{el.style.transform=''});
+  });
+}
+$$('input[type=range]').forEach((range,index)=>{
+  range.addEventListener('input',()=>{
+    updateRange(range);
+    const values=store.get('rangeValues',{});
+    values[index]=Number(range.value);
+    store.set('rangeValues',values);
+  });
+});
