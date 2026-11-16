@@ -4,16 +4,19 @@ Facts are explicit user/agent-provided triples. This module does not infer
 or silently promote model output into verified knowledge.
 """
 import sqlite3
+from contextlib import contextmanager
 from backend.memory import DB_PATH
 
 MAX_FIELD = 300
 MAX_FACTS = 200
 
 
+@contextmanager
 def _connect():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.execute("""CREATE TABLE IF NOT EXISTS knowledge_facts (
+    try:
+        conn.execute("""CREATE TABLE IF NOT EXISTS knowledge_facts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL,
         subject TEXT NOT NULL,
@@ -23,7 +26,10 @@ def _connect():
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_session ON knowledge_facts(session_id, id DESC)")
-    return conn
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _clean(value: str, field: str) -> str:
