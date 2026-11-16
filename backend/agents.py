@@ -8,8 +8,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from backend.brain import run_brain
-from backend.memory import memory_context, save_memory
-from backend.knowledge import knowledge_context
+from backend.memory import memory_context, save_memory, user_memory_context, save_user_memory
+from backend.knowledge import knowledge_context, user_knowledge_context
 
 AGENT_ROLES = {
     "research": "Research specialist. Produce verifiable findings, distinguish facts from assumptions, and flag missing sources.",
@@ -42,7 +42,7 @@ def _run_specialist(name: str, task: str, provider: str, language: str, shared_c
     }
 
 
-def run_multi_agent(task: str, agents: list[str], provider: str = "hybrid", language: str = "English", session_id: str = "default") -> dict[str, Any]:
+def run_multi_agent(task: str, agents: list[str], provider: str = "hybrid", language: str = "English", session_id: str = "default", user_id: int | None = None) -> dict[str, Any]:
     """Run up to four allow-listed specialists concurrently, then synthesize."""
     task = task.strip()
     if not task or len(task) > MAX_TASK_CHARS:
@@ -56,9 +56,15 @@ def run_multi_agent(task: str, agents: list[str], provider: str = "hybrid", lang
     if invalid:
         raise ValueError("Unsupported specialist: " + ", ".join(invalid))
 
-    if not isinstance(session_id, str) or not session_id or len(session_id) > 64 or not all(ch.isalnum() or ch in '_-' for ch in session_id):
-        raise ValueError('Invalid session_id')
-    shared_context = '\n'.join(part for part in (memory_context(session_id), knowledge_context(session_id)) if part)[:6000]
+    if user_id is not None:
+        if type(user_id) is not int or user_id < 1:
+            raise ValueError('Invalid account owner')
+        context_parts = (user_memory_context(user_id), user_knowledge_context(user_id))
+    else:
+        if not isinstance(session_id, str) or not session_id or len(session_id) > 64 or not all(ch.isalnum() or ch in '_-' for ch in session_id):
+            raise ValueError('Invalid session_id')
+        context_parts = (memory_context(session_id), knowledge_context(session_id))
+    shared_context = '\n'.join(part for part in context_parts if part)[:6000]
     results: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=min(4, len(selected))) as pool:
         futures = {pool.submit(_run_specialist, name, task, provider, language, shared_context): name for name in selected}
@@ -91,7 +97,11 @@ def run_multi_agent(task: str, agents: list[str], provider: str = "hybrid", lang
     )
     final_reply = synthesis.get("reply") or ""
     try:
-        save_memory(session_id, ("Multi-agent task: " + task[:700] + "\nCoordinator result: " + final_reply[:1100])[:2000])
+        summary = ("Multi-agent task: " + task[:700] + "\nCoordinator result: " + final_reply[:1100])[:2000]
+        if user_id is not None:
+            save_user_memory(user_id, summary)
+        else:
+            save_memory(session_id, summary)
     except (ValueError, OSError):
         pass
     return {
