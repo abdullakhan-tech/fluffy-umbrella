@@ -55,3 +55,11 @@ Host the FastAPI app on a Python-capable service for AI chat. Static-only hostin
 - Document upload, parsing, embeddings and retrieval-augmented generation
 - Authenticated user accounts and encrypted server-side synced memory
 - Automated tests, rate limiting, abuse protection and production deployment
+
+
+## Holographic UI expansion
+- **AI Model Selection Matrix:** selects OpenAI, Gemini or hybrid provider mode for future chat requests. The selected mode is sent to the existing backend; server-side API keys and provider availability are still required.
+- **Expanded AI Settings:** secondary glow, metallic specularity and contrast sliders, alongside accent color and existing processing/persona controls. These sliders change appearance only, not actual model speed or compute resources.
+- **Operator Profile:** editable local display name. It is not a verified account identity.
+- **Subscription cards:** informational UI only. Billing, payments and paid entitlements are not connected.
+- **3D presentation:** model cards use depth, hover tilt and animated holographic rings, with responsive mobile layout and reduced-motion support.
