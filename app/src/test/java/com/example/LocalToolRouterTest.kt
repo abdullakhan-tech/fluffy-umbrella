@@ -18,6 +18,21 @@ class LocalToolRouterTest {
     }
 
     @Test
+    fun respectsOperatorPrecedence() {
+        assertEquals("14", LocalToolRouter.calculate("2 + 3 * 4"))
+    }
+
+    @Test
+    fun supportsNestedParenthesesAndUnaryMinus() {
+        assertEquals("-18", LocalToolRouter.calculate("-(2 + (3 * 4)) + 0"))
+    }
+
+    @Test
+    fun supportsDecimalArithmetic() {
+        assertEquals("3.75", LocalToolRouter.calculate("1.5 * 2.5"))
+    }
+
+    @Test
     fun rejectsArbitraryNonMathText() {
         assertNull(LocalToolRouter.routeTool("explain quantum computing"))
     }
@@ -30,6 +45,11 @@ class LocalToolRouterTest {
     @Test(expected = IllegalArgumentException::class)
     fun rejectsExcessiveExponent() {
         LocalToolRouter.calculate("2 ** 12")
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsTrailingGarbage() {
+        LocalToolRouter.calculate("2 + 2; delete all files")
     }
 
     @Test
