@@ -29,6 +29,7 @@ The Image & Video Studio currently prepares creative briefs; it does not render 
 - [Android setup and run instructions](docs/ANDROID_SETUP.md)
 - [Gemini / Firebase AI Logic setup](docs/GEMINI_SETUP.md)
 - [Current project status and outstanding configuration](docs/PROJECT_STATUS.md)
+- [JARVIS capability and safe execution model](docs/JARVIS_EXECUTION_MODEL.md)
 - [AI behaviour and provider integration](AI.md)
 - [Architecture](ARCHITECTURE.md)
 - [API boundaries](API.md)
