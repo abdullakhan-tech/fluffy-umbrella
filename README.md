@@ -16,9 +16,11 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Browser speech recognition where supported, plus optional speech-synthesis replies
 - Chat history, notes, theme, accent and UI preferences saved in the current browser's local storage
 - Individual note deletion and conversation clearing
-- Backend health endpoint reports whether an API key is configured
+- Backend health endpoint reports configured providers, app version and process uptime
 - Responsive desktop and mobile navigation
-- CSS-based holographic 3D core, animated orbit rings, floating specialist nodes, avatar rings and studio hologram
+- Interactive 3D neural-field canvas with depth-projected synapses, animated orbital paths, pointer parallax, responsive high-DPI rendering and reduced-motion support
+- Live backend health telemetry: configured provider availability and real server-process uptime (not fabricated compute/bandwidth metrics)
+- CSS-based holographic core, floating specialist nodes, avatar rings and studio hologram
 - Optional 3D motion toggle with saved preference, reduced-motion support, and desktop pointer-depth effects
 - Selectable Research, Coding, Writing, Analysis and Creative specialist modes routed through the AI backend
 - API key never stored in frontend code
@@ -54,7 +56,8 @@ Host the FastAPI app on a Python-capable service for AI chat. Static-only hostin
 - Media generation provider integration
 - Document upload, parsing, embeddings and retrieval-augmented generation
 - Authenticated user accounts and encrypted server-side synced memory
-- Automated tests, rate limiting, abuse protection and production deployment
+- Authentication and authorization for multi-user memory; session IDs are not an account security boundary
+- Production-grade shared rate limiting, abuse protection, monitoring and deployment validation
 
 
 ## Holographic UI expansion
@@ -63,3 +66,7 @@ Host the FastAPI app on a Python-capable service for AI chat. Static-only hostin
 - **Operator Profile:** editable local display name. It is not a verified account identity.
 - **Subscription cards:** informational UI only. Billing, payments and paid entitlements are not connected.
 - **3D presentation:** model cards use depth, hover tilt and animated holographic rings, with responsive mobile layout and reduced-motion support.
+
+
+## Neural visualizer and telemetry
+The overview and assistant core include a canvas-rendered 3D neural field. Nodes are projected from a 3D sphere, nearby nodes are linked as synapses, orbital paths animate around the field, and pointer movement adds parallax on supported devices. Rendering scales for high-DPI displays, pauses when the tab is hidden, and respects reduced-motion preferences. The overview's provider indicators and uptime are read from `/api/health`; no fake GPU, bandwidth, or memory-utilization claims are made.
