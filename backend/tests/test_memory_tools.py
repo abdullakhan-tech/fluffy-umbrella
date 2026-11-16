@@ -1,5 +1,17 @@
-from backend.memory import save_memory, list_memories, delete_memory, clear_memories
-from backend.tools import calculate
+import pytest
+
+from backend.memory import (
+    clear_memories,
+    clear_user_memories,
+    delete_memory,
+    delete_user_memory,
+    list_memories,
+    list_user_memories,
+    save_memory,
+    save_user_memory,
+)
+from backend.tools import calculate, run_tool
+
 
 def test_memory_is_scoped_and_deletable(tmp_path, monkeypatch):
     import backend.memory as memory
@@ -9,13 +21,26 @@ def test_memory_is_scoped_and_deletable(tmp_path, monkeypatch):
     assert list_memories("session-b") == []
     assert delete_memory("session-a", item["id"])
     assert list_memories("session-a") == []
+    assert clear_memories("session-a") == 0
+
+
+def test_authenticated_memory_uses_user_id_not_legacy_session_string(tmp_path, monkeypatch):
+    import backend.memory as memory
+    monkeypatch.setattr(memory, "DB_PATH", tmp_path / "user-memory.db")
+    legacy = save_memory("zaythar_user_7", "legacy unowned content")
+    own = save_user_memory(7, "account-owned content")
+    other = save_user_memory(8, "another account")
+    assert [item["content"] for item in list_user_memories(7)] == ["account-owned content"]
+    assert [item["content"] for item in list_user_memories(8)] == ["another account"]
+    assert list_memories("zaythar_user_7")[0]["id"] == legacy["id"]
+    assert delete_user_memory(8, own["id"]) is False
+    assert delete_user_memory(7, own["id"]) is True
+    assert clear_user_memories(8) == 1
+    assert list_user_memories(7) == []
+
 
 def test_calculator_safe_arithmetic():
     assert calculate("2 + 3 * 4") == "14"
-
-
-import pytest
-from backend.tools import run_tool
 
 
 @pytest.mark.parametrize("name", ["shell", "python", "filesystem", "__import__", "browser"])
