@@ -8,3 +8,7 @@ __pycache__/
 
 # Existing LangGraph artifacts
 .langgraph_api/
+
+# Local persistent memory database
+backend/data/
+*.db
