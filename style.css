@@ -69,3 +69,19 @@ body.motion-off *,body.motion-off *:before,body.motion-off *:after{animation:non
 #openaiBar,#geminiBar{background:linear-gradient(90deg,#7d142b,var(--accent2))}
 #uptimeBar,#rendererBar{background:linear-gradient(90deg,#17694d,var(--green))}
 @media(prefers-reduced-motion:reduce){.neural-stage>.core-sphere,.neural-stage>.orbit,.neural-stage>.core-ring{animation:none!important}}
+
+/* MULTI-AGENT ORCHESTRATION WORKSPACE */
+.agent-workbench{margin-top:20px;border-color:#6e2638;box-shadow:0 0 28px #ff315511,inset 0 1px #ffffff10}
+.agent-workbench textarea{width:100%;min-height:105px;resize:vertical;background:#0a0e14;border:1px solid #424b59;color:var(--text);padding:13px;font:15px/1.5 'Rajdhani',sans-serif}
+.agent-picks{display:flex;flex-wrap:wrap;gap:10px;margin:15px 0}
+.agent-picks label{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #414b59;background:#111720;color:var(--text);font-size:11px;letter-spacing:1px;cursor:pointer}
+.agent-picks input{accent-color:var(--accent);width:15px;height:15px}
+#runAgentTeam:disabled{opacity:.55;cursor:wait}
+#agentRunStatus{margin:13px 0;color:var(--green);font-size:12px;letter-spacing:.7px}
+.agent-results{display:grid;gap:12px;margin-top:16px}
+.agent-results h3{font:600 12px 'Space Grotesk';letter-spacing:1.5px;color:var(--accent2);margin:8px 0 0}
+.agent-final,.agent-result-card{padding:15px;background:linear-gradient(145deg,#151b25,#0a0e14);border:1px solid #3c4654;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.agent-final{border-left:3px solid var(--accent);font-size:14px}
+.agent-result-card b{font-size:11px;letter-spacing:1.3px;color:var(--green)}
+.agent-result-card p{margin:8px 0 0;color:var(--muted);font-size:13px;white-space:pre-wrap}
+@media(max-width:650px){.agent-picks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.agent-picks label{font-size:10px;padding:8px}}
