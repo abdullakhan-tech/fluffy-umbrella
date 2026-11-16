@@ -105,3 +105,31 @@ def test_agent_request_accepts_session_context(monkeypatch):
     })
     assert response.status_code == 200
     assert response.json()["session_id"] == "operator_1"
+
+
+def test_chat_uses_adaptive_jarvis_style_protocol(monkeypatch):
+    captured = {}
+
+    def fake_brain(provider, system_prompt, history, message):
+        captured["prompt"] = system_prompt
+        captured["history"] = history
+        captured["message"] = message
+        return {"reply": "Assalam-o-alaikum. Main madad ke liye tayyar hoon.", "provider": "openai", "model": "test"}
+
+    monkeypatch.setattr(main, "run_brain", fake_brain)
+    response = client.post("/api/chat", json={
+        "message": "Continue our previous plan",
+        "language": "ur-PK",
+        "persona": {"style": "Calm & concise", "empathy": 80, "cognitive_capacity": 90,
+                    "adaptability": 85, "creativity": 60},
+        "history": [{"role": "user", "content": "We are building Zaythar AI"}]
+    })
+
+    assert response.status_code == 200
+    assert response.json()["reply"].startswith("Assalam")
+    assert "high-end cinematic voice assistant" in captured["prompt"]
+    assert "Reply in Urdu" in captured["prompt"]
+    assert "Calm & concise" in captured["prompt"]
+    assert "Never invent citations, test results" in captured["prompt"]
+    assert captured["history"][0]["content"] == "We are building Zaythar AI"
+    assert captured["message"] == "Continue our previous plan"
