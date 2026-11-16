@@ -105,3 +105,30 @@ def test_agent_request_accepts_session_context(monkeypatch):
     })
     assert response.status_code == 200
     assert response.json()["session_id"] == "operator_1"
+
+
+def test_remote_api_requires_bearer_token(monkeypatch):
+    monkeypatch.delenv("ZAYTHAR_API_TOKEN", raising=False)
+    remote_client = TestClient(main.app, client=("203.0.113.10", 12345))
+    response = remote_client.get("/api/memory", params={"session_id": "remote_test"})
+    assert response.status_code == 403
+    assert "ZAYTHAR_API_TOKEN" in response.json()["detail"]
+
+
+def test_remote_api_accepts_configured_bearer_token(monkeypatch):
+    monkeypatch.setenv("ZAYTHAR_API_TOKEN", "test-remote-token")
+    remote_client = TestClient(main.app, client=("203.0.113.10", 12345))
+    response = remote_client.get(
+        "/api/memory",
+        params={"session_id": "remote_test"},
+        headers={"Authorization": "Bearer test-remote-token"},
+    )
+    assert response.status_code == 200
+    assert "memories" in response.json()
+
+
+def test_remote_health_check_remains_public(monkeypatch):
+    monkeypatch.delenv("ZAYTHAR_API_TOKEN", raising=False)
+    remote_client = TestClient(main.app, client=("203.0.113.10", 12345))
+    response = remote_client.get("/api/health")
+    assert response.status_code == 200
