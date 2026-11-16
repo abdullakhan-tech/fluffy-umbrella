@@ -15,3 +15,6 @@ backend/data/
 
 # Firebase CLI debug logs
 *-debug.log
+
+# Optional external companion checkout (never commit upstream data/assets)
+.local/
