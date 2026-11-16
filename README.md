@@ -8,7 +8,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Provider selection: OpenAI, Gemini, or hybrid (tries OpenAI first, then Gemini)
 - Bounded recent conversation context is sent to the selected model
 - SQLite-backed, authenticated account-owned long-term memory with list, add, delete and clear API endpoints
-- Per-account knowledge graph storing explicit subject–predicate–object facts, with add/list/delete/clear API operations and per-session fact limits
+- Per-account knowledge graph storing explicit subject–predicate–object facts, with add/list/delete/clear API operations and per-account fact limits
 - Multi-agent runs receive the signed-in account's memories and graph facts as untrusted context; bounded coordinator summaries are saved back to that account's memory
 - Knowledge Base notes sync to server-side memory when the backend is online
 - Safe local tool router for arithmetic and UTC time; arbitrary code execution is not permitted
