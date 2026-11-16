@@ -1,28 +1,39 @@
 # Zaythar Spatial View — God's Eye View companion
 
-Zaythar can use **God's Eye View as an optional, separately installed spatial-visualization companion**. It is not copied into the Android APK: the upstream project is a browser-based Vite/Node application (Node 24.14+ or 26), while this repository's primary app is native Android/Kotlin. Treat it as a companion service opened in a browser until a separately tested Android/WebView bridge is implemented.
+The complete upstream God's Eye View source is now pinned inside this repository as a Git submodule at `integrations/gods-eye-view/`. This keeps the upstream project intact, preserves its original Git history and license, and avoids mixing its browser runtime into the native Android/Kotlin application.
 
-## Pinned upstream source
+## Included source
 
 - Project: https://github.com/bilawalsidhu/gods-eye-view
-- Author/maintainers: Bilawal Sidhu and the God's Eye View contributors at Halfpixel
-- Pinned commit: `ce671ce500a393be27e3cbb2a08799fbca9b6e28`
-- Source license: MIT; preserve the upstream copyright and permission notice.
+- Upstream commit pinned: `ce671ce500a393be27e3cbb2a08799fbca9b6e28`
+- Local path after submodule initialization: `integrations/gods-eye-view/`
+- Source license: MIT; retain the upstream copyright and permission notice.
 - Upstream license and data terms: [LICENSE](https://github.com/bilawalsidhu/gods-eye-view/blob/ce671ce500a393be27e3cbb2a08799fbca9b6e28/LICENSE), [DATA_SOURCES.md](https://github.com/bilawalsidhu/gods-eye-view/blob/ce671ce500a393be27e3cbb2a08799fbca9b6e28/DATA_SOURCES.md), [model attributions](https://github.com/bilawalsidhu/gods-eye-view/blob/ce671ce500a393be27e3cbb2a08799fbca9b6e28/public/models/README.md).
 
-## Install locally
+## Get the complete files
 
-From the repository root:
+Fresh clone:
 
 ```bash
-bash scripts/fetch-gods-eye-view.sh
-cd .local/gods-eye-view
+git clone --recurse-submodules https://github.com/abdullakhan-tech/fluffy-umbrella.git
+```
+
+Existing clone:
+
+```bash
+git submodule update --init --recursive
+```
+
+Run the companion:
+
+```bash
+cd integrations/gods-eye-view
 npm ci
 npm run doctor
 npm run dev
 ```
 
-The companion runs independently; it does not replace the Android app and is not automatically started by Gradle.
+The upstream project is a Vite/Node browser app and requires Node.js 24.14+ or 26. It runs separately from the Android APK; this repository does not yet embed or automatically launch it inside Zaythar. The optional `scripts/fetch-gods-eye-view.sh` installer remains available for a separate local checkout under `.local/`.
 
 ## Copyright and data guardrails
 
