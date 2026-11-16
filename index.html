@@ -51,7 +51,10 @@
 <section class="panel" id="code"><div class="section-title"><div><span class="eyebrow">DEVELOPER ENVIRONMENT</span><h2>Code <em>Copilot</em></h2></div><span class="live">SAMPLE REQUEST</span></div><div class="card code-card"><div class="editor-bar"><span>● ● ●</span> zaythar-assistant.js <button id="copyCode">COPY SAMPLE</button></div><pre><code>async function askZaythar(message) {
   const response = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + sessionStorage.getItem('zaythar:authToken')
+    },
     body: JSON.stringify({
       message,
       language: 'en-US'
