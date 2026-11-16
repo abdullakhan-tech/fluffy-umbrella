@@ -1,38 +1,34 @@
-# API Reference
+# API and integration boundaries
 
-Base URL: same origin as the FastAPI app.
+## Current Android client
 
-## GET /api/health
-Returns service status, whether an AI key is configured, selected model name, and API version. It never returns the key.
+The current default branch is a native Android application. Its primary AI integration is the Firebase AI Logic Android SDK (com.google.firebase:firebase-ai), not the earlier FastAPI POST /api/chat endpoint described by previous revisions of this document.
 
-Example:
-```json
-{"status":"ok","service":"Zaythar AI","ai_configured":false,"model":"gpt-4o-mini","version":"1.1.0"}
-```
+The Android app also uses:
 
-## POST /api/chat
-Request:
-```json
-{
-  "message":"Hello",
-  "language":"en-US",
-  "persona":{
-    "empathy":70,
-    "cognitive_capacity":70,
-    "adaptability":70,
-    "creativity":70,
-    "style":"Balanced & helpful"
-  },
-  "settings":{},
-  "agent":"general"
-}
-```
+- Firebase Authentication for Google sign-in.
+- Cloud Firestore for UID-scoped conversations, memories, and knowledge facts.
+- Firebase App Check to protect Firebase-backed resources.
+- Jetpack DataStore for local UI preferences.
 
-Allowed specialist modes: `general`, `research`, `coding`, `writing`, `analysis`, `creative`.
+## Gemini requests
 
-Successful response:
-```json
-{"reply":"Hello! How can I help?","model":"configured-model"}
-```
+Gemini model requests are made through Firebase AI Logic. Enable the Gemini Developer API in Firebase Console → AI Services → AI Logic. Firebase handles authorization with its managed service identity; the Android app must not contain a standalone Gemini API key.
 
-Errors include 503 when no server API key is configured, 429 for provider quota/rate limits, and 502 for provider failures. Do not expose provider credentials in requests from the browser.
+## Firestore data boundary
+
+Firestore data is scoped below users/{userId}. The authenticated Firebase UID must match the userId in the document path. The authoritative client access policy is firestore.rules; review and deploy it to the intended Firebase project.
+
+## Required configuration
+
+- app/google-services.json generated for Android package com.aistudio.zaythar.zxtmkr.
+- Google sign-in enabled in Firebase Authentication.
+- Cloud Firestore enabled with the repository's reviewed security rules.
+- Firebase AI Logic enabled with Gemini Developer API.
+- Firebase App Check configured for development and production.
+
+See docs/ANDROID_SETUP.md for setup and build steps.
+
+## Legacy backend
+
+Older revisions described a browser frontend and FastAPI/OpenAI API. That is not the current Android integration contract. Do not deploy or rely on the old endpoint unless a backend is restored and independently tested.
