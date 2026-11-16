@@ -32,10 +32,10 @@ def test_chat_rejects_empty_message():
     assert response.status_code == 422
 
 def test_chat_rate_limit_returns_retry_after(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(main, "_RATE_LIMIT", 1)
     first = client.post("/api/chat", json={"message": "first"})
     second = client.post("/api/chat", json={"message": "second"})
-    assert first.status_code == 503  # key is not validated until after the limiter
+    assert first.status_code == 503  # request reaches the endpoint; no key is configured
     assert second.status_code == 429
     assert second.headers["retry-after"] == "60"
