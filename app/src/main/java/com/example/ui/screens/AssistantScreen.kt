@@ -358,7 +358,11 @@ private fun AssistantOrbCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "PERSONAL INTELLIGENCE / READY",
+                text = when {
+                    isListening -> "PERSONAL INTELLIGENCE / LISTENING"
+                    isBusy -> "PERSONAL INTELLIGENCE / THINKING"
+                    else -> "PERSONAL INTELLIGENCE / READY"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = cyber.cyberGreen
             )
