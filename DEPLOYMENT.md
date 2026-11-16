@@ -1,28 +1,51 @@
-# Deployment
+# Build and deployment
+
+## Current deliverable
+
+The default branch contains a native Android application built with Kotlin and Jetpack Compose. There is no deployable FastAPI web backend or Windows desktop application in the current product path.
 
 ## Requirements
-- Python 3.10+
-- Python-capable hosting for FastAPI
-- Server-side `OPENAI_API_KEY`
-- Optional `OPENAI_MODEL` (defaults to `gpt-4o-mini`)
 
-## Local run
+- JDK 21
+- Android SDK Platform 36 and Build Tools 36
+- Android Studio (recommended) or command-line Android SDK tools
+- Firebase project configured for package `com.aistudio.zaythar.zxtmkr`
 
-Use the repository setup scripts:
-- Windows: `powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_windows.ps1`, add keys to `.env`, then run `scripts\\run_windows.bat`.
-- Linux/macOS: `bash scripts/setup.sh`, add keys to `.env`, then run `bash scripts/run.sh`.
-- Android: install Termux from F-Droid or official GitHub releases, clone the repository, run `bash scripts/setup_termux.sh`, add keys to `.env`, then run `bash scripts/run_termux.sh` and open `http://127.0.0.1:8000` on the same phone. This is the web app in Termux, not a native APK.
+## Configure Firebase
 
-For production, bind to the host-provided port and configure trusted proxy/network access. Do not expose the development server directly to the public internet.
+Follow [Android setup](docs/ANDROID_SETUP.md) and [Gemini setup](docs/GEMINI_SETUP.md). Place the Firebase-generated configuration at `app/google-services.json` locally. Never commit Firebase service-account credentials, signing keys, or standalone Gemini API keys.
 
-The FastAPI app serves the frontend from the same origin. GitHub Pages alone cannot run the Python API.
+## Build
 
-## Production checklist
-- Configure secrets in the host secret manager, never in Git.
-- Use HTTPS and a trusted domain.
-- Configure `/api/health` health checks.
-- Add rate limiting, monitoring, log redaction, and authentication before storing user data.
-- Restrict CORS to trusted origins if frontend/backend are split.
-- Verify provider quotas and spending alerts; test rollback.
+Linux/macOS/Termux with compatible Android SDK:
 
-Committing this document does not deploy the application.
+```bash
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+```
+
+Windows PowerShell:
+
+```powershell
+.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:testDebugUnitTest
+```
+
+The debug APK is produced at `app/build/outputs/apk/debug/app-debug.apk`. For a release, configure a private release signing key outside source control, review App Check release attestation, and build the release variant only after Firebase configuration is verified.
+
+## Firebase deployment
+
+Review `firestore.rules` and verify the target Firebase project before running:
+
+```bash
+firebase projects:list
+firebase deploy --only firestore:rules --project YOUR_FIREBASE_PROJECT_ID
+```
+
+## Platform status
+
+- Android: native application source and CI build workflow are present.
+- Windows: a native desktop client is not implemented yet. The Gradle wrapper works on Windows, but it does not turn the Android app into a Windows application.
+- Termux: the wrapper can be invoked from a compatible Termux/JDK/Android-SDK environment; a full Android SDK toolchain on-device may be impractical. Android Studio or CI is the recommended APK build environment.
+
+A successful CI build does not prove Google sign-in, live Gemini requests, App Check, or real-device behaviour.
