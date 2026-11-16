@@ -26,3 +26,9 @@ The FastAPI app serves the frontend from the same origin. GitHub Pages alone can
 - Verify provider quotas and spending alerts; test rollback.
 
 Committing this document does not deploy the application.
+
+## Remote API access guard
+
+By default, API calls from loopback clients (for example, the same Android phone or desktop running Zaythar locally) continue to work without an extra token. Requests to API routes from non-loopback clients are denied unless the server environment contains `ZAYTHAR_API_TOKEN` and the caller sends it as `Authorization: Bearer <token>`. The health endpoint remains public for monitoring.
+
+Generate a strong random token and store it only in the server's environment or secret manager. Never put it in frontend JavaScript, commit it to Git, or share it in screenshots. This is a shared deployment access gate, **not individual user accounts or per-user memory ownership**. For multi-user public hosting, implement real authentication and authorization with server-derived user IDs before enabling personal memory or knowledge features.
