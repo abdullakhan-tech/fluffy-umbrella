@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from backend.brain import run_brain
+from backend.agents import run_multi_agent
 from backend.memory import save_memory, list_memories, delete_memory, clear_memories, memory_context
 from backend.reasoning import route_tool, reasoning_hint
 from pydantic import BaseModel, Field
@@ -45,7 +46,7 @@ _rate_lock = Lock()
 
 @app.middleware("http")
 async def chat_rate_limit(request: Request, call_next):
-    if request.url.path == "/api/chat" and request.method == "POST":
+    if request.url.path in {"/api/chat", "/api/agents/run"} and request.method == "POST":
         client_ip = request.client.host if request.client else "unknown"
         now = time.monotonic()
         with _rate_lock:
@@ -109,6 +110,26 @@ def chat(body: ChatRequest):
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI request failed: {type(exc).__name__}")
+
+
+class AgentRunRequest(BaseModel):
+    task: str = Field(min_length=1, max_length=12000)
+    agents: list[str] = Field(min_length=1, max_length=4)
+    provider: str = Field(default="hybrid", pattern="^(openai|gemini|hybrid)$")
+    language: str = Field(default="English", max_length=32)
+
+
+@app.post("/api/agents/run")
+def run_agents(body: AgentRunRequest):
+    """Run selected allow-listed specialists concurrently and synthesize their work."""
+    try:
+        return run_multi_agent(body.task, body.agents, body.provider, body.language)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Agent orchestration failed: {type(exc).__name__}")
 
 
 class MemoryRequest(BaseModel):
