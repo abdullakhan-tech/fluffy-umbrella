@@ -33,6 +33,7 @@ The Image & Video Studio currently prepares creative briefs; it does not render 
 - [Architecture](ARCHITECTURE.md)
 - [API boundaries](API.md)
 - [Security policy](SECURITY.md)
+- [Project Wiki home](docs/wiki/Home.md)
 - [Firestore security rules](firestore.rules)
 
 ## Architecture summary
