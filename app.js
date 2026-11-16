@@ -241,7 +241,7 @@ applyVisualControls();
       const response=await fetch('/api/agents/run',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
-          task,agents,provider:store.get('aiProvider','hybrid'),
+          task,agents,provider:store.get('aiProvider','hybrid'),session_id:memorySession,
           language:({'en-US':'English','ur-PK':'Urdu','ar-SA':'Arabic','hi-IN':'Hindi','fr-FR':'French','es-ES':'Spanish','de-DE':'German','zh-CN':'Chinese','ja-JP':'Japanese'})[$('#chatLanguage')?.value]||'English'
         })
       });
@@ -261,4 +261,42 @@ applyVisualControls();
     }catch(error){status.textContent='Team run failed. Check backend and provider configuration.';const detail=document.createElement('p');detail.textContent=error.message||'Unknown orchestration error';resultBox.append(detail);toast('Agent team could not complete the task.')}
     finally{runButton.disabled=false;runButton.textContent='INITIALIZE AGENT TEAM ↗'}
   });
+})();
+
+
+// Session-scoped shared knowledge graph controls.
+(function initKnowledgeGraph(){
+  const subject=$('#factSubject'),predicate=$('#factPredicate'),object=$('#factObject');
+  const save=$('#saveKnowledgeFact'),list=$('#knowledgeFactList');
+  if(!subject||!predicate||!object||!save||!list)return;
+  async function refresh(){
+    try{
+      const response=await fetch('/api/knowledge?session_id='+encodeURIComponent(memorySession));
+      if(!response.ok)throw new Error('Knowledge service unavailable');
+      const data=await response.json();list.replaceChildren();
+      (data.facts||[]).forEach(fact=>{
+        const row=document.createElement('div');row.className='knowledge-fact';
+        const label=document.createElement('span');label.textContent=fact.subject+' · '+fact.predicate+' · '+fact.object;
+        const del=document.createElement('button');del.type='button';del.textContent='DELETE';del.setAttribute('aria-label','Delete knowledge fact');
+        del.addEventListener('click',async()=>{
+          const response=await fetch('/api/knowledge/'+fact.id+'?session_id='+encodeURIComponent(memorySession),{method:'DELETE'});
+          if(response.ok)refresh();else toast('Fact delete failed.');
+        });
+        row.append(label,del);list.append(row);
+      });
+    }catch(error){list.textContent='Knowledge graph unavailable until the backend is online.'}
+  }
+  save.addEventListener('click',async()=>{
+    const values={subject:subject.value.trim(),predicate:predicate.value.trim(),object:object.value.trim()};
+    if(!values.subject||!values.predicate||!values.object){toast('Subject, relation aur object teeno fill karein.');return}
+    save.disabled=true;
+    try{
+      const response=await fetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,session_id:memorySession,source:'operator'})});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.detail||'Could not save fact');
+      subject.value='';predicate.value='';object.value='';await refresh();toast('Knowledge fact saved.');
+    }catch(error){toast(error.message||'Knowledge save failed.')}
+    finally{save.disabled=false}
+  });
+  refresh();
 })();
