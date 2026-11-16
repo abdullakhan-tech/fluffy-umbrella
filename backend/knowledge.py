@@ -1,6 +1,6 @@
-"""Shared, session-scoped knowledge graph for specialist agents.
+"""Account-scoped knowledge graph for specialist agents.
 
-Facts are explicit user/agent-provided triples. This module does not infer
+The API passes a server-derived account namespace, never a client-selected ID. Facts are explicit user/agent-provided triples. This module does not infer
 or silently promote model output into verified knowledge.
 """
 import sqlite3
