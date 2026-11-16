@@ -47,3 +47,25 @@ def test_multi_agent_isolates_a_specialist_failure(monkeypatch):
 def test_multi_agent_rejects_invalid_input(task, names):
     with pytest.raises(ValueError):
         agents.run_multi_agent(task, names)
+
+
+def test_multi_agent_includes_shared_context_and_saves_summary(monkeypatch):
+    captured = []
+    monkeypatch.setattr(agents, "memory_context", lambda session: "Prior session preference")
+    monkeypatch.setattr(agents, "knowledge_context", lambda session: "Zaythar — uses — hybrid")
+    monkeypatch.setattr(agents, "save_memory", lambda session, content: captured.append((session, content)))
+
+    def fake_run_brain(provider, system_prompt, history, message):
+        if "lead coordinator" in system_prompt.lower():
+            assert "Prior session preference" in message
+            assert "Zaythar — uses — hybrid" in message
+            return {"reply": "Remembered result", "provider": "openai", "model": "test"}
+        assert "Prior session preference" in message
+        assert "Zaythar — uses — hybrid" in message
+        return {"reply": "Specialist result", "provider": "openai", "model": "test"}
+
+    monkeypatch.setattr(agents, "run_brain", fake_run_brain)
+    result = agents.run_multi_agent("Continue the work", ["analysis"], session_id="operator_1")
+    assert result["reply"] == "Remembered result"
+    assert captured and captured[0][0] == "operator_1"
+    assert "Remembered result" in captured[0][1]
