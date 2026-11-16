@@ -35,3 +35,5 @@ def chat(body: ChatRequest):
         return {"reply": response.choices[0].message.content or ""}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI provider request failed: {type(exc).__name__}")
+
+app.mount("/", StaticFiles(directory=".", html=True), name="web")
