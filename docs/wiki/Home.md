@@ -18,7 +18,7 @@ Welcome to the project handbook for **Zaythar AI**. This wiki-style documentatio
 - [Android setup](../ANDROID_SETUP.md)
 - [Gemini setup](../GEMINI_SETUP.md)
 - [Project status](../PROJECT_STATUS.md)
-- [JARVIS execution model](JARVIS_EXECUTION_MODEL.md)
+- [JARVIS execution model](../JARVIS_EXECUTION_MODEL.md)
 
 ## Documentation accuracy
 
