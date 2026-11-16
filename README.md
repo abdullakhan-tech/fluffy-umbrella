@@ -4,7 +4,10 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 
 ## Working features
 - Multilingual chat (English, Urdu, Arabic, Hindi, French, Spanish, German, Chinese and Japanese)
-- OpenAI-powered chat through a server-side API key
+- Zaythar Neural Core orchestration layer with OpenAI and Gemini provider adapters
+- Provider selection: OpenAI, Gemini, or hybrid (tries OpenAI first, then Gemini)
+- Bounded recent conversation context is sent to the selected model
+- Provider API keys stay server-side in environment variables
 - Persona settings and language preference included with chat requests
 - Browser speech recognition where supported, plus optional speech-synthesis replies
 - Chat history, notes, theme, accent and UI preferences saved in the current browser's local storage
@@ -31,7 +34,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 ## Run locally
 1. Install Python 3.10+.
 2. From the repository root, install dependencies: `pip install -r backend/requirements.txt`.
-3. Copy `.env.example` to `.env` and set your server-side `OPENAI_API_KEY`.
+3. Copy `.env.example` to `.env` and set at least one server-side key: `OPENAI_API_KEY` and/or `GEMINI_API_KEY`. Set `ZAYTHAR_AI_PROVIDER=hybrid` for OpenAI-first fallback to Gemini.
 4. Start the app: `uvicorn backend.main:app --reload`.
 5. Open http://127.0.0.1:8000.
 
@@ -41,6 +44,7 @@ The backend loads the root `.env` file. Never commit a real `.env` file or put a
 Host the FastAPI app on a Python-capable service for AI chat. Static-only hosting such as GitHub Pages cannot run the Python backend. For a separate frontend/backend origin, configure a narrowly scoped CORS allowlist before enabling cross-origin requests; the current backend intentionally does not enable wildcard CORS.
 
 ## Remaining major upgrades
+- Training a proprietary foundation model from scratch (the current Neural Core orchestrates hosted models; it is not a newly trained LLM)
 - Real agent orchestration and task tools with explicit user permissions
 - Media generation provider integration
 - Document upload, parsing, embeddings and retrieval-augmented generation
