@@ -69,3 +69,24 @@ def test_multi_agent_includes_shared_context_and_saves_summary(monkeypatch):
     assert result["reply"] == "Remembered result"
     assert captured and captured[0][0] == "operator_1"
     assert "Remembered result" in captured[0][1]
+
+
+def test_multi_agent_uses_account_owned_context_and_persists_to_same_account(monkeypatch):
+    captured = []
+    saved = []
+    monkeypatch.setattr(agents, "user_memory_context", lambda user_id: f"private memory for {user_id}")
+    monkeypatch.setattr(agents, "user_knowledge_context", lambda user_id: f"private facts for {user_id}")
+    monkeypatch.setattr(agents, "save_user_memory", lambda user_id, content: saved.append((user_id, content)))
+
+    def fake_run_brain(provider, system_prompt, history, message):
+        if "lead coordinator" in system_prompt.lower():
+            assert "private memory for 41" in message
+            assert "private facts for 41" in message
+            return {"reply": "Account-scoped result", "provider": "openai", "model": "test"}
+        assert "private memory for 41" in message
+        return {"reply": "Specialist result", "provider": "openai", "model": "test"}
+
+    monkeypatch.setattr(agents, "run_brain", fake_run_brain)
+    result = agents.run_multi_agent("Continue securely", ["analysis"], user_id=41)
+    assert result["reply"] == "Account-scoped result"
+    assert saved and saved[0][0] == 41
