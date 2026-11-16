@@ -165,7 +165,7 @@ def user_for_token(token: str) -> dict | None:
 
 
 def revoke_session(token: str) -> bool:
-    if not isinstance(token, str) or not token:
+    if not isinstance(token, str) or not 32 <= len(token) <= 256:
         return False
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     with _connect() as db:
