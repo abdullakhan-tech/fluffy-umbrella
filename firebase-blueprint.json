@@ -26,9 +26,98 @@
       },
       "required": ["userId", "operatorName", "createdAt", "updatedAt"]
     },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Named multi-turn conversation thread owned by an authenticated user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the session owner."
+        },
+        "title": {
+          "type": "string",
+          "description": "Thread title (1-120 characters)."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Primary agent role for this thread (1-40 characters)."
+        },
+        "lastMessagePreview": {
+          "type": "string",
+          "description": "Latest message preview snippet (0-300 characters)."
+        },
+        "messageCount": {
+          "type": "integer",
+          "description": "Message count in the session (0-5000)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "title", "agent", "lastMessagePreview", "messageCount", "createdAt", "updatedAt"]
+    },
+    "SessionMessage": {
+      "title": "SessionMessage",
+      "description": "Message belonging to a specific chat session with optional web grounding citations and vision flag.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the message owner."
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Parent ChatSession document ID."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "description": "Message author role."
+        },
+        "text": {
+          "type": "string",
+          "description": "Message body text (1-24000 characters)."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent identifier handling the message."
+        },
+        "modelLabel": {
+          "type": "string",
+          "description": "Model, web grounding, or local-tool label used to produce the reply."
+        },
+        "hasImage": {
+          "type": "boolean",
+          "description": "Whether this turn involved a Camera Eyes visual input."
+        },
+        "webSources": {
+          "type": "array",
+          "description": "Bounded list (max 10) of retrieved public web source titles or URLs."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "sessionId", "role", "text", "agent", "modelLabel", "hasImage", "webSources", "createdAt", "updatedAt"]
+    },
     "ChatMessage": {
       "title": "ChatMessage",
-      "description": "User or AI assistant conversation message stored in user-scoped history.",
+      "description": "Legacy single-thread conversation message stored in user-scoped history.",
       "type": "object",
       "properties": {
         "userId": {
@@ -114,7 +203,7 @@
         },
         "source": {
           "type": "string",
-          "description": "Origin of the fact (e.g. operator)."
+          "description": "Origin of the fact (e.g. operator, neural_brain)."
         },
         "createdAt": {
           "type": "string",
@@ -128,6 +217,106 @@
         }
       },
       "required": ["userId", "subject", "predicate", "objectValue", "source", "createdAt", "updatedAt"]
+    },
+    "PluginConfig": {
+      "title": "PluginConfig",
+      "description": "Declarative built-in or user-authored AI capability plugin configuration.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the plugin configuration owner."
+        },
+        "pluginKey": {
+          "type": "string",
+          "description": "Alphanumeric/dash/underscore plugin key (1-64 characters)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the plugin (1-80 characters)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Plugin capability description (1-400 characters)."
+        },
+        "category": {
+          "type": "string",
+          "description": "Plugin category label (1-40 characters)."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether the plugin is currently plugged in and active."
+        },
+        "systemInstruction": {
+          "type": "string",
+          "description": "Declarative prompt directive or rule injected when enabled (0-2000 characters)."
+        },
+        "isBuiltIn": {
+          "type": "boolean",
+          "description": "True if built-in system plugin; false if custom user plugin."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "pluginKey", "name", "description", "category", "enabled", "systemInstruction", "isBuiltIn", "createdAt", "updatedAt"]
+    },
+    "BrainRun": {
+      "title": "BrainRun",
+      "description": "Structured AI Brain cognitive execution snapshot saved to Cloud Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner."
+        },
+        "mode": {
+          "type": "string",
+          "description": "Neural function mode (e.g. reasoner, consolidator, strategist)."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Input prompt or context analyzed (1-4000 characters)."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Structured executive synthesis (1-12000 characters)."
+        },
+        "confidence": {
+          "type": "integer",
+          "description": "Estimated reasoning confidence score (0-100)."
+        },
+        "insights": {
+          "type": "array",
+          "description": "Bounded list (max 12) of extracted neural insights or steps."
+        },
+        "suggestedTriplesCount": {
+          "type": "integer",
+          "description": "Count of extracted knowledge triples (0-20)."
+        },
+        "modelUsed": {
+          "type": "string",
+          "description": "Gemini model name used for the cognitive run."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "mode", "prompt", "summary", "confidence", "insights", "suggestedTriplesCount", "modelUsed", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -135,9 +324,17 @@
       "schema": { "$ref": "#/entities/UserProfile" },
       "description": "User profile document keyed by Firebase Auth UID."
     },
+    "/users/{userId}/chat_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/ChatSession" },
+      "description": "User-scoped multi-session conversation threads."
+    },
+    "/users/{userId}/chat_sessions/{sessionId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/SessionMessage" },
+      "description": "Messages scoped to a specific user chat session."
+    },
     "/users/{userId}/messages/{messageId}": {
       "schema": { "$ref": "#/entities/ChatMessage" },
-      "description": "User-scoped AI conversation history."
+      "description": "Legacy single-thread AI conversation history."
     },
     "/users/{userId}/memories/{memoryId}": {
       "schema": { "$ref": "#/entities/MemoryNote" },
@@ -146,6 +343,14 @@
     "/users/{userId}/knowledge_facts/{factId}": {
       "schema": { "$ref": "#/entities/KnowledgeFact" },
       "description": "User-scoped structured knowledge graph triples."
+    },
+    "/users/{userId}/plugins/{pluginId}": {
+      "schema": { "$ref": "#/entities/PluginConfig" },
+      "description": "User-scoped plugin activation and custom declarative plugin configurations."
+    },
+    "/users/{userId}/brain_runs/{runId}": {
+      "schema": { "$ref": "#/entities/BrainRun" },
+      "description": "User-scoped AI Brain cognitive analysis history."
     }
   }
 }

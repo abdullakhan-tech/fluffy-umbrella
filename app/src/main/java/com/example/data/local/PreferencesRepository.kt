@@ -36,6 +36,7 @@ data class ZaytharPreferences(
     val selectedProviderRoute: String = "hybrid",
     val languageCode: String = "en-US",
     val speakReplies: Boolean = false,
+    val webConnectEnabled: Boolean = true,
     val operatorName: String = "OPERATOR 01"
 )
 
@@ -62,6 +63,7 @@ class PreferencesRepository(private val context: Context) {
         val PROVIDER_ROUTE = stringPreferencesKey("provider_route")
         val LANGUAGE_CODE = stringPreferencesKey("language_code")
         val SPEAK_REPLIES = booleanPreferencesKey("speak_replies")
+        val WEB_CONNECT = booleanPreferencesKey("web_connect")
         val OPERATOR_NAME = stringPreferencesKey("operator_name")
     }
 
@@ -88,6 +90,7 @@ class PreferencesRepository(private val context: Context) {
             selectedProviderRoute = prefs[Keys.PROVIDER_ROUTE] ?: "hybrid",
             languageCode = prefs[Keys.LANGUAGE_CODE] ?: "en-US",
             speakReplies = prefs[Keys.SPEAK_REPLIES] ?: false,
+            webConnectEnabled = prefs[Keys.WEB_CONNECT] ?: true,
             operatorName = prefs[Keys.OPERATOR_NAME] ?: "OPERATOR 01"
         )
     }
@@ -116,6 +119,7 @@ class PreferencesRepository(private val context: Context) {
                 selectedProviderRoute = prefs[Keys.PROVIDER_ROUTE] ?: "hybrid",
                 languageCode = prefs[Keys.LANGUAGE_CODE] ?: "en-US",
                 speakReplies = prefs[Keys.SPEAK_REPLIES] ?: false,
+                webConnectEnabled = prefs[Keys.WEB_CONNECT] ?: true,
                 operatorName = prefs[Keys.OPERATOR_NAME] ?: "OPERATOR 01"
             )
             val next = transform(current)
@@ -140,6 +144,7 @@ class PreferencesRepository(private val context: Context) {
             prefs[Keys.PROVIDER_ROUTE] = next.selectedProviderRoute
             prefs[Keys.LANGUAGE_CODE] = next.languageCode
             prefs[Keys.SPEAK_REPLIES] = next.speakReplies
+            prefs[Keys.WEB_CONNECT] = next.webConnectEnabled
             prefs[Keys.OPERATOR_NAME] = next.operatorName
         }
     }

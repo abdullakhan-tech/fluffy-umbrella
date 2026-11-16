@@ -6,7 +6,12 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE)
 class LocalToolRouterTest {
 
     @Test
@@ -37,6 +42,29 @@ class LocalToolRouterTest {
         val result = LocalToolRouter.routeTool("What is the current UTC time?")
         assertNotNull(result)
         assertEquals("utc_time", result?.tool)
-        assertTrue(result?.result?.endsWith("Z") == true)
+        assertTrue(result?.result?.contains("UTC") == true)
+        assertTrue(result?.result?.contains("Z)") == true)
+    }
+
+    @Test
+    fun convertsUnitsWhenPluginEnabledAndSkipsWhenDisabled() {
+        val enabledResult = LocalToolRouter.routeTool("100 km to mi", setOf("unit_converter"))
+        assertNotNull(enabledResult)
+        assertEquals("unit_converter", enabledResult?.tool)
+        assertTrue(enabledResult?.result?.contains("62.137") == true)
+
+        val disabledResult = LocalToolRouter.routeTool("100 km to mi", setOf("calculator"))
+        assertNull(disabledResult)
+    }
+
+    @Test
+    fun validatesAndFormatsJsonPayload() {
+        val result = LocalToolRouter.routeTool(
+            "inspect json {\"name\":\"Zaythar\",\"active\":true}",
+            setOf("json_inspector")
+        )
+        assertNotNull(result)
+        assertEquals("json_inspector", result?.tool)
+        assertTrue(result?.result?.contains("Valid JSON Object (2 keys)") == true)
     }
 }

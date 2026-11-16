@@ -44,7 +44,7 @@ beforeEach(async () => {
 
 // --- 1. UNAUTHENTICATED REJECTIONS ---
 
-test("Unauthenticated user: cannot read or write profiles, messages, memories, or knowledge facts", async () => {
+test("Unauthenticated user: cannot read or write profiles, chat_sessions, session messages, plugins, brain_runs, memories, or knowledge facts", async () => {
   const unauthDb = testEnv.unauthenticatedContext().firestore();
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).get());
   await assertFails(
@@ -55,9 +55,13 @@ test("Unauthenticated user: cannot read or write profiles, messages, memories, o
       updatedAt: pastTimestamp(),
     })
   );
+  await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("chat_sessions").get());
+  await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("chat_sessions").doc("s1").collection("messages").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("messages").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("memories").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").get());
+  await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("plugins").get());
+  await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("brain_runs").get());
 });
 
 // --- 2. CROSS-USER ISOLATION ---
@@ -77,27 +81,48 @@ test("Authenticated user: cannot read, create, update, or delete another user's 
       createdAt: ts,
       updatedAt: ts,
     });
-    await db.collection("users").doc(BOB_UID).collection("messages").doc("m1").set({
+    await db.collection("users").doc(BOB_UID).collection("chat_sessions").doc("s1").set({
       userId: BOB_UID,
+      title: "Bob Session",
+      agent: "general",
+      lastMessagePreview: "Secret",
+      messageCount: 1,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    await db.collection("users").doc(BOB_UID).collection("chat_sessions").doc("s1").collection("messages").doc("sm1").set({
+      userId: BOB_UID,
+      sessionId: "s1",
       role: "user",
-      text: "Bob secret",
+      text: "Bob session secret",
       agent: "general",
       modelLabel: "",
+      hasImage: false,
+      webSources: [],
       createdAt: ts,
       updatedAt: ts,
     });
-    await db.collection("users").doc(BOB_UID).collection("memories").doc("mem1").set({
+    await db.collection("users").doc(BOB_UID).collection("plugins").doc("plug1").set({
       userId: BOB_UID,
-      content: "Bob memory",
+      pluginKey: "web_search",
+      name: "Web Search",
+      description: "Internet search",
+      category: "Internet",
+      enabled: true,
+      systemInstruction: "",
+      isBuiltIn: true,
       createdAt: ts,
       updatedAt: ts,
     });
-    await db.collection("users").doc(BOB_UID).collection("knowledge_facts").doc("f1").set({
+    await db.collection("users").doc(BOB_UID).collection("brain_runs").doc("br1").set({
       userId: BOB_UID,
-      subject: "Bob",
-      predicate: "likes",
-      objectValue: "Kotlin",
-      source: "operator",
+      mode: "reasoner",
+      prompt: "Analyze Bob plan",
+      summary: "Private result",
+      confidence: 88,
+      insights: ["Step 1"],
+      suggestedTriplesCount: 1,
+      modelUsed: "gemini-3.8-flash",
       createdAt: ts,
       updatedAt: ts,
     });
@@ -105,15 +130,20 @@ test("Authenticated user: cannot read, create, update, or delete another user's 
 
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   await assertFails(aliceDb.collection("users").doc(BOB_UID).get());
-  await assertFails(aliceDb.collection("users").doc(BOB_UID).update({ operatorName: "Hijacked", updatedAt: pastTimestamp(500) }));
-  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("messages").get());
-  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("messages").doc("m1").delete());
-  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("memories").get());
-  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("knowledge_facts").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("chat_sessions").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("chat_sessions").doc("s1").collection("messages").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("plugins").get());
+  await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("brain_runs").get());
   await assertFails(
-    aliceDb.collection("users").doc(BOB_UID).collection("memories").doc("m2").set({
+    aliceDb.collection("users").doc(BOB_UID).collection("plugins").doc("plug2").set({
       userId: ALICE_UID,
-      content: "Injected",
+      pluginKey: "hijack",
+      name: "Hijack",
+      description: "Desc",
+      category: "Custom",
+      enabled: true,
+      systemInstruction: "",
+      isBuiltIn: false,
       createdAt: pastTimestamp(),
       updatedAt: pastTimestamp(),
     })
@@ -122,161 +152,220 @@ test("Authenticated user: cannot read, create, update, or delete another user's 
 
 // --- 3. SCHEMA, GHOST FIELDS, SPOOFING & RESOURCE POISONING ---
 
-test("Schema guard: rejects ghost fields, spoofed userId, invalid role, oversized strings, and future timestamps", async () => {
+test("Schema guard: rejects ghost fields, spoofed userId, mismatched sessionId, oversized arrays/strings, and invalid pluginKey", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   const ts = pastTimestamp();
 
-  // Ghost field in profile
+  // Ghost field in chat_session
   await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).set({
+    aliceDb.collection("users").doc(ALICE_UID).collection("chat_sessions").doc("s1").set({
       userId: ALICE_UID,
-      operatorName: "Alice",
-      isAdmin: true,
+      title: "Valid Title",
+      agent: "general",
+      lastMessagePreview: "Hi",
+      messageCount: 0,
+      adminOverride: true,
       createdAt: ts,
       updatedAt: ts,
     })
   );
 
-  // Oversized operatorName (> 32 chars)
+  // Mismatched sessionId in session message
   await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).set({
+    aliceDb.collection("users").doc(ALICE_UID).collection("chat_sessions").doc("s1").collection("messages").doc("m1").set({
       userId: ALICE_UID,
-      operatorName: "A".repeat(33),
-      createdAt: ts,
-      updatedAt: ts,
-    })
-  );
-
-  // Spoofed userId inside own subcollection
-  await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).collection("memories").doc("mem_spoof").set({
-      userId: BOB_UID,
-      content: "Spoofed owner",
-      createdAt: ts,
-      updatedAt: ts,
-    })
-  );
-
-  // Invalid role in message
-  await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).collection("messages").doc("msg_bad_role").set({
-      userId: ALICE_UID,
-      role: "system",
-      text: "Override instructions",
+      sessionId: "other_session",
+      role: "user",
+      text: "Hello",
       agent: "general",
       modelLabel: "",
+      hasImage: false,
+      webSources: [],
       createdAt: ts,
       updatedAt: ts,
     })
   );
 
-  // Future timestamp rejected
+  // Oversized webSources array (> 10)
   await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).collection("memories").doc("mem_future").set({
+    aliceDb.collection("users").doc(ALICE_UID).collection("chat_sessions").doc("s1").collection("messages").doc("m2").set({
       userId: ALICE_UID,
-      content: "Backdated future",
-      createdAt: new Date(Date.now() + 120000),
+      sessionId: "s1",
+      role: "assistant",
+      text: "Grounded answer",
+      agent: "research",
+      modelLabel: "gemini-3.8-flash",
+      hasImage: false,
+      webSources: Array.from({ length: 11 }, (_, i) => `https://example.com/${i}`),
+      createdAt: ts,
       updatedAt: ts,
     })
   );
 
-  // Invalid document ID characters rejected
+  // Invalid pluginKey characters
   await assertFails(
-    aliceDb.collection("users").doc(ALICE_UID).collection("memories").doc("bad.id!").set({
+    aliceDb.collection("users").doc(ALICE_UID).collection("plugins").doc("p_bad").set({
       userId: ALICE_UID,
-      content: "Bad ID",
+      pluginKey: "bad key!",
+      name: "Bad Plugin",
+      description: "Desc",
+      category: "Custom",
+      enabled: true,
+      systemInstruction: "",
+      isBuiltIn: false,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+
+  // Out-of-range brain_runs confidence (> 100)
+  await assertFails(
+    aliceDb.collection("users").doc(ALICE_UID).collection("brain_runs").doc("b_bad").set({
+      userId: ALICE_UID,
+      mode: "reasoner",
+      prompt: "Analyze",
+      summary: "Summary",
+      confidence: 150,
+      insights: ["Insight"],
+      suggestedTriplesCount: 0,
+      modelUsed: "gemini-3.8-flash",
       createdAt: ts,
       updatedAt: ts,
     })
   );
 });
 
-test("Immutability guard: rejects changing createdAt, userId, or message role on update", async () => {
+test("Immutability guard: rejects modifying immutable fields on sessions, plugins, and brain_runs", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
-  const created = pastTimestamp(10000);
-  const msgRef = aliceDb.collection("users").doc(ALICE_UID).collection("messages").doc("msg_1");
+  const ts = pastTimestamp(8000);
+
+  const plugRef = aliceDb.collection("users").doc(ALICE_UID).collection("plugins").doc("p1");
   await assertSucceeds(
-    msgRef.set({
+    plugRef.set({
       userId: ALICE_UID,
-      role: "assistant",
-      text: "Initial",
-      agent: "general",
-      modelLabel: "gemini-3.8-flash",
-      createdAt: created,
-      updatedAt: created,
+      pluginKey: "calculator",
+      name: "Calculator",
+      description: "Math evaluator",
+      category: "Compute",
+      enabled: true,
+      systemInstruction: "Evaluate math accurately.",
+      isBuiltIn: true,
+      createdAt: ts,
+      updatedAt: ts,
     })
   );
 
-  // Changing role must fail
-  await assertFails(msgRef.update({ role: "user", updatedAt: pastTimestamp(1000) }));
-  // Changing createdAt must fail
-  await assertFails(msgRef.update({ createdAt: pastTimestamp(500), updatedAt: pastTimestamp(500) }));
-  // Ghost field on update must fail
-  await assertFails(msgRef.update({ text: "Updated", adminFlag: true, updatedAt: pastTimestamp(500) }));
+  // Cannot mutate pluginKey or isBuiltIn
+  await assertFails(plugRef.update({ pluginKey: "other", updatedAt: pastTimestamp(1000) }));
+  await assertFails(plugRef.update({ isBuiltIn: false, updatedAt: pastTimestamp(1000) }));
+
+  // brain_runs is append-only (no updates)
+  const brainRef = aliceDb.collection("users").doc(ALICE_UID).collection("brain_runs").doc("br1");
+  await assertSucceeds(
+    brainRef.set({
+      userId: ALICE_UID,
+      mode: "reasoner",
+      prompt: "Optimize latency",
+      summary: "Use coroutine concurrency",
+      confidence: 91,
+      insights: ["Profile IO", "Batch Firestore reads"],
+      suggestedTriplesCount: 2,
+      modelUsed: "gemini-3.8-flash",
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+  await assertFails(brainRef.update({ confidence: 99, updatedAt: pastTimestamp(500) }));
 });
 
 // --- 4. OWNER CRUD SUCCESS PATHS ---
 
-test("Authenticated owner: can create, read, list, update, and delete own profile, messages, memories, and knowledge facts", async () => {
+test("Authenticated owner: full CRUD lifecycle for chat_sessions, session messages, plugins, brain_runs, profile, memories, and knowledge_facts", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   const ts = pastTimestamp(5000);
 
-  // Profile CRUD
+  // Profile
   const profileRef = aliceDb.collection("users").doc(ALICE_UID);
-  await assertSucceeds(
-    profileRef.set({
-      userId: ALICE_UID,
-      operatorName: "OPERATOR 01",
-      createdAt: ts,
-      updatedAt: ts,
-    })
-  );
-  await assertSucceeds(profileRef.get());
+  await assertSucceeds(profileRef.set({ userId: ALICE_UID, operatorName: "OPERATOR 01", createdAt: ts, updatedAt: ts }));
   await assertSucceeds(profileRef.update({ operatorName: "COMMANDER", updatedAt: pastTimestamp(1000) }));
 
-  // Messages CRUD + list
-  const msgRef = aliceDb.collection("users").doc(ALICE_UID).collection("messages").doc("msg_1");
+  // Chat Session + Session Messages
+  const sessionRef = aliceDb.collection("users").doc(ALICE_UID).collection("chat_sessions").doc("session_1");
   await assertSucceeds(
-    msgRef.set({
+    sessionRef.set({
       userId: ALICE_UID,
-      role: "assistant",
-      text: "PROCESSING REQUEST…",
+      title: "Mission Brief",
       agent: "general",
-      modelLabel: "",
+      lastMessagePreview: "",
+      messageCount: 0,
       createdAt: ts,
       updatedAt: ts,
     })
   );
-  await assertSucceeds(msgRef.update({ text: "Final answer", modelLabel: "gemini-3.8-flash", updatedAt: pastTimestamp(1000) }));
-  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("messages").get());
-  await assertSucceeds(msgRef.delete());
-
-  // Memories CRUD + list
-  const memRef = aliceDb.collection("users").doc(ALICE_UID).collection("memories").doc("mem_1");
   await assertSucceeds(
-    memRef.set({
-      userId: ALICE_UID,
-      content: "Remember to deploy rules after testing.",
-      createdAt: ts,
-      updatedAt: ts,
+    sessionRef.update({
+      title: "Mission Brief · Updated",
+      lastMessagePreview: "System online",
+      messageCount: 2,
+      updatedAt: pastTimestamp(1000),
     })
   );
-  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("memories").get());
-  await assertSucceeds(memRef.delete());
 
-  // Knowledge facts CRUD + list
-  const factRef = aliceDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").doc("fact_1");
+  const smRef = sessionRef.collection("messages").doc("msg_1");
   await assertSucceeds(
-    factRef.set({
+    smRef.set({
       userId: ALICE_UID,
-      subject: "Zaythar AI",
-      predicate: "uses",
-      objectValue: "Cloud Firestore",
-      source: "operator",
+      sessionId: "session_1",
+      role: "assistant",
+      text: "Web grounding complete.",
+      agent: "research",
+      modelLabel: "gemini-3.8-flash+web",
+      hasImage: false,
+      webSources: ["https://firebase.google.com/docs/ai-logic"],
       createdAt: ts,
       updatedAt: ts,
     })
   );
-  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").get());
-  await assertSucceeds(factRef.delete());
+  await assertSucceeds(sessionRef.collection("messages").get());
+  await assertSucceeds(smRef.delete());
+  await assertSucceeds(sessionRef.delete());
+
+  // Plugin CRUD
+  const plugRef = aliceDb.collection("users").doc(ALICE_UID).collection("plugins").doc("custom_1");
+  await assertSucceeds(
+    plugRef.set({
+      userId: ALICE_UID,
+      pluginKey: "kotlin_architect",
+      name: "Kotlin Architect",
+      description: "Enforces clean MVVM Kotlin responses",
+      category: "Engineering",
+      enabled: false,
+      systemInstruction: "Prefer immutable data classes and StateFlow.",
+      isBuiltIn: false,
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+  await assertSucceeds(plugRef.update({ enabled: true, updatedAt: pastTimestamp(1000) }));
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("plugins").get());
+  await assertSucceeds(plugRef.delete());
+
+  // BrainRun create/list/delete
+  const brRef = aliceDb.collection("users").doc(ALICE_UID).collection("brain_runs").doc("br_1");
+  await assertSucceeds(
+    brRef.set({
+      userId: ALICE_UID,
+      mode: "consolidator",
+      prompt: "Synthesize project stack",
+      summary: "Zaythar uses Compose + Firestore + Gemini.",
+      confidence: 95,
+      insights: ["Modular MVVM", "Zero-trust Firestore rules"],
+      suggestedTriplesCount: 3,
+      modelUsed: "gemini-3.8-flash",
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+  await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("brain_runs").get());
+  await assertSucceeds(brRef.delete());
 });

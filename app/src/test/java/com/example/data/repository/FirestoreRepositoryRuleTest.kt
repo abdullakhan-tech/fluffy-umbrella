@@ -2,6 +2,7 @@ package com.example.data.repository
 
 import com.example.base.FirestoreEmulatorTestBase
 import com.example.data.remote.FirestoreRepository
+import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -73,6 +75,102 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     @Test
+    fun chatSessionsAndSessionMessages_authenticatedOwner_fullLifecycleSucceeds() = runBlocking {
+        val uid = signInTestUser(ALICE_EMAIL)
+        val store = FirestoreSessionAndBrainStore(firestore)
+
+        val sessionId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            store.createChatSession(title = "Architecture Thread", agent = "coder").getOrThrow()
+        }
+        assertTrue(sessionId.isNotBlank())
+
+        val userMsgId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            store.addSessionMessage(
+                sessionId = sessionId,
+                role = "user",
+                text = "Explain Compose state hoisting",
+                agent = "coder",
+                autoTitleFromFirstPrompt = "Compose state hoisting"
+            ).getOrThrow()
+        }
+        assertTrue(userMsgId.isNotBlank())
+
+        val replyId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            store.addSessionMessage(
+                sessionId = sessionId,
+                role = "assistant",
+                text = "State hoisting moves state up to callers.",
+                agent = "coder",
+                modelLabel = "gemini-3.8-flash+web",
+                webSources = listOf("https://developer.android.com/develop/ui/compose/state")
+            ).getOrThrow()
+        }
+        assertTrue(replyId.isNotBlank())
+
+        val messages = withTimeout(FLOW_TIMEOUT_MS) {
+            store.observeSessionMessages(uid, sessionId).first { list ->
+                list.any { it.id == replyId }
+            }
+        }
+        val assistantMsg = messages.first { it.id == replyId }
+        assertEquals(listOf("https://developer.android.com/develop/ui/compose/state"), assistantMsg.webSources)
+
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.renameChatSession(sessionId, "Compose State Thread") }.isSuccess)
+        val sessions = withTimeout(FLOW_TIMEOUT_MS) {
+            store.observeChatSessions(uid).first { list -> list.any { it.id == sessionId && it.title == "Compose State Thread" } }
+        }
+        assertTrue(sessions.any { it.id == sessionId && it.messageCount >= 2L })
+
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.clearSessionMessages(sessionId) }.isSuccess)
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.deleteChatSession(sessionId) }.isSuccess)
+    }
+
+    @Test
+    fun pluginsAndBrainRuns_authenticatedOwner_seedToggleCustomAndBrainCrudSucceeds() = runBlocking {
+        val uid = signInTestUser(ALICE_EMAIL)
+        val store = FirestoreSessionAndBrainStore(firestore)
+
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.seedBuiltInPluginsIfMissing() }.isSuccess)
+        val seeded = withTimeout(FLOW_TIMEOUT_MS) {
+            store.observePlugins(uid).first { it.any { p -> p.pluginKey == "calculator" } }
+        }
+        val calcPlugin = seeded.first { it.pluginKey == "calculator" }
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.setPluginEnabled(calcPlugin.id, false) }.isSuccess)
+
+        val updatedPlugins = withTimeout(FLOW_TIMEOUT_MS) {
+            store.observePlugins(uid).first { list -> list.any { it.id == calcPlugin.id && !it.enabled } }
+        }
+        assertFalse(updatedPlugins.first { it.id == calcPlugin.id }.enabled)
+
+        val customId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            store.addCustomPlugin(
+                name = "Concise Architect",
+                description = "Formats architecture decisions concisely",
+                category = "Architecture",
+                systemInstruction = "Always reply with Decision, Tradeoffs, and Risks."
+            ).getOrThrow()
+        }
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.deletePlugin(customId) }.isSuccess)
+
+        val runId = withTimeout(DEFAULT_TIMEOUT_MS) {
+            store.saveBrainRun(
+                mode = "reasoner",
+                prompt = "Analyze microservices vs modular monolith",
+                summary = "Modular monolith minimizes ops overhead early.",
+                confidence = 91,
+                insights = listOf("Start with strict module boundaries", "Avoid premature RPC hops"),
+                suggestedTriplesCount = 2,
+                modelUsed = "gemini-3.8-flash"
+            ).getOrThrow()
+        }
+        val runs = withTimeout(FLOW_TIMEOUT_MS) {
+            store.observeBrainRuns(uid).first { list -> list.any { it.id == runId } }
+        }
+        assertTrue(runs.any { it.id == runId && it.confidence == 91L })
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.deleteBrainRun(runId) }.isSuccess)
+    }
+
+    @Test
     fun memoryNotesAndKnowledgeFacts_authenticatedOwner_crudLifecycleSucceeds() = runBlocking {
         val uid = signInTestUser(ALICE_EMAIL)
         val repository = FirestoreRepository(firestore)
@@ -101,21 +199,31 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     fun observeSubcollections_crossUserAccess_failsWithPermissionDenied() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         val aliceRepo = FirestoreRepository(firestore)
+        val aliceStore = FirestoreSessionAndBrainStore(firestore)
         withTimeout(DEFAULT_TIMEOUT_MS) {
             aliceRepo.addMemoryNote("Alice private note").getOrThrow()
+            aliceStore.createChatSession("Alice private session", "general").getOrThrow()
         }
 
         signInTestUser(BOB_EMAIL)
         val bobRepo = FirestoreRepository(firestore)
-        val exception = assertFailsWithType<Exception> {
+        val bobStore = FirestoreSessionAndBrainStore(firestore)
+
+        val memEx = assertFailsWithType<Exception> {
             withTimeout(FLOW_TIMEOUT_MS) {
                 bobRepo.observeMemoryNotes(aliceUid).first()
             }
         }
-        val firestoreException = checkNotNull(exception.unwrapFirestoreException()) {
-            "Expected nested FirebaseFirestoreException, got $exception"
+        val memFirestoreEx = checkNotNull(memEx.unwrapFirestoreException())
+        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, memFirestoreEx.code)
+
+        val sessionEx = assertFailsWithType<Exception> {
+            withTimeout(FLOW_TIMEOUT_MS) {
+                bobStore.observeChatSessions(aliceUid).first()
+            }
         }
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, firestoreException.code)
+        val sessionFirestoreEx = checkNotNull(sessionEx.unwrapFirestoreException())
+        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, sessionFirestoreEx.code)
     }
 
     @Test

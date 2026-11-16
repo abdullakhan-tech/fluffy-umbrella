@@ -1,43 +1,33 @@
 package com.example.ui
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.PsychologyAlt
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -48,52 +38,53 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.ui.components.BrandMarkBox
+import com.example.domain.UiState
 import com.example.ui.components.CyberGridBackground
+import com.example.ui.components.CyberSidebar
 import com.example.ui.components.CyberTopBar
+import com.example.ui.components.ZaytharNavDestination
 import com.example.ui.screens.AssistantScreen
+import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
 import com.example.ui.screens.CollaborationScreen
 import com.example.ui.screens.KnowledgeBaseScreen
 import com.example.ui.screens.ModelMatrixScreen
+import com.example.ui.screens.NeuralBrainScreen
 import com.example.ui.screens.OverviewScreen
 import com.example.ui.screens.PersonaBuilderScreen
+import com.example.ui.screens.PluginHubScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.PromptNexusScreen
 import com.example.ui.screens.SecurityScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StudioScreen
 import com.example.ui.theme.LocalCyberColors
-import com.example.ui.theme.SpaceGroteskFontFamily
 import kotlinx.coroutines.launch
 
 object ZaytharRoutes {
     const val OVERVIEW = "overview"
     const val ASSISTANT = "assistant"
+    const val BRAIN = "brain"
+    const val CAMERA_EYES = "camera_eyes"
+    const val PLUGINS = "plugins"
     const val PERSONA = "persona"
     const val SETTINGS = "settingsPanel"
     const val COLLABORATION = "collaboration"
@@ -106,63 +97,44 @@ object ZaytharRoutes {
     const val SECURITY = "security"
 }
 
-private data class NavDestination(
-    val route: String,
-    val label: String,
-    val section: String,
-    val icon: ImageVector,
-    val titlePrefix: String,
-    val titleAccent: String
-)
-
 private val allDestinations = listOf(
-    NavDestination(ZaytharRoutes.OVERVIEW, "Overview", "COMMAND", Icons.Default.Dashboard, "SYSTEM", "OVERVIEW"),
-    NavDestination(ZaytharRoutes.ASSISTANT, "AI Assistant", "COMMAND", Icons.Default.ChatBubble, "AI", "ASSISTANT"),
-    NavDestination(ZaytharRoutes.PERSONA, "Persona Builder", "COMMAND", Icons.Default.Psychology, "PERSONA", "BUILDER"),
-    NavDestination(ZaytharRoutes.SETTINGS, "AI Settings", "COMMAND", Icons.Default.Settings, "AI CORE", "SETTINGS"),
-    NavDestination(ZaytharRoutes.COLLABORATION, "Collaboration", "WORKSPACE", Icons.Default.Hub, "COLLABORATION", "NEXUS"),
-    NavDestination(ZaytharRoutes.MODELS, "Model Matrix", "WORKSPACE", Icons.Default.Layers, "AI MODEL", "MATRIX"),
-    NavDestination(ZaytharRoutes.STUDIO, "Image & Video Studio", "WORKSPACE", Icons.Default.AutoAwesome, "MEDIA", "STUDIO"),
-    NavDestination(ZaytharRoutes.CODE, "Code Copilot", "WORKSPACE", Icons.Default.Code, "CODE", "COPILOT"),
-    NavDestination(ZaytharRoutes.PROMPTS, "Prompt Nexus", "WORKSPACE", Icons.AutoMirrored.Filled.MenuBook, "PROMPT", "NEXUS"),
-    NavDestination(ZaytharRoutes.KNOWLEDGE, "Knowledge Base", "WORKSPACE", Icons.AutoMirrored.Filled.LibraryBooks, "KNOWLEDGE", "BASE"),
-    NavDestination(ZaytharRoutes.PROFILE, "User Profile", "ACCOUNT", Icons.Default.Person, "USER", "PROFILE"),
-    NavDestination(ZaytharRoutes.SECURITY, "API & Security", "ACCOUNT", Icons.Default.Security, "API &", "SECURITY")
+    ZaytharNavDestination(ZaytharRoutes.OVERVIEW, "Overview", "COMMAND", Icons.Default.Dashboard, "SYSTEM", "OVERVIEW"),
+    ZaytharNavDestination(ZaytharRoutes.ASSISTANT, "AI Assistant", "COMMAND", Icons.Default.ChatBubble, "AI", "ASSISTANT"),
+    ZaytharNavDestination(ZaytharRoutes.BRAIN, "AI Brain", "COMMAND", Icons.Default.PsychologyAlt, "NEURAL", "BRAIN"),
+    ZaytharNavDestination(ZaytharRoutes.PERSONA, "Persona Builder", "COMMAND", Icons.Default.Psychology, "PERSONA", "BUILDER"),
+    ZaytharNavDestination(ZaytharRoutes.SETTINGS, "AI Settings", "COMMAND", Icons.Default.Settings, "AI CORE", "SETTINGS"),
+    ZaytharNavDestination(ZaytharRoutes.CAMERA_EYES, "Camera Eyes", "WORKSPACE", Icons.Default.CameraAlt, "CAMERA", "EYES"),
+    ZaytharNavDestination(ZaytharRoutes.PLUGINS, "Plugin Plug", "WORKSPACE", Icons.Default.Extension, "PLUGIN", "PLUG HUB"),
+    ZaytharNavDestination(ZaytharRoutes.COLLABORATION, "Collaboration", "WORKSPACE", Icons.Default.Hub, "COLLABORATION", "NEXUS"),
+    ZaytharNavDestination(ZaytharRoutes.MODELS, "Model Matrix", "WORKSPACE", Icons.Default.Layers, "AI MODEL", "MATRIX"),
+    ZaytharNavDestination(ZaytharRoutes.STUDIO, "Image & Video Studio", "WORKSPACE", Icons.Default.AutoAwesome, "MEDIA", "STUDIO"),
+    ZaytharNavDestination(ZaytharRoutes.CODE, "Code Copilot", "WORKSPACE", Icons.Default.Code, "CODE", "COPILOT"),
+    ZaytharNavDestination(ZaytharRoutes.PROMPTS, "Prompt Nexus", "WORKSPACE", Icons.AutoMirrored.Filled.MenuBook, "PROMPT", "NEXUS"),
+    ZaytharNavDestination(ZaytharRoutes.KNOWLEDGE, "Knowledge Base", "WORKSPACE", Icons.AutoMirrored.Filled.LibraryBooks, "KNOWLEDGE", "BASE"),
+    ZaytharNavDestination(ZaytharRoutes.PROFILE, "User Profile", "ACCOUNT", Icons.Default.Person, "USER", "PROFILE"),
+    ZaytharNavDestination(ZaytharRoutes.SECURITY, "API & Security", "ACCOUNT", Icons.Default.Security, "API &", "SECURITY")
 )
 
 private val bottomBarRoutes = setOf(
     ZaytharRoutes.OVERVIEW,
     ZaytharRoutes.ASSISTANT,
-    ZaytharRoutes.COLLABORATION,
-    ZaytharRoutes.KNOWLEDGE,
-    ZaytharRoutes.SETTINGS
+    ZaytharRoutes.BRAIN,
+    ZaytharRoutes.CAMERA_EYES,
+    ZaytharRoutes.PLUGINS
 )
 
 @Composable
 fun ZaytharApp(
     viewModel: ZaytharViewModel,
+    workspaceViewModel: NexusWorkspaceViewModel,
     userEmail: String?,
     userDisplayName: String?,
     onSignOut: () -> Unit
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
-    val userProfileState by viewModel.userProfileState.collectAsStateWithLifecycle()
-    val chatMessagesState by viewModel.chatMessagesState.collectAsStateWithLifecycle()
-    val memoryNotesState by viewModel.memoryNotesState.collectAsStateWithLifecycle()
-    val knowledgeFactsState by viewModel.knowledgeFactsState.collectAsStateWithLifecycle()
-    val activeAgent by viewModel.activeAgent.collectAsStateWithLifecycle()
-    val composerInput by viewModel.composerInput.collectAsStateWithLifecycle()
-    val chatUiState by viewModel.chatUiState.collectAsStateWithLifecycle()
-    val agentRunState by viewModel.agentRunState.collectAsStateWithLifecycle()
-    val studioBrief by viewModel.studioBrief.collectAsStateWithLifecycle()
     val uptimeSeconds by viewModel.uptimeSeconds.collectAsStateWithLifecycle()
     val clockText by viewModel.clockText.collectAsStateWithLifecycle()
     val firebaseReady by viewModel.firebaseReady.collectAsStateWithLifecycle()
-
-    val syncedOperatorName = (userProfileState as? com.example.domain.UiState.Success)
-        ?.data?.operatorName
-        ?.takeIf { it.isNotBlank() }
-        ?: prefs.operatorName
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -197,6 +169,7 @@ fun ZaytharApp(
             CyberGridBackground(modifier = Modifier.fillMaxSize()) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     CyberSidebar(
+                        destinations = allDestinations,
                         currentRoute = currentRoute,
                         firebaseReady = firebaseReady,
                         onSelectRoute = ::navigateTo,
@@ -233,18 +206,9 @@ fun ZaytharApp(
                             ZaytharNavHost(
                                 navController = navController,
                                 viewModel = viewModel,
-                                prefs = prefs,
-                                syncedOperatorName = syncedOperatorName,
+                                workspaceViewModel = workspaceViewModel,
                                 userEmail = userEmail,
                                 userDisplayName = userDisplayName,
-                                chatMessagesState = chatMessagesState,
-                                memoryNotesState = memoryNotesState,
-                                knowledgeFactsState = knowledgeFactsState,
-                                activeAgent = activeAgent,
-                                composerInput = composerInput,
-                                chatUiState = chatUiState,
-                                agentRunState = agentRunState,
-                                studioBrief = studioBrief,
                                 uptimeSeconds = uptimeSeconds,
                                 firebaseReady = firebaseReady,
                                 onNavigate = ::navigateTo,
@@ -264,6 +228,7 @@ fun ZaytharApp(
                         drawerContentColor = MaterialTheme.colorScheme.onSurface
                     ) {
                         CyberSidebar(
+                            destinations = allDestinations,
                             currentRoute = currentRoute,
                             firebaseReady = firebaseReady,
                             onSelectRoute = ::navigateTo,
@@ -318,9 +283,9 @@ fun ZaytharApp(
                                                 text = when (item.route) {
                                                     ZaytharRoutes.OVERVIEW -> "Overview"
                                                     ZaytharRoutes.ASSISTANT -> "Chat"
-                                                    ZaytharRoutes.COLLABORATION -> "Agents"
-                                                    ZaytharRoutes.KNOWLEDGE -> "Memory"
-                                                    else -> "Settings"
+                                                    ZaytharRoutes.BRAIN -> "Brain"
+                                                    ZaytharRoutes.CAMERA_EYES -> "Eyes"
+                                                    else -> "Plugins"
                                                 },
                                                 maxLines = 1
                                             )
@@ -345,18 +310,9 @@ fun ZaytharApp(
                             ZaytharNavHost(
                                 navController = navController,
                                 viewModel = viewModel,
-                                prefs = prefs,
-                                syncedOperatorName = syncedOperatorName,
+                                workspaceViewModel = workspaceViewModel,
                                 userEmail = userEmail,
                                 userDisplayName = userDisplayName,
-                                chatMessagesState = chatMessagesState,
-                                memoryNotesState = memoryNotesState,
-                                knowledgeFactsState = knowledgeFactsState,
-                                activeAgent = activeAgent,
-                                composerInput = composerInput,
-                                chatUiState = chatUiState,
-                                agentRunState = agentRunState,
-                                studioBrief = studioBrief,
                                 uptimeSeconds = uptimeSeconds,
                                 firebaseReady = firebaseReady,
                                 onNavigate = ::navigateTo,
@@ -372,25 +328,42 @@ fun ZaytharApp(
 
 @Composable
 private fun ZaytharNavHost(
-    navController: androidx.navigation.NavHostController,
+    navController: NavHostController,
     viewModel: ZaytharViewModel,
-    prefs: com.example.data.local.ZaytharPreferences,
-    syncedOperatorName: String,
+    workspaceViewModel: NexusWorkspaceViewModel,
     userEmail: String?,
     userDisplayName: String?,
-    chatMessagesState: com.example.domain.UiState<List<com.example.data.remote.FirestoreChatMessage>>,
-    memoryNotesState: com.example.domain.UiState<List<com.example.data.remote.FirestoreMemoryNote>>,
-    knowledgeFactsState: com.example.domain.UiState<List<com.example.data.remote.FirestoreKnowledgeFact>>,
-    activeAgent: com.example.domain.AgentRole,
-    composerInput: String,
-    chatUiState: com.example.domain.UiState<String>,
-    agentRunState: com.example.domain.UiState<com.example.domain.MultiAgentRunResult>,
-    studioBrief: String,
     uptimeSeconds: Long,
     firebaseReady: Boolean,
     onNavigate: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
+    val prefs by viewModel.preferences.collectAsStateWithLifecycle()
+    val userProfileState by viewModel.userProfileState.collectAsStateWithLifecycle()
+    val chatSessionsState by viewModel.chatSessionsState.collectAsStateWithLifecycle()
+    val activeSessionId by viewModel.activeSessionId.collectAsStateWithLifecycle()
+    val sessionMessagesState by viewModel.sessionMessagesState.collectAsStateWithLifecycle()
+    val activePlugins by viewModel.activePluginsFlow.collectAsStateWithLifecycle()
+    val activeAgent by viewModel.activeAgent.collectAsStateWithLifecycle()
+    val composerInput by viewModel.composerInput.collectAsStateWithLifecycle()
+    val chatUiState by viewModel.chatUiState.collectAsStateWithLifecycle()
+
+    val memoryNotesState by workspaceViewModel.memoryNotesState.collectAsStateWithLifecycle()
+    val knowledgeFactsState by workspaceViewModel.knowledgeFactsState.collectAsStateWithLifecycle()
+    val pluginsState by workspaceViewModel.pluginsState.collectAsStateWithLifecycle()
+    val brainRunsState by workspaceViewModel.brainRunsState.collectAsStateWithLifecycle()
+    val brainAnalysisState by workspaceViewModel.brainAnalysisState.collectAsStateWithLifecycle()
+    val visionState by workspaceViewModel.visionState.collectAsStateWithLifecycle()
+    val codeCopilotState by workspaceViewModel.codeCopilotState.collectAsStateWithLifecycle()
+    val studioBriefState by workspaceViewModel.studioBriefState.collectAsStateWithLifecycle()
+    val agentRunState by workspaceViewModel.agentRunState.collectAsStateWithLifecycle()
+
+    val syncedOperatorName = (userProfileState as? UiState.Success)
+        ?.data?.operatorName
+        ?.takeIf { it.isNotBlank() }
+        ?: prefs.operatorName
+    val enabledPluginsCount = activePlugins.count { it.enabled }
+
     NavHost(
         navController = navController,
         startDestination = ZaytharRoutes.OVERVIEW
@@ -400,6 +373,7 @@ private fun ZaytharNavHost(
                 prefs = prefs,
                 firebaseReady = firebaseReady,
                 uptimeSeconds = uptimeSeconds,
+                activePluginCount = enabledPluginsCount,
                 onNavigate = onNavigate
             )
         }
@@ -408,15 +382,84 @@ private fun ZaytharNavHost(
                 prefs = prefs.copy(operatorName = syncedOperatorName),
                 activeAgent = activeAgent,
                 composerText = composerInput,
-                messagesState = chatMessagesState,
+                sessionsState = chatSessionsState,
+                activeSessionId = activeSessionId,
+                activePluginCount = enabledPluginsCount,
+                messagesState = sessionMessagesState,
                 chatUiState = chatUiState,
                 onComposerChange = viewModel::updateComposerInput,
                 onSend = viewModel::sendChatMessage,
                 onClearChat = viewModel::clearChat,
+                onSelectSession = viewModel::selectChatSession,
+                onCreateSession = viewModel::createNewChatSession,
+                onRenameSession = viewModel::renameChatSession,
+                onDeleteSession = viewModel::deleteChatSession,
+                onOpenPlugins = { onNavigate(ZaytharRoutes.PLUGINS) },
+                onOpenCameraEyes = { onNavigate(ZaytharRoutes.CAMERA_EYES) },
+                onToggleWebConnect = viewModel::toggleWebConnect,
                 onSelectAgent = viewModel::selectAgent,
                 onSelectLanguage = viewModel::selectLanguage,
                 onToggleSpeakReplies = viewModel::toggleSpeakReplies,
                 onToast = viewModel::emitToast
+            )
+        }
+        composable(ZaytharRoutes.BRAIN) {
+            val memoriesCount = (memoryNotesState as? UiState.Success)?.data?.size ?: 0
+            val factsCount = (knowledgeFactsState as? UiState.Success)?.data?.size ?: 0
+            val recentChatTranscript = ((sessionMessagesState as? UiState.Success)?.data ?: emptyList())
+                .takeLast(6)
+                .joinToString("\n") { "${it.role.uppercase()}: ${it.text.take(240)}" }
+
+            NeuralBrainScreen(
+                brainAnalysisState = brainAnalysisState,
+                brainRunsState = brainRunsState,
+                memoriesCount = memoriesCount,
+                factsCount = factsCount,
+                onRunBrain = { query, mode ->
+                    workspaceViewModel.runNeuralBrain(
+                        prompt = query,
+                        mode = mode,
+                        recentSessionMessagesText = recentChatTranscript,
+                        prefs = prefs,
+                        onToast = viewModel::emitToast
+                    )
+                },
+                onCommitTriples = { triples ->
+                    workspaceViewModel.commitSuggestedTriples(triples, viewModel::emitToast)
+                },
+                onDeleteBrainRun = { runId ->
+                    workspaceViewModel.deleteBrainRun(runId, viewModel::emitToast)
+                }
+            )
+        }
+        composable(ZaytharRoutes.CAMERA_EYES) {
+            CameraEyesScreen(
+                visionState = visionState,
+                onAnalyzeImage = { bitmap, prompt, mode ->
+                    workspaceViewModel.analyzeWithCameraEyes(
+                        bitmap = bitmap,
+                        prompt = prompt,
+                        mode = mode,
+                        prefs = prefs,
+                        activeSessionId = activeSessionId,
+                        onToast = viewModel::emitToast
+                    )
+                },
+                onToast = viewModel::emitToast
+            )
+        }
+        composable(ZaytharRoutes.PLUGINS) {
+            PluginHubScreen(
+                pluginsState = pluginsState,
+                onTogglePlugin = { id, enabled ->
+                    workspaceViewModel.togglePlugin(id, enabled, viewModel::emitToast)
+                },
+                onAddCustomPlugin = { name, desc, cat, instr ->
+                    workspaceViewModel.addCustomPlugin(name, desc, cat, instr, viewModel::emitToast)
+                },
+                onDeletePlugin = { id ->
+                    workspaceViewModel.deletePlugin(id, viewModel::emitToast)
+                }
             )
         }
         composable(ZaytharRoutes.PERSONA) {
@@ -443,9 +486,21 @@ private fun ZaytharNavHost(
                     viewModel.emitToast("${role.title} specialist selected.")
                     onNavigate(ZaytharRoutes.ASSISTANT)
                 },
-                onRunTeam = viewModel::runMultiAgent,
-                onAddFact = viewModel::addKnowledgeFact,
-                onDeleteFact = viewModel::deleteKnowledgeFact
+                onRunTeam = { task, roles ->
+                    workspaceViewModel.runMultiAgent(
+                        task = task,
+                        selectedAgents = roles,
+                        prefs = prefs,
+                        activeSessionId = activeSessionId,
+                        onToast = viewModel::emitToast
+                    )
+                },
+                onAddFact = { s, p, o ->
+                    workspaceViewModel.addKnowledgeFact(s, p, o, onToast = viewModel::emitToast)
+                },
+                onDeleteFact = { id ->
+                    workspaceViewModel.deleteKnowledgeFact(id, viewModel::emitToast)
+                }
             )
         }
         composable(ZaytharRoutes.MODELS) {
@@ -457,12 +512,23 @@ private fun ZaytharNavHost(
         }
         composable(ZaytharRoutes.STUDIO) {
             StudioScreen(
-                briefText = studioBrief,
-                onGenerateBrief = viewModel::generateCreativeBrief
+                briefState = studioBriefState,
+                onGenerateBrief = { prompt, outputType, style ->
+                    workspaceViewModel.generateCreativeBrief(prompt, outputType, style, prefs, viewModel::emitToast)
+                }
             )
         }
         composable(ZaytharRoutes.CODE) {
-            CodeCopilotScreen(onToast = viewModel::emitToast)
+            CodeCopilotScreen(
+                codeCopilotState = codeCopilotState,
+                onRunCopilot = { task, lang, mode, code ->
+                    workspaceViewModel.runCodeCopilot(task, lang, mode, code, prefs, viewModel::emitToast)
+                },
+                onSaveToKnowledge = { content ->
+                    workspaceViewModel.addMemoryNote(content, viewModel::emitToast)
+                },
+                onToast = viewModel::emitToast
+            )
         }
         composable(ZaytharRoutes.PROMPTS) {
             PromptNexusScreen(
@@ -475,8 +541,12 @@ private fun ZaytharNavHost(
         composable(ZaytharRoutes.KNOWLEDGE) {
             KnowledgeBaseScreen(
                 notesState = memoryNotesState,
-                onAddNote = viewModel::addMemoryNote,
-                onDeleteNote = viewModel::deleteMemoryNote
+                onAddNote = { content ->
+                    workspaceViewModel.addMemoryNote(content, viewModel::emitToast)
+                },
+                onDeleteNote = { id ->
+                    workspaceViewModel.deleteMemoryNote(id, viewModel::emitToast)
+                }
             )
         }
         composable(ZaytharRoutes.PROFILE) {
@@ -494,117 +564,5 @@ private fun ZaytharNavHost(
                 userEmail = userEmail
             )
         }
-    }
-}
-
-@Composable
-private fun CyberSidebar(
-    currentRoute: String,
-    firebaseReady: Boolean,
-    onSelectRoute: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val cyber = LocalCyberColors.current
-    Column(
-        modifier = modifier
-            .background(cyber.panelGlass)
-            .padding(14.dp)
-    ) {
-        // Brand Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            BrandMarkBox(sizeDp = 40)
-            Column {
-                Text(
-                    text = "ZAYTHAR",
-                    fontFamily = SpaceGroteskFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    letterSpacing = 2.5.sp
-                )
-                Text(
-                    text = "NEURAL COMMAND NEXUS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 9.sp
-                )
-            }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-
-        // Scrollable nav sections
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            listOf("COMMAND", "WORKSPACE", "ACCOUNT").forEach { section ->
-                Text(
-                    text = section,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                )
-                allDestinations.filter { it.section == section }.forEach { dest ->
-                    val active = currentRoute == dest.route
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .minimumInteractiveComponentSize()
-                            .clickable { onSelectRoute(dest.route) }
-                            .testTag("drawer_nav_${dest.route}"),
-                        shape = MaterialTheme.shapes.small,
-                        color = if (active) cyber.accent.copy(alpha = 0.18f) else Color.Transparent,
-                        border = if (active) BorderStroke(1.dp, cyber.accent.copy(alpha = 0.55f)) else null
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = dest.icon,
-                                contentDescription = null,
-                                tint = if (active) cyber.accentSoft else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = dest.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                                color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(if (firebaseReady) cyber.cyberGreen else cyber.accent)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (firebaseReady) "CORE SYSTEM ACTIVE" else "CORE STANDBY",
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-        Text(
-            text = "HYBRID INTELLIGENCE · v2.0",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 15.dp, top = 2.dp)
-        )
     }
 }

@@ -109,6 +109,176 @@ enum class ProviderRoute(
     }
 }
 
+enum class NeuralBrainMode(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val directive: String
+) {
+    REASONER(
+        id = "reasoner",
+        title = "Neural Reasoner",
+        subtitle = "Step-by-step decomposition & action plan",
+        directive = "Decompose the problem into first principles, evaluate hidden constraints, quantify certainty, and recommend concrete next actions."
+    ),
+    CONSOLIDATOR(
+        id = "consolidator",
+        title = "Memory Consolidator",
+        subtitle = "Extract knowledge graph triples",
+        directive = "Synthesize the input and recent memory/conversation context into canonical knowledge triples (subject, predicate, objectValue) plus durable insights."
+    ),
+    STRATEGIST(
+        id = "strategist",
+        title = "Strategic Planner",
+        subtitle = "Architecture, milestones & risk matrix",
+        directive = "Produce an architectural & operational plan covering critical path, trade-offs, mitigation steps, and measurable success metrics."
+    ),
+    DIAGNOSTICS(
+        id = "diagnostics",
+        title = "Cognitive Diagnostics",
+        subtitle = "Audit gaps, assumptions & blind spots",
+        directive = "Critically stress-test the input for unstated assumptions, failure modes, ambiguity, and security/reliability gaps."
+    );
+
+    companion object {
+        fun fromId(id: String): NeuralBrainMode = entries.find { it.id == id } ?: REASONER
+    }
+}
+
+data class SuggestedTriple(
+    val subject: String,
+    val predicate: String,
+    val objectValue: String
+)
+
+data class NeuralBrainAnalysis(
+    val mode: NeuralBrainMode,
+    val prompt: String,
+    val summary: String,
+    val confidence: Int,
+    val insights: List<String>,
+    val suggestedTriples: List<SuggestedTriple>,
+    val modelUsed: String
+)
+
+enum class VisionMode(
+    val id: String,
+    val title: String,
+    val instruction: String
+) {
+    SCENE(
+        id = "scene",
+        title = "Scene & Object Vision",
+        instruction = "Analyze the visual scene thoroughly: identify key objects, layout, context, and actionable observations."
+    ),
+    OCR(
+        id = "ocr",
+        title = "OCR & Document Reader",
+        instruction = "Transcribe all visible text accurately while preserving structure, headings, numbers, and key takeaways."
+    ),
+    CODE_UI(
+        id = "code_ui",
+        title = "Code & UI Inspector",
+        instruction = "Inspect the code, terminal output, diagram, or UI screenshot; extract readable code/bugs and propose concrete fixes."
+    ),
+    OBJECT_ID(
+        id = "object_id",
+        title = "Hardware & Spec Scanner",
+        instruction = "Identify components, labels, symbols, or technical equipment shown and explain what each part does safely."
+    );
+}
+
+data class CameraVisionResult(
+    val mode: VisionMode,
+    val prompt: String,
+    val analysis: String,
+    val modelUsed: String
+)
+
+enum class CodeLanguage(val title: String, val extension: String) {
+    KOTLIN("Kotlin", "kt"),
+    PYTHON("Python", "py"),
+    TYPESCRIPT("TypeScript", "ts"),
+    SQL("SQL", "sql"),
+    BASH("Bash", "sh")
+}
+
+enum class CodeCopilotMode(val title: String, val directive: String) {
+    GENERATE("Generate", "Write clean, production-ready, idiomatic code with complete imports, error handling, and concise comments."),
+    DEBUG("Debug & Fix", "Diagnose bugs, race conditions, null-safety hazards, and logic errors, then output the corrected implementation."),
+    REFACTOR("Refactor", "Refactor for clarity, modularity, performance, and immutability while preserving behavior."),
+    TESTS("Unit Tests", "Write comprehensive, isolated unit tests covering happy paths, edge cases, and failure modes."),
+    AUDIT("Security Audit", "Audit for injection, SSRF, secret leakage, unsafe deserialization, and concurrency risks, then provide hardened code.")
+}
+
+data class DefaultPluginSpec(
+    val pluginKey: String,
+    val name: String,
+    val description: String,
+    val category: String,
+    val defaultEnabled: Boolean,
+    val systemInstruction: String
+)
+
+val defaultBuiltInPlugins = listOf(
+    DefaultPluginSpec(
+        pluginKey = "calculator",
+        name = "Precision Calculator",
+        description = "Local deterministic math engine supporting parentheses, powers, and floating-point expressions.",
+        category = "Compute",
+        defaultEnabled = true,
+        systemInstruction = "Prefer exact numeric verification when arithmetic expressions are evaluated."
+    ),
+    DefaultPluginSpec(
+        pluginKey = "utc_clock",
+        name = "Chronos UTC & Timezone",
+        description = "Instant local and UTC time resolver with zero network latency.",
+        category = "System",
+        defaultEnabled = true,
+        systemInstruction = "Use precise ISO-8601 UTC timestamps when discussing schedules or logs."
+    ),
+    DefaultPluginSpec(
+        pluginKey = "unit_converter",
+        name = "Metric & Data Converter",
+        description = "Local converter for km/mi, C/F, kg/lb, and MB/GB storage units.",
+        category = "Compute",
+        defaultEnabled = true,
+        systemInstruction = "Provide exact dual-unit equivalents when engineering measurements appear."
+    ),
+    DefaultPluginSpec(
+        pluginKey = "json_inspector",
+        name = "JSON & Regex Validator",
+        description = "Validates and pretty-prints JSON payloads locally inside the command core.",
+        category = "Developer",
+        defaultEnabled = true,
+        systemInstruction = "Format structured payloads strictly as valid JSON when requested."
+    ),
+    DefaultPluginSpec(
+        pluginKey = "web_grounding",
+        name = "Live Internet Grounding",
+        description = "Enables HTTPS public web page extraction, Wikipedia/DuckDuckGo lookup, and Gemini Search Grounding.",
+        category = "Internet",
+        defaultEnabled = true,
+        systemInstruction = "Cite retrieved public web URLs clearly and separate live web facts from uncertainty."
+    ),
+    DefaultPluginSpec(
+        pluginKey = "kotlin_architect",
+        name = "Kotlin & Compose Architect",
+        description = "Injects Android Material 3, StateFlow, and coroutine safety standards into AI replies.",
+        category = "Engineering",
+        defaultEnabled = false,
+        systemInstruction = "When writing Android code, use Kotlin, Jetpack Compose Material 3, StateFlow, and explicit coroutine CancellationException propagation."
+    ),
+    DefaultPluginSpec(
+        pluginKey = "zero_trust_auditor",
+        name = "Zero-Trust Security Guard",
+        description = "Automatically checks answers for SSRF, hardcoded secrets, and permission compliance.",
+        category = "Security",
+        defaultEnabled = false,
+        systemInstruction = "Highlight security boundaries, input validation, least-privilege permissions, and secret isolation in technical recommendations."
+    )
+)
+
 data class PromptTemplate(
     val id: String,
     val title: String,
@@ -140,12 +310,18 @@ val defaultPromptTemplates = listOf(
         title = "WRITING STUDIO",
         subtitle = "Editing and communication",
         promptPrefix = "Rewrite the following text to be clear, concise, and compelling while preserving its meaning: "
+    ),
+    PromptTemplate(
+        id = "web_briefing",
+        title = "LIVE WEB BRIEFING",
+        subtitle = "Retrieve and summarize an HTTPS resource or topic",
+        promptPrefix = "Research the latest public information and summarize key takeaways with sources for: "
     )
 )
 
 data class SpecialistDeliverable(
     val agent: AgentRole,
-    val status: String, // "completed" or "failed"
+    val status: String,
     val output: String,
     val modelUsed: String = ""
 )

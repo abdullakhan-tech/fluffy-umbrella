@@ -1,56 +1,33 @@
 # Zaythar AI — Android Command Nexus
 
-A native Android (Kotlin + Jetpack Compose) multilingual personal assistant with Google Sign-In, Cloud Firestore persistence, and Gemini model access through Firebase AI Logic.
+A native Android (Kotlin + Jetpack Compose) command center powered by **Google Sign-In + Cloud Firestore** persistence, **Firebase AI Logic** (`gemini-3.8-flash` / `gemini-3.5-flash-lite`) streaming & structured JSON inference, **Live Internet Grounding**, **Camera Eyes Vision**, **AI Brain**, and an extensible **Plugin Plug Hub**.
 
-## Current capabilities
+## Implemented Features
 
-- Google Sign-In authentication and UID-scoped Cloud Firestore data.
-- Jetpack Compose command-center interface and animated neural visualizer.
-- Multilingual AI chat through Firebase AI Logic.
-- Speech recognition and Android TextToSpeech.
-- Specialist workflows and shared user-scoped knowledge facts.
-- Persona and appearance preferences stored with Jetpack DataStore.
-- Firebase App Check integration and Firestore security rules.
+- **Google Sign-In & Auth Gate**: Authenticated session management via Jetpack `CredentialManager` (`GetSignInWithGoogleOption` interactive sign-in and `GetGoogleIdOption` silent auto-sign-in) gating all Cloud Firestore collections per user UID.
+- **Overview & 3D Neural Core Visualizer**: Custom Compose `Canvas` 3D Fibonacci-sphere neural network with touch/drag parallax, animated orbital rings, live system telemetry indicators (Firebase AI Logic, LLM Web Grounding, Active Plugins, and session uptime), and a Command Deck launcher.
+- **Multi-Session Chat History & AI Assistant**:
+  - Persistent multi-thread Cloud Firestore chat sessions (`/users/{userId}/chat_sessions/{sessionId}/messages/{messageId}`) with thread creation, switching, renaming, deletion, and automatic thread titling from the first prompt.
+  - Real-time streaming multilingual chat (English, Urdu, Arabic, Hindi, French, Spanish, German, Chinese, Japanese) with Android `SpeechRecognizer` voice input (`RECORD_AUDIO`) and Android `TextToSpeech` spoken replies.
+- **LLM Connect Internet (Live Web Grounding)**:
+  - Persistent `WEB: ON / OFF` chip in Chat backed by Jetpack DataStore.
+  - Combines Firebase AI Logic `Tool.googleSearch()` with an SSRF-hardened `https://` `WebConnector` (blocking private, loopback, link-local, and non-HTTPS targets) and DuckDuckGo / Wikipedia public lookups, surfacing clickable verified source links under assistant messages.
+- **AI Brain & Neural Functions**:
+  - Dedicated `NeuralBrainScreen` running 4 cognitive modes (**Reasoner**, **Memory Consolidator**, **Strategic Planner**, **Cognitive Diagnostics**) using strict Firebase AI Logic `Schema.obj(...)` structured JSON output.
+  - Persists cognitive snapshots to Cloud Firestore (`brain_runs`) and supports one-tap committing extracted triples to the Shared Knowledge Graph.
+- **Plugin Plug Hub**:
+  - Cloud-synced extensible capability slots (`/users/{userId}/plugins/{pluginId}`) for toggling built-in local tools (`calculator`, `utc_clock`, `unit_converter`, `json_inspector`) and plugging custom declarative directive modules—complete with an on-device Plugin Sandbox evaluator (zero Dynamic Code Loading).
+- **Camera Eyes (Multimodal Vision)**:
+  - Live photo capture via `ActivityResultContracts.TakePicture` + `FileProvider` and zero-permission Android Photo Picker (`PickVisualMedia.ImageOnly`), off-UI-thread downscaling (`<= 1280px`), 4 vision inspection modes (**Scene & Object Scan**, **OCR & Document Extract**, **UI / Code Debug**, **Compare & Safety Check**), and automatic saving of results to the active chat thread.
+- **Code Copilot & Media Studio**:
+  - Interactive streaming **Code Copilot** workbench supporting Kotlin, Python, TypeScript, SQL, and Bash across Generate, Debug, Refactor, Unit Tests, and Security Audit modes.
+  - Live Gemini-powered **Image & Video Studio** art direction & storyboard generator.
+- **Collaboration Nexus & Knowledge Base**:
+  - Concurrent Multi-Agent runner executing 1–4 specialists in parallel via Kotlin Coroutines (`async` / `awaitAll`) with Lead Coordinator synthesis, plus Cloud Firestore Notes (`memories`) and Knowledge Graph (`knowledge_facts`).
 
-The Image & Video Studio currently prepares creative briefs; it does not render media. Device control and real operating-system telemetry are not claimed capabilities.
+## Architecture
 
-## Quick start
-
-1. Read [Android setup](docs/ANDROID_SETUP.md).
-2. Register the Android app in Firebase using package name **com.aistudio.zaythar.zxtmkr**.
-3. Add the Firebase-generated file at **app/google-services.json**.
-4. Enable Google sign-in, Cloud Firestore, Firebase AI Logic (Gemini Developer API), and App Check.
-5. Build with **./gradlew :app:assembleDebug** (Windows: **gradlew.bat :app:assembleDebug**).
-
-**Gemini key note:** this app uses Firebase AI Logic. Do not embed a standalone Gemini API key in the Android app. Firebase manages Gemini Developer API authorization. See [Gemini configuration](docs/GEMINI_SETUP.md).
-
-## Documentation
-
-- [Android setup and run instructions](docs/ANDROID_SETUP.md)
-- [Gemini / Firebase AI Logic setup](docs/GEMINI_SETUP.md)
-- [Current project status and outstanding configuration](docs/PROJECT_STATUS.md)
-- [AI behaviour and provider integration](AI.md)
-- [Architecture](ARCHITECTURE.md)
-- [API boundaries](API.md)
-- [Security policy](SECURITY.md)
-- [Firestore security rules](firestore.rules)
-
-## Architecture summary
-
-- **UI:** Kotlin, Jetpack Compose, Material 3.
-- **Identity:** Firebase Authentication with Google sign-in.
-- **Cloud data:** Cloud Firestore with per-user paths and default-deny rules.
-- **AI:** Firebase AI Logic Android SDK (com.google.firebase:firebase-ai).
-- **Abuse protection:** Firebase App Check.
-- **Local preferences:** Jetpack DataStore.
-
-## Android project settings
-
-- Application ID: **com.aistudio.zaythar.zxtmkr**
-- Minimum Android version: API 26 (Android 8.0)
-- Compile SDK: 36
-- Java compatibility: 21
-
-## Verification
-
-Repository presence is not proof of a successful build or a configured cloud backend. See [project status](docs/PROJECT_STATUS.md) for the Firebase setup prerequisites and verification limitations.
+- **UI**: Jetpack Compose + Material 3 (`Navigation Compose`, adaptive sidebar on tablets / drawer + bottom bar on phones, `Space Grotesk` & `Rajdhani` typography).
+- **Authentication & Cloud Data**: Firebase Auth (Google Sign-In via `CredentialManager`), Cloud Firestore (`users/{userId}` profiles, `chat_sessions`, `messages`, `plugins`, `brain_runs`, `memories`, and `knowledge_facts` subcollections) backed by zero-trust `firestore.rules`.
+- **AI & Security**: `com.google.firebase:firebase-ai` + `FirebaseAppCheck` (`DebugAppCheckProviderFactory` in debug builds, `RecaptchaAppCheckProviderFactory` in release builds).
+- **Local Preferences**: Jetpack DataStore Preferences for client-only UI theme, accent, motion, cognitive tuning, and Internet grounding settings.

@@ -1,88 +1,187 @@
 package com.example.domain
 
-import java.time.Instant
-import kotlin.math.abs
-import kotlin.math.floor
+import org.json.JSONArray
+import org.json.JSONObject
+import java.math.BigDecimal
+import java.math.MathContext
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.pow
 
-data class LocalToolResult(
+data class ToolRouteResult(
     val tool: String,
     val result: String
 )
 
-/**
- * Safe local tool router ported from backend/tools.py and backend/reasoning.py.
- * Evaluates bounded arithmetic expressions via recursive descent without dynamic code execution,
- * and resolves UTC time queries locally.
- */
 object LocalToolRouter {
+
     private val calcPattern = Regex(
-        """^(?:calculate|compute|what is)\s+([0-9().+*/%\- ]{1,120})\??$""",
-        RegexOption.IGNORE_CASE
+        pattern = """^(?:calc|calculate|what is|evaluate)\s+([0-9+\-*/().%\s^]+)\??$""",
+        option = RegexOption.IGNORE_CASE
     )
-    private val utcPattern = Regex(
-        """\b(utc time|current utc time|time in utc)\b""",
-        RegexOption.IGNORE_CASE
+    private val bareMathPattern = Regex("""^[0-9+\-*/().%\s^]+$""")
+    private val timePattern = Regex(
+        pattern = """\b(current utc time|time in utc|utc time|what time is it)\b""",
+        option = RegexOption.IGNORE_CASE
     )
-    private val comparePattern = Regex(
-        """\b(compare| versus | vs |pros and cons)\b""",
-        RegexOption.IGNORE_CASE
+    private val unitPattern = Regex(
+        pattern = """^(?:convert\s+)?(-?\d+(?:\.\d+)?)\s*(km|mi|miles|kg|lb|lbs|c|celsius|f|fahrenheit|mb|gb)\s+(?:to|in)\s+(km|mi|miles|kg|lb|lbs|c|celsius|f|fahrenheit|mb|gb)\??$""",
+        option = RegexOption.IGNORE_CASE
     )
-    private val planPattern = Regex(
-        """\b(plan|build|create|implement|project)\b""",
-        RegexOption.IGNORE_CASE
+    private val jsonInspectPattern = Regex(
+        pattern = """^(?:inspect|validate|format)\s+json\s+([\s\S]+)$""",
+        option = RegexOption.IGNORE_CASE
     )
 
-    fun routeTool(message: String): LocalToolResult? {
-        val trimmed = message.trim()
-        val calcMatch = calcPattern.matchEntire(trimmed)
-        if (calcMatch != null) {
-            val expr = calcMatch.groupValues[1].trim()
-            val value = calculate(expr)
-            return LocalToolResult(tool = "calculator", result = value)
+    fun routeTool(
+        rawMessage: String,
+        enabledPluginKeys: Set<String> = setOf("calculator", "utc_clock", "unit_converter", "json_inspector")
+    ): ToolRouteResult? {
+        val message = rawMessage.trim()
+        if (message.isEmpty()) return null
+
+        if ("utc_clock" in enabledPluginKeys && timePattern.containsMatchIn(message) && message.length <= 80) {
+            val nowUtc = ZonedDateTime.now(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'"))
+            return ToolRouteResult(
+                tool = "utc_time",
+                result = "Current UTC time: $nowUtc (${ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)})"
+            )
         }
-        if (utcPattern.containsMatchIn(trimmed)) {
-            return LocalToolResult(tool = "utc_time", result = Instant.now().toString())
+
+        if ("unit_converter" in enabledPluginKeys) {
+            unitPattern.matchEntire(message)?.let { m ->
+                val value = m.groupValues[1].toDoubleOrNull()
+                val from = normalizeUnit(m.groupValues[2])
+                val to = normalizeUnit(m.groupValues[3])
+                if (value != null) {
+                    val converted = convertUnit(value, from, to)
+                    if (converted != null) {
+                        return ToolRouteResult(
+                            tool = "unit_converter",
+                            result = "${formatNumber(value)} $from = ${formatNumber(converted)} $to"
+                        )
+                    }
+                }
+            }
         }
+
+        if ("json_inspector" in enabledPluginKeys) {
+            jsonInspectPattern.matchEntire(message)?.let { m ->
+                val rawJson = m.groupValues[1].trim()
+                val formatted = inspectJson(rawJson)
+                return ToolRouteResult(tool = "json_inspector", result = formatted)
+            }
+        }
+
+        if ("calculator" in enabledPluginKeys) {
+            val match = calcPattern.matchEntire(message)
+            val expr = when {
+                match != null -> match.groupValues[1].trim()
+                bareMathPattern.matches(message) && message.any { it in "+-*/%^" } -> message
+                else -> null
+            }
+
+            if (expr != null) {
+                return try {
+                    val value = calculate(expr)
+                    ToolRouteResult(tool = "calculator", result = value)
+                } catch (e: IllegalArgumentException) {
+                    ToolRouteResult(tool = "calculator", result = "Calculator error: ${e.message}")
+                }
+            }
+        }
+
         return null
     }
 
+    fun inspectJson(rawJson: String): String {
+        val trimmed = rawJson.trim()
+        return try {
+            when {
+                trimmed.startsWith("{") -> {
+                    val obj = JSONObject(trimmed)
+                    "Valid JSON Object (${obj.length()} keys):\n${obj.toString(2)}"
+                }
+                trimmed.startsWith("[") -> {
+                    val arr = JSONArray(trimmed)
+                    "Valid JSON Array (${arr.length()} items):\n${arr.toString(2)}"
+                }
+                else -> "Invalid JSON: payload must start with '{' or '['."
+            }
+        } catch (e: Exception) {
+            "Invalid JSON: ${e.localizedMessage ?: "syntax error"}"
+        }
+    }
+
+    private fun normalizeUnit(raw: String): String = when (raw.lowercase(Locale.ROOT)) {
+        "miles" -> "mi"
+        "lbs" -> "lb"
+        "celsius" -> "c"
+        "fahrenheit" -> "f"
+        else -> raw.lowercase(Locale.ROOT)
+    }
+
+    fun convertUnit(value: Double, from: String, to: String): Double? {
+        if (from == to) return value
+        return when (from to to) {
+            "km" to "mi" -> value * 0.621371192
+            "mi" to "km" -> value / 0.621371192
+            "kg" to "lb" -> value * 2.20462262
+            "lb" to "kg" -> value / 2.20462262
+            "c" to "f" -> (value * 9.0 / 5.0) + 32.0
+            "f" to "c" -> (value - 32.0) * 5.0 / 9.0
+            "mb" to "gb" -> value / 1024.0
+            "gb" to "mb" -> value * 1024.0
+            else -> null
+        }
+    }
+
     fun reasoningHint(message: String): String {
-        val text = message.trim()
+        val lower = message.lowercase()
         return when {
-            text.length > 500 -> "Break the request into key goals, constraints, and actionable steps."
-            comparePattern.containsMatchIn(text) -> "Compare options using consistent criteria, evidence, trade-offs, and a recommendation."
-            planPattern.containsMatchIn(text) -> "Identify requirements, sequence the work, check dependencies, and validate the result."
-            else -> "Answer directly; verify assumptions and state uncertainty where relevant."
+            listOf("code", "bug", "error", "api", "kotlin", "python", "sql", "compose")
+                .any { it in lower } ->
+                "Provide runnable, clean code with clear verification steps."
+            listOf("plan", "schedule", "roadmap", "architecture", "design")
+                .any { it in lower } ->
+                "Break the answer into structured phases, risks, and immediate next actions."
+            listOf("compare", "versus", "vs", "choose", "tradeoff")
+                .any { it in lower } ->
+                "Compare concrete options side by side and make a clear recommendation."
+            else ->
+                "Be concise, well-structured, and directly actionable."
         }
     }
 
-    fun calculate(expression: String): String {
-        if (expression.length > 120) {
-            throw IllegalArgumentException("Expression too long (max 120 characters)")
+    fun calculate(rawExpr: String): String {
+        val expr = rawExpr.replace("**", "^").trim()
+        require(expr.isNotEmpty() && expr.length <= 120) {
+            "Expression must be 1 to 120 characters."
         }
-        val parser = ArithmeticParser(expression)
+        val parser = MathParser(expr)
         val result = parser.parseExpression()
-        if (parser.hasRemaining()) {
-            throw IllegalArgumentException("Only basic arithmetic is supported")
+        if (parser.pos < expr.length) {
+            throw IllegalArgumentException("Unexpected token '${expr[parser.pos]}' at position ${parser.pos}.")
         }
-        if (result.isNaN() || result.isInfinite() || abs(result) > 1e15) {
-            throw IllegalArgumentException("Result too large")
+        if (result.isNaN() || result.isInfinite()) {
+            throw IllegalArgumentException("Numeric result is out of range.")
         }
-        return if (result % 1.0 == 0.0 && abs(result) <= Long.MAX_VALUE.toDouble()) {
-            result.toLong().toString()
-        } else {
-            result.toString()
-        }
+        return formatNumber(result)
     }
 
-    private class ArithmeticParser(private val input: String) {
-        private var pos = 0
+    private fun formatNumber(result: Double): String {
+        val bd = BigDecimal.valueOf(result)
+            .round(MathContext(12))
+            .stripTrailingZeros()
+        val text = bd.toPlainString()
+        return if (text == "-0") "0" else text
+    }
 
-        fun hasRemaining(): Boolean {
-            skipWhitespace()
-            return pos < input.length
-        }
+    private class MathParser(private val input: String) {
+        var pos = 0
 
         private fun skipWhitespace() {
             while (pos < input.length && input[pos].isWhitespace()) {
@@ -94,111 +193,90 @@ object LocalToolRouter {
             var value = parseTerm()
             while (true) {
                 skipWhitespace()
-                when {
-                    match('+') -> value += parseTerm()
-                    match('-') -> value -= parseTerm()
-                    else -> return value
+                if (pos >= input.length) break
+                value = when (input[pos]) {
+                    '+' -> { pos++; value + parseTerm() }
+                    '-' -> { pos++; value - parseTerm() }
+                    else -> break
                 }
             }
+            return value
         }
 
         private fun parseTerm(): Double {
             var value = parsePower()
             while (true) {
                 skipWhitespace()
-                when {
-                    matchDoubleSlash() -> {
+                if (pos >= input.length) break
+                value = when (input[pos]) {
+                    '*' -> { pos++; value * parsePower() }
+                    '/' -> {
+                        pos++
                         val divisor = parsePower()
-                        if (divisor == 0.0) throw IllegalArgumentException("Division by zero")
-                        value = floor(value / divisor)
+                        if (divisor == 0.0) throw IllegalArgumentException("Division by zero is not allowed.")
+                        value / divisor
                     }
-                    matchDoubleStar() -> {
-                        val exp = parsePower()
-                        if (abs(exp) > 8.0) throw IllegalArgumentException("Exponent too large")
-                        value = value.pow(exp)
-                    }
-                    match('*') -> value *= parsePower()
-                    match('/') -> {
+                    '%' -> {
+                        pos++
                         val divisor = parsePower()
-                        if (divisor == 0.0) throw IllegalArgumentException("Division by zero")
-                        value /= divisor
+                        if (divisor == 0.0) throw IllegalArgumentException("Modulo by zero is not allowed.")
+                        value % divisor
                     }
-                    match('%') -> {
-                        val divisor = parsePower()
-                        if (divisor == 0.0) throw IllegalArgumentException("Modulo by zero")
-                        value %= divisor
-                    }
-                    else -> return value
+                    else -> break
                 }
             }
+            return value
         }
 
         private fun parsePower(): Double {
+            val base = parseUnary()
             skipWhitespace()
-            if (match('+')) return parsePower()
-            if (match('-')) return -parsePower()
-            val base = parsePrimary()
-            skipWhitespace()
-            if (matchDoubleStar()) {
-                val exp = parsePower()
-                if (abs(exp) > 8.0) throw IllegalArgumentException("Exponent too large")
-                return base.pow(exp)
+            if (pos < input.length && input[pos] == '^') {
+                pos++
+                val exponent = parsePower()
+                if (kotlin.math.abs(exponent) > 10.0 && kotlin.math.abs(base) > 1.0) {
+                    throw IllegalArgumentException("Exponent exceeds safe calculation limit.")
+                }
+                return base.pow(exponent)
             }
             return base
         }
 
-        private fun parsePrimary(): Double {
+        private fun parseUnary(): Double {
             skipWhitespace()
-            if (match('(')) {
+            if (pos < input.length) {
+                if (input[pos] == '+') { pos++; return parseUnary() }
+                if (input[pos] == '-') { pos++; return -parseUnary() }
+            }
+            return parseFactor()
+        }
+
+        private fun parseFactor(): Double {
+            skipWhitespace()
+            if (pos >= input.length) {
+                throw IllegalArgumentException("Unexpected end of expression.")
+            }
+            if (input[pos] == '(') {
+                pos++
                 val value = parseExpression()
                 skipWhitespace()
-                if (!match(')')) {
-                    throw IllegalArgumentException("Missing closing parenthesis")
+                if (pos >= input.length || input[pos] != ')') {
+                    throw IllegalArgumentException("Missing closing parenthesis.")
                 }
+                pos++
                 return value
             }
             val start = pos
             var hasDot = false
-            while (pos < input.length) {
-                val c = input[pos]
-                if (c.isDigit()) {
-                    pos++
-                } else if (c == '.' && !hasDot) {
-                    hasDot = true
-                    pos++
-                } else {
-                    break
-                }
+            while (pos < input.length && (input[pos].isDigit() || (input[pos] == '.' && !hasDot))) {
+                if (input[pos] == '.') hasDot = true
+                pos++
             }
             if (start == pos) {
-                throw IllegalArgumentException("Only basic arithmetic is supported")
+                throw IllegalArgumentException("Expected a number at position $pos.")
             }
             return input.substring(start, pos).toDoubleOrNull()
-                ?: throw IllegalArgumentException("Invalid number")
-        }
-
-        private fun match(ch: Char): Boolean {
-            if (pos < input.length && input[pos] == ch) {
-                pos++
-                return true
-            }
-            return false
-        }
-
-        private fun matchDoubleSlash(): Boolean {
-            if (pos + 1 < input.length && input[pos] == '/' && input[pos + 1] == '/') {
-                pos += 2
-                return true
-            }
-            return false
-        }
-
-        private fun matchDoubleStar(): Boolean {
-            if (pos + 1 < input.length && input[pos] == '*' && input[pos + 1] == '*') {
-                pos += 2
-                return true
-            }
-            return false
+                ?: throw IllegalArgumentException("Invalid number format.")
         }
     }
 }

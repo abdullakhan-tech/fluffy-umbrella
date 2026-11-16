@@ -1,14 +1,10 @@
 package com.example.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,17 +19,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -50,10 +44,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -67,7 +59,6 @@ import com.example.domain.defaultPromptTemplates
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
-import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.SpaceGroteskFontFamily
@@ -143,7 +134,7 @@ fun ModelMatrixScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "This selects the Firebase AI Logic Gemini model route used for future chat and multi-agent requests.",
+                    text = "This selects the Firebase AI Logic Gemini model route used for future chat, AI Brain, Code Copilot, and multi-agent requests.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -226,7 +217,7 @@ private fun ModelRouteCard(
 
 @Composable
 fun StudioScreen(
-    briefText: String,
+    briefState: UiState<String>,
     onGenerateBrief: (String, String, String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
@@ -237,6 +228,8 @@ fun StudioScreen(
     var selectedStyle by remember { mutableStateOf(styles.first()) }
     var outputExpanded by remember { mutableStateOf(false) }
     var styleExpanded by remember { mutableStateOf(false) }
+
+    val isLoading = briefState is UiState.Loading
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -250,7 +243,7 @@ fun StudioScreen(
                 titleAccent = "Studio",
                 trailing = {
                     Text(
-                        text = "PROMPT WORKSPACE",
+                        text = "GEMINI CREATIVE CORE",
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.cyberGreen
                     )
@@ -263,7 +256,7 @@ fun StudioScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(220.dp)
+                        .height(200.dp)
                         .border(1.dp, cyber.accent.copy(alpha = 0.45f), MaterialTheme.shapes.small),
                     contentAlignment = Alignment.Center
                 ) {
@@ -289,7 +282,7 @@ fun StudioScreen(
                             color = Color.White
                         )
                         Text(
-                            text = "Prepare a structured creative brief",
+                            text = "Generate live AI art direction & shot-by-shot storyboards",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.8f)
                         )
@@ -366,107 +359,31 @@ fun StudioScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
                 CyberActionButton(
-                    text = "GENERATE CREATIVE BRIEF",
+                    text = if (isLoading) "DIRECTING CONCEPT…" else "GENERATE CREATIVE CONCEPT",
                     onClick = { onGenerateBrief(prompt, selectedOutput, selectedStyle) },
+                    enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "make_brief_button"
                 )
 
-                if (briefText.isNotBlank()) {
+                if (isLoading) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = cyber.accent)
+                } else if (briefState is UiState.Error) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = briefText,
+                        text = briefState.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else if (briefState is UiState.Success && briefState.data.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = briefState.data,
                         style = MaterialTheme.typography.bodyMedium,
                         color = cyber.cyberGreen
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun CodeCopilotScreen(onToast: (String) -> Unit) {
-    val context = LocalContext.current
-    val cyber = LocalCyberColors.current
-    val sampleSnippet = """
-        val model = Firebase.ai.generativeModel(
-            modelName = "gemini-3.8-flash",
-            systemInstruction = content {
-                text("You are Zaythar AI Neural Core.")
-            }
-        )
-
-        val response = withTimeout(60_000L) {
-            model.generateContent(userMessage)
-        }
-    """.trimIndent()
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            CyberSectionTitle(
-                eyebrow = "DEVELOPER ENVIRONMENT",
-                titlePrefix = "Code",
-                titleAccent = "Copilot",
-                trailing = {
-                    Text(
-                        text = "SAMPLE REQUEST",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = cyber.cyberGreen
-                    )
-                }
-            )
-        }
-
-        item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "● ● ●   ZaytharAiSnippet.kt",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    CyberSecondaryButton(
-                        text = "COPY",
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Zaythar AI Snippet", sampleSnippet))
-                            onToast("Sample snippet copied to clipboard.")
-                        },
-                        testTag = "copy_code_button"
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF090C11), MaterialTheme.shapes.small)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = sampleSnippet,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                        lineHeight = 20.sp,
-                        color = Color(0xFFE2C7CF)
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "A secure AI request pattern using Firebase AI Logic and App Check attestation — no API keys are stored in client code.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -578,7 +495,7 @@ fun KnowledgeBaseScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Saved notes are synced with Cloud Firestore and injected as context into AI Assistant and Multi-Agent runs.",
+                        text = "Saved notes are synced with Cloud Firestore and injected into AI Assistant, AI Brain, and Multi-Agent runs.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -605,12 +522,6 @@ fun KnowledgeBaseScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "save_note_button"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Notes are synchronized securely to your account via Cloud Firestore.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (notesState is UiState.Error) {
                     Spacer(modifier = Modifier.height(8.dp))

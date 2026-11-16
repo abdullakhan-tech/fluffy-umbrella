@@ -34,6 +34,26 @@ service cloud.firestore {
              data.operatorName is string && data.operatorName.size() >= 1 && data.operatorName.size() <= 32;
     }
 
+    function isValidChatSession(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.agent is string && data.agent.size() >= 1 && data.agent.size() <= 40 &&
+             data.lastMessagePreview is string && data.lastMessagePreview.size() <= 300 &&
+             data.messageCount is int && data.messageCount >= 0 && data.messageCount <= 5000;
+    }
+
+    function isValidSessionMessage(data, sessionId) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.sessionId is string && data.sessionId == sessionId &&
+             data.role is string && (data.role == 'user' || data.role == 'assistant') &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 24000 &&
+             data.agent is string && data.agent.size() >= 1 && data.agent.size() <= 40 &&
+             data.modelLabel is string && data.modelLabel.size() <= 80 &&
+             data.hasImage is bool &&
+             data.webSources is list && data.webSources.size() <= 10 &&
+             (data.webSources.size() == 0 || data.webSources[0] is string);
+    }
+
     function isValidChatMessage(data) {
       return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
              data.role is string && (data.role == 'user' || data.role == 'assistant') &&
@@ -53,6 +73,30 @@ service cloud.firestore {
              data.predicate is string && data.predicate.size() >= 1 && data.predicate.size() <= 300 &&
              data.objectValue is string && data.objectValue.size() >= 1 && data.objectValue.size() <= 300 &&
              data.source is string && data.source.size() >= 1 && data.source.size() <= 40;
+    }
+
+    function isValidPluginConfig(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.pluginKey is string && data.pluginKey.size() >= 1 && data.pluginKey.size() <= 64 &&
+             data.pluginKey.matches('^[a-zA-Z0-9_\\-]+$') &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 400 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 40 &&
+             data.enabled is bool &&
+             data.systemInstruction is string && data.systemInstruction.size() <= 2000 &&
+             data.isBuiltIn is bool;
+    }
+
+    function isValidBrainRun(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.mode is string && data.mode.size() >= 1 && data.mode.size() <= 40 &&
+             data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 4000 &&
+             data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 12000 &&
+             data.confidence is int && data.confidence >= 0 && data.confidence <= 100 &&
+             data.insights is list && data.insights.size() <= 12 &&
+             (data.insights.size() == 0 || data.insights[0] is string) &&
+             data.suggestedTriplesCount is int && data.suggestedTriplesCount >= 0 && data.suggestedTriplesCount <= 20 &&
+             data.modelUsed is string && data.modelUsed.size() >= 1 && data.modelUsed.size() <= 80;
     }
 
     // --- COLLECTIONS ---
@@ -79,6 +123,64 @@ service cloud.firestore {
 
       allow delete: if isOwner(userId) && isValidId(userId);
 
+      // Multi-session chat threads
+      match /chat_sessions/{sessionId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(sessionId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sessionId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'title', 'agent', 'lastMessagePreview', 'messageCount', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'agent', 'lastMessagePreview', 'messageCount', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidChatSession(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(sessionId) &&
+                         isValidChatSession(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'agent', 'lastMessagePreview', 'messageCount', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sessionId);
+
+        match /messages/{messageId} {
+          allow get: if isOwner(userId) && isValidId(userId) && isValidId(sessionId) && isValidId(messageId);
+          allow list: if isOwner(userId) && isValidId(sessionId);
+
+          allow create: if isOwner(userId) &&
+                           isValidId(userId) &&
+                           isValidId(sessionId) &&
+                           isValidId(messageId) &&
+                           incoming().userId == request.auth.uid &&
+                           incoming().keys().hasAll(['userId', 'sessionId', 'role', 'text', 'agent', 'modelLabel', 'hasImage', 'webSources', 'createdAt', 'updatedAt']) &&
+                           incoming().keys().hasOnly(['userId', 'sessionId', 'role', 'text', 'agent', 'modelLabel', 'hasImage', 'webSources', 'createdAt', 'updatedAt']) &&
+                           incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                           incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                           isValidSessionMessage(incoming(), sessionId);
+
+          allow update: if isOwner(userId) &&
+                           isValidId(userId) &&
+                           isValidId(sessionId) &&
+                           isValidId(messageId) &&
+                           isValidSessionMessage(incoming(), sessionId) &&
+                           incoming().userId == existing().userId &&
+                           incoming().sessionId == existing().sessionId &&
+                           incoming().role == existing().role &&
+                           incoming().createdAt == existing().createdAt &&
+                           incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['text', 'modelLabel', 'webSources', 'updatedAt']);
+
+          allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sessionId) && isValidId(messageId);
+        }
+      }
+
+      // Legacy flat messages collection
       match /messages/{messageId} {
         allow get: if isOwner(userId) && isValidId(userId) && isValidId(messageId);
         allow list: if isOwner(userId);
@@ -156,6 +258,52 @@ service cloud.firestore {
                          incoming().diff(existing()).affectedKeys().hasOnly(['subject', 'predicate', 'objectValue', 'source', 'updatedAt']);
 
         allow delete: if isOwner(userId) && isValidId(userId) && isValidId(factId);
+      }
+
+      match /plugins/{pluginId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(pluginId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(pluginId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'pluginKey', 'name', 'description', 'category', 'enabled', 'systemInstruction', 'isBuiltIn', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'pluginKey', 'name', 'description', 'category', 'enabled', 'systemInstruction', 'isBuiltIn', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidPluginConfig(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(pluginId) &&
+                         isValidPluginConfig(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().pluginKey == existing().pluginKey &&
+                         incoming().isBuiltIn == existing().isBuiltIn &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'category', 'enabled', 'systemInstruction', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(pluginId);
+      }
+
+      match /brain_runs/{runId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(runId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(runId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'mode', 'prompt', 'summary', 'confidence', 'insights', 'suggestedTriplesCount', 'modelUsed', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'mode', 'prompt', 'summary', 'confidence', 'insights', 'suggestedTriplesCount', 'modelUsed', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidBrainRun(incoming());
+
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(runId);
       }
     }
   }

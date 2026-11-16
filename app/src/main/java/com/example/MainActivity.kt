@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ai.configureAppCheck
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.ZaytharPreferences
+import com.example.ui.NexusWorkspaceViewModel
 import com.example.ui.ZaytharApp
 import com.example.ui.ZaytharViewModel
 import com.example.ui.auth.AuthScreen
@@ -66,8 +67,16 @@ class MainActivity : ComponentActivity() {
                                 currentUserId = uid
                             )
                         )
+                        val workspaceViewModel: NexusWorkspaceViewModel = viewModel(
+                            key = "workspace_$uid",
+                            factory = NexusWorkspaceViewModel.provideFactory(
+                                application = application,
+                                currentUserId = uid
+                            )
+                        )
                         ZaytharApp(
                             viewModel = viewModel,
+                            workspaceViewModel = workspaceViewModel,
                             userEmail = user.email,
                             userDisplayName = user.displayName,
                             onSignOut = {

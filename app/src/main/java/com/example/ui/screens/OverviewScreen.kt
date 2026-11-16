@@ -20,10 +20,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.PsychologyAlt
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -64,20 +67,23 @@ fun OverviewScreen(
     prefs: ZaytharPreferences,
     firebaseReady: Boolean,
     uptimeSeconds: Long,
+    activePluginCount: Int,
     onNavigate: (String) -> Unit
 ) {
-    val cyber = LocalCyberColors.current
     val activeRoute = ProviderRoute.fromId(prefs.selectedProviderRoute)
     val uptimeLabel = if (uptimeSeconds < 60) "${uptimeSeconds}s" else "${uptimeSeconds / 60}m ${uptimeSeconds % 60}s"
     val uptimeProgress = (uptimeSeconds / 3600f).coerceIn(0.05f, 1f)
 
     val deckModules = listOf(
-        CommandDeckModule("assistant", "AI Assistant", "Multilingual chat & voice", Icons.Default.ChatBubbleOutline, "deck_assistant"),
-        CommandDeckModule("settingsPanel", "AI Core Settings", "Processing & visual tuning", Icons.Default.Tune, "deck_settings"),
-        CommandDeckModule("persona", "Persona Builder", "Shape your AI personality", Icons.Default.Psychology, "deck_persona"),
-        CommandDeckModule("collaboration", "Collaboration Nexus", "Agent network workspace", Icons.Default.Hub, "deck_collaboration"),
-        CommandDeckModule("studio", "Media Studio", "Creative prompt workspace", Icons.Default.AutoAwesome, "deck_studio"),
-        CommandDeckModule("knowledge", "Knowledge Base", "Personal knowledge hub", Icons.Default.Memory, "deck_knowledge")
+        CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, voice & web", Icons.Default.ChatBubbleOutline, "deck_assistant"),
+        CommandDeckModule("brain", "AI Brain", "Structured neural functions", Icons.Default.PsychologyAlt, "deck_brain"),
+        CommandDeckModule("camera_eyes", "Camera Eyes", "Live multimodal photo vision", Icons.Default.CameraAlt, "deck_camera_eyes"),
+        CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Default.Extension, "deck_plugins"),
+        CommandDeckModule("code", "Code Copilot", "Live streaming code workbench", Icons.Default.Code, "deck_code"),
+        CommandDeckModule("collaboration", "Collaboration Nexus", "Multi-agent specialist swarm", Icons.Default.Hub, "deck_collaboration"),
+        CommandDeckModule("studio", "Media Studio", "Gemini art & storyboard engine", Icons.Default.AutoAwesome, "deck_studio"),
+        CommandDeckModule("knowledge", "Knowledge Base", "Cloud notes & context hub", Icons.Default.Memory, "deck_knowledge"),
+        CommandDeckModule("settingsPanel", "AI Core Settings", "Processing & visual tuning", Icons.Default.Tune, "deck_settings")
     )
 
     LazyColumn(
@@ -101,6 +107,8 @@ fun OverviewScreen(
                             modifier = Modifier.weight(1f),
                             firebaseReady = firebaseReady,
                             activeRoute = activeRoute,
+                            webConnected = prefs.webConnectEnabled,
+                            activePluginCount = activePluginCount,
                             uptimeLabel = uptimeLabel,
                             uptimeProgress = uptimeProgress,
                             motionEnabled = prefs.motion3dEnabled
@@ -116,6 +124,8 @@ fun OverviewScreen(
                             modifier = Modifier.fillMaxWidth(),
                             firebaseReady = firebaseReady,
                             activeRoute = activeRoute,
+                            webConnected = prefs.webConnectEnabled,
+                            activePluginCount = activePluginCount,
                             uptimeLabel = uptimeLabel,
                             uptimeProgress = uptimeProgress,
                             motionEnabled = prefs.motion3dEnabled
@@ -251,6 +261,8 @@ private fun TelemetryStatusCard(
     modifier: Modifier = Modifier,
     firebaseReady: Boolean,
     activeRoute: ProviderRoute,
+    webConnected: Boolean,
+    activePluginCount: Int,
     uptimeLabel: String,
     uptimeProgress: Float,
     motionEnabled: Boolean
@@ -263,7 +275,7 @@ private fun TelemetryStatusCard(
             badgeColor = cyber.cyberGreen
         )
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             TelemetryBar(
                 label = "Firebase AI Logic",
                 statusText = if (firebaseReady) "READY" else "UNCONFIGURED",
@@ -271,10 +283,16 @@ private fun TelemetryStatusCard(
                 useGreen = firebaseReady
             )
             TelemetryBar(
-                label = "Cloud Firestore Sync",
-                statusText = if (firebaseReady) "CONNECTED" else "STANDBY",
-                progress = if (firebaseReady) 1f else 0f,
-                useGreen = firebaseReady
+                label = "LLM Web Grounding",
+                statusText = if (webConnected) "INTERNET LIVE" else "OFFLINE",
+                progress = if (webConnected) 1f else 0.25f,
+                useGreen = webConnected
+            )
+            TelemetryBar(
+                label = "Plugin Plugs",
+                statusText = "$activePluginCount PLUGGED IN",
+                progress = (activePluginCount / 6f).coerceIn(0.1f, 1f),
+                useGreen = activePluginCount > 0
             )
             TelemetryBar(
                 label = "Active Route",
