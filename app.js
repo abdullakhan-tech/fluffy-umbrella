@@ -122,17 +122,17 @@ $('#openAssistantFromModels')?.addEventListener('click',()=>openPanel('assistant
 // Profile name is a local display preference only; no account identity is implied.
 const nameInput=$('#operatorName');
 if(nameInput){
-  nameInput.value=store.get('operatorName','OPERATOR 01');
+  nameInput.value='OPERATOR 01';
   $('#saveProfile')?.addEventListener('click',()=>{
+    if(!activeUsername){toast('Sign in before saving your account display name.');return}
     const name=nameInput.value.trim().slice(0,32)||'OPERATOR 01';
     nameInput.value=name;
-    store.set('operatorName',name);
+    store.set('operatorName:'+activeUsername,name);
     const heading=$('#profileHeading');
     if(heading)heading.textContent=name.toUpperCase();
     toast('Local operator profile saved.');
   });
-  const savedName=store.get('operatorName','OPERATOR 01');
-  if($('#profileHeading'))$('#profileHeading').textContent=savedName.toUpperCase();
+  if($('#profileHeading'))$('#profileHeading').textContent='OPERATOR 01';
 }
 
 // Extra visual controls map to CSS variables; these are visual preferences, not performance controls.
@@ -365,6 +365,7 @@ applyVisualControls();
       if(!response.ok)throw new Error('Session expired');
       const data=await response.json();
       activeUsername=data.user.username;
+      if(nameInput){const savedName=store.get('operatorName:'+activeUsername,'OPERATOR 01');nameInput.value=savedName;if($('#profileHeading'))$('#profileHeading').textContent=savedName.toUpperCase()}
       showGate(false);
       loadChat();
       renderNotes();
