@@ -51,6 +51,17 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 5. Double-click `scripts\\run_windows.bat` or run it from Command Prompt.
 6. Open http://127.0.0.1:8000.
 
+### Android (Termux)
+1. Install Termux from F-Droid or the official Termux GitHub releases. Avoid the outdated Play Store build.
+2. Open Termux and clone the repository:
+   `pkg update -y && pkg install -y git && git clone https://github.com/abdullakhan-tech/fluffy-umbrella.git && cd fluffy-umbrella`
+3. Run `bash scripts/setup_termux.sh`. It installs Python dependencies, creates `.venv` and `.env`, compiles the backend and runs tests.
+4. Edit `.env` with a real OpenAI or Gemini API key. Keep keys private; never paste them into chat or commit `.env`.
+5. Start the server with `bash scripts/run_termux.sh`.
+6. On the same phone, open `http://127.0.0.1:8000` in Chrome or another browser. Keep Termux running while using Zaythar AI; press Ctrl+C to stop.
+
+Android note: this runs the current responsive web UI and Python backend locally inside Termux. It does not create/install a native Android APK, and Android background battery management may stop the server.
+
 ### Linux / macOS
 1. Install Python 3.10+ and Git.
 2. Run `bash scripts/setup.sh` from the repository root. It creates `.venv`, installs dependencies, creates `.env` if missing, compiles the backend, and runs tests.
