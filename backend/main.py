@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from collections import defaultdict, deque
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Path as FastAPIPath, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend import auth
 from backend.agents import run_multi_agent
@@ -47,9 +48,16 @@ class ChatRequest(StrictModel):
     language: Optional[str] = Field(default="en-US", max_length=16)
     persona: Optional[PersonaSettings] = None
     settings: Optional[Dict[str, Any]] = None
-    agent: Optional[str] = Field(default="general", max_length=24)
+    agent: Literal["general", "research", "coding", "writing", "analysis", "creative"] = "general"
     provider: str = Field(default="hybrid", pattern="^(openai|gemini|hybrid)$")
     history: list[ChatHistoryItem] = Field(default_factory=list, max_length=16)
+
+    @field_validator("settings")
+    @classmethod
+    def validate_settings_size(cls, value):
+        if value is not None and len(json.dumps(value, ensure_ascii=False)) > 4096:
+            raise ValueError("settings payload must not exceed 4096 characters")
+        return value
 
 
 class AgentRunRequest(StrictModel):
@@ -92,6 +100,15 @@ _rate_lock = Lock()
 
 @app.middleware("http")
 async def api_rate_limit(request: Request, call_next):
+    if request.url.path.startswith("/api/"):
+        raw_length = request.headers.get("content-length")
+        if raw_length:
+            try:
+                content_length = int(raw_length)
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header."})
+            if content_length > 262144:
+                return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
     if request.url.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         client_ip = request.client.host if request.client else "unknown"
         bucket = "auth" if request.url.path in {"/api/auth/login", "/api/auth/register"} else "api"
@@ -124,7 +141,7 @@ async def security_headers(request: Request, call_next):
 
 
 def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(
             status_code=401,
             detail="Authentication required.",
@@ -196,7 +213,7 @@ def logout(
     user: dict = Depends(require_user),
     authorization: Optional[str] = Header(default=None),
 ):
-    token = authorization[7:].strip() if authorization and authorization.startswith("Bearer ") else ""
+    token = authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else ""
     auth.revoke_session(token)
     return {"logged_out": True}
 
