@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const panels=$$('.panel'),navs=$$('.nav'),titles={overview:'SYSTEM OVERVIEW',assistant:'AI ASSISTANT',persona:'PERSONA BUILDER',settingsPanel:'AI CORE SETTINGS',collaboration:'COLLABORATION NEXUS',studio:'IMAGE & VIDEO STUDIO',code:'CODE COPILOT',prompts:'PROMPT NEXUS',knowledge:'KNOWLEDGE BASE',profile:'USER PROFILE',security:'API & SECURITY'};
+const panels=$$('.panel'),navs=$$('.nav'),titles={overview:'SYSTEM OVERVIEW',assistant:'AI ASSISTANT',persona:'PERSONA BUILDER',settingsPanel:'AI CORE SETTINGS',collaboration:'COLLABORATION NEXUS',studio:'IMAGE & VIDEO STUDIO',code:'CODE COPILOT',prompts:'PROMPT NEXUS',knowledge:'KNOWLEDGE BASE',profile:'USER PROFILE',security:'API & SECURITY',models:'AI MODEL MATRIX'};
 const store={get(k,fallback){try{return JSON.parse(localStorage.getItem('zaythar:'+k))??fallback}catch{return fallback}},set(k,v){try{localStorage.setItem('zaythar:'+k,JSON.stringify(v))}catch(e){console.warn('Local storage unavailable',e)}}};
 function openPanel(id){panels.forEach(p=>p.classList.toggle('active-panel',p.id===id));navs.forEach(n=>n.classList.toggle('active',n.dataset.panel===id));$('#pageTitle').innerHTML=(titles[id]||id).replace(/ (.*)/,' <em>$1</em>');window.scrollTo({top:0,behavior:'smooth'})}
 navs.forEach(n=>n.addEventListener('click',()=>openPanel(n.dataset.panel)));$$('[data-panel]').filter(x=>!x.classList.contains('nav')).forEach(x=>x.addEventListener('click',()=>openPanel(x.dataset.panel)));
@@ -85,3 +85,61 @@ $$('[data-agent]').forEach(agent=>{
     promptBox.focus();
   });
 });
+
+
+// Model Selection Matrix: selects a configured backend route; it does not provision provider access.
+const providerNames={openai:'OPENAI',gemini:'GEMINI',hybrid:'HYBRID CORE'};
+function renderProvider(){
+  const chosen=store.get('aiProvider','hybrid');
+  $$('[data-provider]').forEach(card=>{
+    const active=card.dataset.provider===chosen;
+    card.classList.toggle('selected',active);
+    const label=card.querySelector('i');
+    if(label)label.textContent=active?'ACTIVE ROUTE':'SELECT PROVIDER';
+  });
+  const status=$('#providerStatus');
+  if(status)status.textContent=providerNames[chosen]||'HYBRID CORE';
+}
+$$('[data-provider]').forEach(card=>card.addEventListener('click',()=>{
+  store.set('aiProvider',card.dataset.provider);
+  renderProvider();
+  toast((providerNames[card.dataset.provider]||'Provider')+' route selected for future chat requests.');
+}));
+renderProvider();
+$('#openAssistantFromModels')?.addEventListener('click',()=>openPanel('assistant'));
+
+// Profile name is a local display preference only; no account identity is implied.
+const nameInput=$('#operatorName');
+if(nameInput){
+  nameInput.value=store.get('operatorName','OPERATOR 01');
+  $('#saveProfile')?.addEventListener('click',()=>{
+    const name=nameInput.value.trim().slice(0,32)||'OPERATOR 01';
+    nameInput.value=name;
+    store.set('operatorName',name);
+    const heading=$('#profileHeading');
+    if(heading)heading.textContent=name.toUpperCase();
+    toast('Local operator profile saved.');
+  });
+  const savedName=store.get('operatorName','OPERATOR 01');
+  if($('#profileHeading'))$('#profileHeading').textContent=savedName.toUpperCase();
+}
+
+// Extra visual controls map to CSS variables; these are visual preferences, not performance controls.
+function applyVisualControls(){
+  const prefs=store.get('visualControls',{glow:72,metal:65,contrast:80});
+  document.documentElement.style.setProperty('--glow-strength',String(prefs.glow/100));
+  document.documentElement.style.setProperty('--metal-strength',String(prefs.metal/100));
+  document.documentElement.style.setProperty('--contrast-strength',String(prefs.contrast/100));
+  $$('[data-visual]').forEach(input=>{
+    const key=input.dataset.visual;
+    input.value=prefs[key]??Number(input.value);
+    updateRange(input);
+    input.addEventListener('input',()=>{
+      const next=store.get('visualControls',{glow:72,metal:65,contrast:80});
+      next[key]=Number(input.value);
+      store.set('visualControls',next);
+      document.documentElement.style.setProperty('--'+(key==='glow'?'glow-strength':key==='metal'?'metal-strength':'contrast-strength'),String(Number(input.value)/100));
+    });
+  });
+}
+applyVisualControls();
