@@ -5,6 +5,15 @@ venv/
 __pycache__/
 *.py[cod]
 .DS_Store
+local.properties
+app/google-services.json
+*.keystore
+*.jks
+
+# Gradle and Android build output
+.gradle/
+**/build/
+**/.gradle/
 
 # Existing LangGraph artifacts
 .langgraph_api/
@@ -15,3 +24,4 @@ backend/data/
 
 # Firebase CLI debug logs
 *-debug.log
+firebase-debug.log
