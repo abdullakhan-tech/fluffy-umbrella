@@ -1,0 +1,4 @@
+Gradle Wrapper files are sourced from the official Gradle project, tag v9.3.1.
+Gradle Wrapper scripts and JAR are distributed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+Upstream: https://github.com/gradle/gradle
