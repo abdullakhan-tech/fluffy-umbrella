@@ -24,8 +24,8 @@ def _connect():
         object TEXT NOT NULL,
         source TEXT NOT NULL DEFAULT 'user',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )""")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_session ON knowledge_facts(session_id, id DESC)")
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_session ON knowledge_facts(session_id, id DESC)")
         yield conn
         conn.commit()
     finally:
