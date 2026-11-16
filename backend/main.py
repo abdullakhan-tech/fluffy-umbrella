@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from openai import OpenAI, APIError, RateLimitError, AuthenticationError
+from backend.brain import run_brain
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,6 +30,8 @@ class ChatRequest(BaseModel):
     persona: Optional[PersonaSettings] = None
     settings: Optional[Dict[str, Any]] = None
     agent: Optional[str] = Field(default="general", max_length=24)
+    provider: str = Field(default="hybrid", pattern="^(openai|gemini|hybrid)$")
+    history: list[Dict[str, str]] = Field(default_factory=list, max_length=16)
 
 # Lightweight per-process protection. Use a gateway/shared limiter for multi-worker production.
 _RATE_WINDOW_SECONDS = 60
@@ -60,59 +62,39 @@ def health():
     return {
         "status": "ok",
         "service": "Zaythar AI",
-        "ai_configured": bool(os.getenv("OPENAI_API_KEY")),
-        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        "ai_configured": bool(os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY")),
+        "providers": {"openai": bool(os.getenv("OPENAI_API_KEY")), "gemini": bool(os.getenv("GEMINI_API_KEY"))},
+        "default_provider": os.getenv("ZAYTHAR_AI_PROVIDER", "hybrid"),
         "version": app.version,
     }
 
 @app.post("/api/chat")
 def chat(body: ChatRequest):
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="AI is not configured. Add OPENAI_API_KEY to the server environment.")
     persona = body.persona or PersonaSettings()
-    language_names = {
-        "en-US": "English", "ur-PK": "Urdu", "ar-SA": "Arabic",
-        "hi-IN": "Hindi", "fr-FR": "French", "es-ES": "Spanish",
-        "de-DE": "German", "zh-CN": "Chinese", "ja-JP": "Japanese",
-    }
+    language_names = {"en-US": "English", "ur-PK": "Urdu", "ar-SA": "Arabic", "hi-IN": "Hindi", "fr-FR": "French", "es-ES": "Spanish", "de-DE": "German", "zh-CN": "Chinese", "ja-JP": "Japanese"}
     language = language_names.get(body.language or "", "the language used by the user")
     agent_instructions = {
         "general": "Act as a capable general-purpose assistant.",
-        "research": "Act as a research specialist. Separate established facts from uncertainty and structure findings clearly.",
-        "coding": "Act as a senior software engineer. Explain assumptions, provide robust code, and consider security and edge cases.",
-        "writing": "Act as an expert writing editor. Match the requested audience and tone while preserving intent.",
-        "analysis": "Act as an analytical strategist. Break problems into evidence, options, trade-offs, and recommendations.",
-        "creative": "Act as a creative director. Develop original concepts with concrete visual and storytelling details.",
+        "research": "Act as a research specialist. Separate established facts from uncertainty.",
+        "coding": "Act as a senior software engineer. Provide robust, secure code and consider edge cases.",
+        "writing": "Act as an expert writing editor. Match audience and tone while preserving intent.",
+        "analysis": "Act as an analytical strategist. Explain evidence, options, trade-offs, and recommendations.",
+        "creative": "Act as a creative director. Develop original concepts with concrete details.",
     }
     agent_instruction = agent_instructions.get(body.agent or "general", agent_instructions["general"])
     system_prompt = (
-        "You are Zaythar AI, a helpful, safe, multilingual personal assistant. "
+        "You are Zaythar AI Neural Core, a safe, helpful, multilingual personal assistant. "
         + agent_instruction + " "
-        f"Reply in {language}, unless the user explicitly requests another language. "
-        f"Persona style: {persona.style}. Empathy: {persona.empathy}/100; "
-        f"analytical depth: {persona.cognitive_capacity}/100; adaptability: "
-        f"{persona.adaptability}/100; creativity: {persona.creativity}/100. "
-        "Treat these as tone preferences, not permission to ignore safety or accuracy. "
-        "Be clear, practical, and honest about limitations."
+        + f"Reply in {language}, unless the user explicitly requests another language. "
+        + f"Persona style: {persona.style}. Empathy: {persona.empathy}/100; analytical depth: {persona.cognitive_capacity}/100; adaptability: {persona.adaptability}/100; creativity: {persona.creativity}/100. "
+        + "Treat these as tone preferences, not permission to ignore safety or accuracy. Be clear, practical, and honest."
     )
     try:
-        client = OpenAI(api_key=api_key, timeout=45.0, max_retries=1)
-        response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": body.message},
-            ],
-            temperature=0.7,
-        )
-        return {"reply": response.choices[0].message.content or "", "model": response.model}
-    except AuthenticationError:
-        raise HTTPException(status_code=502, detail="The server API key was rejected. Check OPENAI_API_KEY.")
-    except RateLimitError:
-        raise HTTPException(status_code=429, detail="AI provider rate limit or quota reached. Check billing and usage.")
-    except APIError as exc:
-        raise HTTPException(status_code=502, detail=f"AI provider error: {type(exc).__name__}")
+        return run_brain(body.provider, system_prompt, body.history, body.message)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI request failed: {type(exc).__name__}")
 
