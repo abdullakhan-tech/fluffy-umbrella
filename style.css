@@ -40,3 +40,19 @@
 body.motion-off *,body.motion-off *:before,body.motion-off *:after{animation:none!important;transition:none!important}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 @media(max-width:650px){.core-orb{animation-duration:8s}.card{transform:none!important}}
+
+
+/* MODEL MATRIX + OPERATOR PROFILE */
+.model-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;perspective:1100px}
+.model-card{min-height:300px;padding:24px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;text-align:center;color:var(--text);background:linear-gradient(145deg,#242a35,#0c0f15);border:1px solid #59616e;box-shadow:0 18px 35px #0009,inset 0 1px #ffffff18;cursor:pointer;transform-style:preserve-3d;transition:.25s}
+.model-card:hover{transform:translateY(-7px) rotateY(-3deg) rotateX(3deg);border-color:var(--accent);box-shadow:0 0 28px var(--glow)}
+.model-card.selected{border:2px solid var(--accent);box-shadow:0 0 28px var(--glow),inset 0 0 30px #ff31551b}
+.model-card b{font:700 22px 'Space Grotesk';letter-spacing:1px}
+.model-card small{max-width:240px;color:var(--muted);font-size:13px;line-height:1.5}
+.model-card i{font-style:normal;color:var(--accent2);font-size:10px;letter-spacing:1.5px;margin-top:12px}
+.model-glyph{width:112px;height:112px;display:grid;place-items:center;border:1px solid var(--accent);border-radius:50%;font-size:58px;color:#fff;text-shadow:0 0 25px var(--accent);background:radial-gradient(circle,#591629,#101319 72%);box-shadow:0 0 30px var(--glow),inset 0 0 25px var(--glow);animation:avatarFloat 5s ease-in-out infinite}
+.model-status{margin-top:18px}.model-status p{line-height:1.5}.model-status p b{color:var(--accent2)}
+.profile-name{width:min(100%,280px);text-align:left}
+.profile-name input{width:100%;background:#171d26;border:1px solid #424b59;color:var(--text);padding:10px;font:14px 'Rajdhani'}
+.model-card:focus-visible,.nav:focus-visible,.action-btn:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
+@media(max-width:850px){.model-grid{grid-template-columns:1fr}.model-card{min-height:220px}.model-glyph{width:85px;height:85px;font-size:44px}}
