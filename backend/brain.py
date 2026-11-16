@@ -51,5 +51,5 @@ def run_brain(provider, system_prompt, history, message):
         try:
             return adapter(system_prompt, history, message)
         except Exception as exc:
-            errors.append(type(exc).__name__ + ": " + str(exc))
-    raise RuntimeError("Both AI providers failed. " + " | ".join(errors))
+            errors.append(type(exc).__name__)
+    raise RuntimeError("Both AI providers are unavailable or not configured.")
