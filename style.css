@@ -85,3 +85,15 @@ body.motion-off *,body.motion-off *:before,body.motion-off *:after{animation:non
 .agent-result-card b{font-size:11px;letter-spacing:1.3px;color:var(--green)}
 .agent-result-card p{margin:8px 0 0;color:var(--muted);font-size:13px;white-space:pre-wrap}
 @media(max-width:650px){.agent-picks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.agent-picks label{font-size:10px;padding:8px}}
+
+
+/* SHARED KNOWLEDGE GRAPH */
+.knowledge-graph-editor{margin-top:22px;padding-top:18px;border-top:1px solid #414b59}
+.knowledge-graph-editor h3{font:600 12px 'Space Grotesk';letter-spacing:1.5px;color:var(--accent2)}
+.knowledge-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}
+.knowledge-fields input{min-width:0;width:100%;background:#0a0e14;border:1px solid #414b59;color:var(--text);padding:11px;font:13px 'Rajdhani',sans-serif}
+.knowledge-facts{display:grid;gap:7px;margin-top:12px}
+.knowledge-fact{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;background:#101620;border:1px solid #35404d;font-size:12px;overflow-wrap:anywhere}
+.knowledge-fact span{min-width:0}
+.knowledge-fact button{flex:none;background:transparent;border:1px solid #713044;color:var(--accent2);padding:6px 9px;font-size:10px;cursor:pointer}
+@media(max-width:650px){.knowledge-fields{grid-template-columns:1fr}.knowledge-fact{align-items:flex-start}}
