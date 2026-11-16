@@ -1,9 +1,13 @@
 import os
+import time
+from collections import defaultdict, deque
 from pathlib import Path
+from threading import Lock
 from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI, APIError, RateLimitError, AuthenticationError
 from pydantic import BaseModel, Field
@@ -11,7 +15,7 @@ from pydantic import BaseModel, Field
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-app = FastAPI(title="Zaythar AI API", version="1.1.0")
+app = FastAPI(title="Zaythar AI API", version="1.2.0")
 
 class PersonaSettings(BaseModel):
     empathy: int = Field(default=70, ge=0, le=100)
@@ -26,6 +30,30 @@ class ChatRequest(BaseModel):
     persona: Optional[PersonaSettings] = None
     settings: Optional[Dict[str, Any]] = None
     agent: Optional[str] = Field(default="general", max_length=24)
+
+# Lightweight per-process protection. Use a gateway/shared limiter for multi-worker production.
+_RATE_WINDOW_SECONDS = 60
+_RATE_LIMIT = max(1, int(os.getenv("ZAYTHAR_CHAT_RATE_LIMIT", "20")))
+_requests_by_ip = defaultdict(deque)
+_rate_lock = Lock()
+
+@app.middleware("http")
+async def chat_rate_limit(request: Request, call_next):
+    if request.url.path == "/api/chat" and request.method == "POST":
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        with _rate_lock:
+            recent = _requests_by_ip[client_ip]
+            while recent and now - recent[0] >= _RATE_WINDOW_SECONDS:
+                recent.popleft()
+            if len(recent) >= _RATE_LIMIT:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many chat requests. Please wait a minute and try again."},
+                    headers={"Retry-After": str(_RATE_WINDOW_SECONDS)},
+                )
+            recent.append(now)
+    return await call_next(request)
 
 @app.get("/api/health")
 def health():
@@ -59,7 +87,7 @@ def chat(body: ChatRequest):
     }
     agent_instruction = agent_instructions.get(body.agent or "general", agent_instructions["general"])
     system_prompt = (
-        You are Zaythar AI, a helpful, safe, multilingual personal assistant. "
+        "You are Zaythar AI, a helpful, safe, multilingual personal assistant. "
         + agent_instruction + " "
         f"Reply in {language}, unless the user explicitly requests another language. "
         f"Persona style: {persona.style}. Empathy: {persona.empathy}/100; "
