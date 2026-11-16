@@ -1,19 +1,24 @@
-# Design System
+# Zaythar AI Design System
 
 ## Visual direction
-Dark graphite command centre with metallic surfaces, restrained red/pink neon accents, fine grid lines, holographic rings, and layered depth.
 
-## Motion
-- CSS-based 3D effects are decorative interface animation, not a physical 3D simulation.
-- Provide a persistent 3D motion toggle and respect `prefers-reduced-motion`.
-- Avoid motion that blocks reading, controls, or navigation.
-- Keep effects lightweight on mobile and lower-powered devices.
+A dark graphite command interface with restrained neon accents, glass-like panels, readable typography, and a cinematic neural-core orb. The active app is native Android using Jetpack Compose and Material 3; this document does not describe a shipped browser/CSS application.
 
-## Responsive design
-Prioritize readable content, usable touch targets, clear navigation, and graceful stacking on narrow screens.
+## Neural Core
 
-## Accessibility
-Use semantic HTML, accessible names for icon-only controls, visible focus indicators, sufficient contrast, and keyboard-operable interactions. Do not encode status by colour alone.
+- The orb is an interactive Canvas-based visualizer, not a physical 3D simulation or proof of live hardware telemetry.
+- Activity states should reflect actual app state: Ready, Listening, Thinking, and Speaking.
+- Motion must respect the app motion preference and Android's system animation scale.
+- Status must remain understandable without colour alone.
+
+## Layout and accessibility
+
+- Support compact phone layouts and expanded tablet/foldable layouts.
+- Use semantic labels for interactive controls and meaningful touch targets.
+- Keep text readable at larger font scales.
+- Provide text interaction when speech recognition is unavailable or permission is denied.
+- Avoid decorative animation that blocks navigation or reading.
 
 ## Honesty
-Label demo graphs and telemetry as illustrative. Do not imply that mock subscription cards represent real billing.
+
+Never label simulated telemetry as real device monitoring. Do not imply the app is always listening, conscious, or controlling hardware unless a separately permissioned feature actually exists.
