@@ -7,7 +7,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Zaythar Neural Core orchestration layer with OpenAI and Gemini provider adapters
 - Provider selection: OpenAI, Gemini, or hybrid (tries OpenAI first, then Gemini)
 - Bounded recent conversation context is sent to the selected model
-- SQLite-backed, authenticated account-owned long-term memory with list, add, delete and clear API endpoints
+- SQLite-backed, authenticated account-owned long-term memory with create, read, update, delete and clear API endpoints
 - Per-account knowledge graph storing explicit subject–predicate–object facts, with add/list/delete/clear API operations and per-account fact limits
 - Multi-agent runs receive the signed-in account's memories and graph facts as untrusted context; bounded coordinator summaries are saved back to that account's memory
 - Knowledge Base notes sync to server-side memory when the backend is online
@@ -16,7 +16,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Provider API keys stay server-side in environment variables
 - Persona settings and language preference included with chat requests
 - Browser speech recognition where supported, plus optional speech-synthesis replies
-- Chat history, notes, theme, accent and UI preferences saved in the current browser's local storage
+- Chat history and notes are namespaced by signed-in account in browser local storage; theme, accent and UI preferences remain local to the browser
 - Individual note deletion and conversation clearing
 - Backend health endpoint reports configured providers, app version and process uptime
 - Responsive desktop and mobile navigation
@@ -124,7 +124,7 @@ This is bounded, request-scoped orchestration—not unrestricted autonomous agen
 
 
 ## Shared agent memory and knowledge graph
-The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, scoped to the same namespace derived from the authenticated account ID; client-provided session IDs are not accepted. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives only the authenticated account's recent memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per account, fields are limited to 300 characters, and list responses are bounded.
+The `backend/knowledge.py` module stores explicit subject–predicate–object facts in SQLite, keyed by the authenticated database user ID; client-provided session IDs are not accepted. The Collaboration Nexus lets the operator add and delete facts. Each multi-agent run receives only the authenticated account's recent memories and graph facts as context, and stores a bounded coordinator-result note for continuity. Model-generated text is not automatically promoted into graph facts or marked verified. The graph is capped at 200 facts per account, fields are limited to 300 characters, and list responses are bounded.
 
 API:
 - `GET /api/knowledge` (Bearer session required)
