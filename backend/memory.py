@@ -125,3 +125,14 @@ def clear_user_memories(user_id: int) -> int:
 def user_memory_context(user_id: int) -> str:
     memories = list_user_memories(user_id, 20)
     return "\n".join("- " + item["content"] for item in reversed(memories))
+
+
+def update_user_memory(user_id: int, memory_id: int, content: str) -> bool:
+    owner = _valid_user_id(user_id)
+    value = _clean_content(content)
+    with _db() as db:
+        cur = db.execute(
+            "UPDATE memories SET content=? WHERE user_id=? AND id=?",
+            (value, owner, memory_id),
+        )
+        return cur.rowcount > 0
