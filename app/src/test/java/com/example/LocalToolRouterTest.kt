@@ -24,7 +24,7 @@ class LocalToolRouterTest {
 
     @Test
     fun supportsNestedParenthesesAndUnaryMinus() {
-        assertEquals("-18", LocalToolRouter.calculate("-(2 + (3 * 4)) + 0"))
+        assertEquals("-14", LocalToolRouter.calculate("-(2 + (3 * 4)) + 0"))
     }
 
     @Test
