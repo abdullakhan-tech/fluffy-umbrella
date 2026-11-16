@@ -25,6 +25,7 @@ class ChatRequest(BaseModel):
     language: Optional[str] = Field(default="en-US", max_length=16)
     persona: Optional[PersonaSettings] = None
     settings: Optional[Dict[str, Any]] = None
+    agent: Optional[str] = Field(default="general", max_length=24)
 
 @app.get("/api/health")
 def health():
@@ -48,8 +49,18 @@ def chat(body: ChatRequest):
         "de-DE": "German", "zh-CN": "Chinese", "ja-JP": "Japanese",
     }
     language = language_names.get(body.language or "", "the language used by the user")
+    agent_instructions = {
+        "general": "Act as a capable general-purpose assistant.",
+        "research": "Act as a research specialist. Separate established facts from uncertainty and structure findings clearly.",
+        "coding": "Act as a senior software engineer. Explain assumptions, provide robust code, and consider security and edge cases.",
+        "writing": "Act as an expert writing editor. Match the requested audience and tone while preserving intent.",
+        "analysis": "Act as an analytical strategist. Break problems into evidence, options, trade-offs, and recommendations.",
+        "creative": "Act as a creative director. Develop original concepts with concrete visual and storytelling details.",
+    }
+    agent_instruction = agent_instructions.get(body.agent or "general", agent_instructions["general"])
     system_prompt = (
-        "You are Zaythar AI, a helpful, safe, multilingual personal assistant. "
+        You are Zaythar AI, a helpful, safe, multilingual personal assistant. "
+        + agent_instruction + " "
         f"Reply in {language}, unless the user explicitly requests another language. "
         f"Persona style: {persona.style}. Empathy: {persona.empathy}/100; "
         f"analytical depth: {persona.cognitive_capacity}/100; adaptability: "
