@@ -21,7 +21,7 @@ Application ID: `com.aistudio.zaythar.zxtmkr`. Minimum Android API 26, compile S
 ## Build tooling
 
 - Official Gradle 9.3.1 wrapper is committed (`gradlew`, `gradlew.bat`, wrapper JAR and properties).
-- Main-branch GitHub Actions workflow runs Android unit tests and assembles a debug APK.
+- Main-branch GitHub Actions workflow runs Firestore Emulator security-rule tests, Android unit tests, and assembles a debug APK.
 - The workflow uses a temporary compile-only Firebase configuration; it is not a usable Firebase project credential.
 - CI uploads the debug APK only after tests and assembly succeed.
 
@@ -51,7 +51,7 @@ A successful CI compile does not prove Google sign-in, live Gemini requests, App
 ## Known outstanding work
 
 - Confirm latest main-branch build and unit-test run passes.
-- Run Firestore Emulator Suite rule tests in CI and verify two-account isolation.
+- Confirm Firestore Emulator Suite rule tests pass in CI and verify two-account isolation against the intended Firebase project.
 - Verify live Gemini multi-agent execution and provider model availability with the real Firebase project.
 - Complete user-facing memory review/export/deletion controls.
 - Hook the neural orb's Speaking state to actual TextToSpeech lifecycle.
