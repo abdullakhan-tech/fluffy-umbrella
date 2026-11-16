@@ -83,31 +83,13 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools@14
 
-      - name: Install Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.3.1"
-
-      - name: Generate temporary debug signing key
-        run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
-          chmod 600 debug.keystore
-
       - name: Run Android tests and assemble debug APK with Firebase emulators
         run: >-
           firebase emulators:exec
           --project demo-no-project
           --only auth,firestore
           --non-interactive
-          "gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug"
+          "./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug"
 
       - name: Upload debug APK
         if: success()
