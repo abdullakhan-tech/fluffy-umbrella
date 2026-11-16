@@ -27,7 +27,7 @@ function persistChat(){if(!activeUsername)return;store.set('chat:'+activeUsernam
 function loadChat(){if(!activeUsername)return;const history=store.get('chat:'+activeUsername,[]);if(!history.length)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();history.forEach(m=>addMessage(m.role,m.text,false))}
 function localReply(q){if(/^(hi|hello|hey|salam|السلام)/i.test(q))return 'Salam! I am Zaythar AI. The backend is currently unavailable, so this is a limited local response.';return 'I could not reach the AI backend. Check that the FastAPI server is running and OPENAI_API_KEY is configured on the server.'}
 function currentPersona(){const ranges=$$('#persona input[type=range]').map(r=>Number(r.value));return {empathy:ranges[0]??70,cognitive_capacity:ranges[1]??70,adaptability:ranges[2]??70,creativity:ranges[3]??70,style:$('#persona select')?.value||'Balanced & helpful'}}
-async function send(q){q=q.trim();if(!q||busy)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();addMessage('user',q);promptBox.value='';busy=true;const pending=addMessage('assistant','PROCESSING REQUEST…');try{const r=await apiFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:$('#chatLanguage').value,persona:currentPersona(),settings:store.get('preferences',{}),agent:activeAgent,provider:store.get('aiProvider','hybrid'),history:store.get('chat',[]).slice(-16).map(m=>({role:m.role,content:m.text}))})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||'Backend unavailable');pending.textContent=data.reply||'No response received.';persistChat();if($('#speakToggle')?.checked)speak(pending.textContent)}catch(e){pending.textContent=localReply(q);persistChat();toast(e.message||'AI service unavailable')}finally{busy=false;messages.scrollTop=messages.scrollHeight}}
+async function send(q){q=q.trim();if(!q||busy)return;const empty=messages.querySelector('.empty-chat');if(empty)empty.remove();addMessage('user',q);promptBox.value='';busy=true;const pending=addMessage('assistant','PROCESSING REQUEST…');try{const r=await apiFetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,language:$('#chatLanguage').value,persona:currentPersona(),settings:store.get('preferences',{}),agent:activeAgent,provider:store.get('aiProvider','hybrid'),history:store.get('chat:'+activeUsername,[]).slice(-16).map(m=>({role:m.role,content:m.text}))})});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.detail||'Backend unavailable');pending.textContent=data.reply||'No response received.';persistChat();if($('#speakToggle')?.checked)speak(pending.textContent)}catch(e){pending.textContent=localReply(q);persistChat();toast(e.message||'AI service unavailable')}finally{busy=false;messages.scrollTop=messages.scrollHeight}}
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();send(promptBox.value)});$$('.suggestion').forEach(b=>b.onclick=()=>send(b.textContent));
 let recognition;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){recognition=new SR();recognition.continuous=false;recognition.interimResults=false;recognition.onresult=e=>send(e.results[0][0].transcript);recognition.onend=()=>$('#micBtn').textContent='🎙 VOICE';recognition.onerror=()=>{$('#micBtn').textContent='🎙 VOICE';toast('Microphone unavailable. Check browser permission.')}} 
 $('#micBtn').onclick=()=>{if(!recognition){toast('Voice input is not supported in this browser. Try Chrome over HTTPS.');return}recognition.lang=$('#chatLanguage').value;$('#micBtn').textContent='LISTENING…';try{recognition.start()}catch(e){toast('Voice capture is already active.')}};
@@ -38,7 +38,7 @@ $('#makeBrief').onclick=()=>{const p=$('#mediaPrompt').value.trim();$('#mediaRes
 $('#copyCode').onclick=async()=>{const t=$('pre code').textContent;try{await navigator.clipboard.writeText(t);$('#copyCode').textContent='COPIED'}catch(e){$('#copyCode').textContent='COPY BLOCKED'}};
 $$('.prompt-card').forEach(b=>b.onclick=()=>{openPanel('assistant');promptBox.value=b.dataset.prompt;promptBox.focus()});
 $('#promptSearch').addEventListener('input',e=>$$('.prompt-card').forEach(b=>b.style.display=b.textContent.toLowerCase().includes(e.target.value.toLowerCase())?'block':'none'));
-function renderNotes(){const list=$('#notesList');list.innerHTML='';store.get('notes',[]).forEach((note,i)=>{const row=document.createElement('div');row.className='note-item';const content=document.createElement('span');content.textContent=note.text;const del=document.createElement('button');del.type='button';del.className='note-delete';del.textContent='DELETE';del.setAttribute('aria-label','Delete note');del.onclick=()=>{const notes=store.get('notes:'+activeUsername,[]);notes.splice(i,1);store.set('notes:'+activeUsername,notes);renderNotes()};row.append(content,del);list.append(row)})}
+function renderNotes(){const list=$('#notesList');list.innerHTML='';if(!activeUsername)return;store.get('notes:'+activeUsername,[]).forEach((note,i)=>{const row=document.createElement('div');row.className='note-item';const content=document.createElement('span');content.textContent=note.text;const del=document.createElement('button');del.type='button';del.className='note-delete';del.textContent='DELETE';del.setAttribute('aria-label','Delete note');del.onclick=()=>{const notes=store.get('notes:'+activeUsername,[]);notes.splice(i,1);store.set('notes:'+activeUsername,notes);renderNotes()};row.append(content,del);list.append(row)})}
 $('#saveNote').onclick=async()=>{const v=$('#knowledgeNote').value.trim();if(!v)return;if(!activeUsername){toast('Sign in before saving account notes.');return}const notes=store.get('notes:'+activeUsername,[]);notes.unshift({text:v,created:new Date().toISOString()});store.set('notes:'+activeUsername,notes.slice(0,200));$('#knowledgeNote').value='';renderNotes();try{const r=await apiFetch('/api/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:v})});if(!r.ok)throw new Error('Memory sync unavailable');toast('Note saved locally and to Zaythar long-term memory.')}catch(e){toast('Note saved on this device; server memory sync unavailable.')}};renderNotes();
 async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();const ok=r.ok&&d.status==='ok';$('#apiStatus').textContent=ok?(d.ai_configured?'AI READY':'BACKEND ONLINE · KEY NEEDED'):'OFFLINE';$('#apiStatus').style.color=ok?'var(--green)':'var(--accent2)';$('#securityHealth').textContent=ok?(d.ai_configured?'ONLINE · AI CONFIGURED':'ONLINE · AI NOT CONFIGURED'):'OFFLINE';
   if(ok){
@@ -303,4 +303,77 @@ applyVisualControls();
     finally{save.disabled=false}
   });
   refresh();
+})();
+
+
+// Account sessions are held in sessionStorage only; personal browser history is
+// namespaced by the authenticated username and never loaded before /api/auth/me.
+(function initAccountAccess(){
+  const gate=$('#authGate'),form=$('#authForm'),modeButton=$('#authModeToggle');
+  const tokenField=$('#registrationTokenWrap'),tokenInput=$('#registrationToken');
+  const title=$('#authTitle'),submit=$('#authSubmit'),status=$('#authStatus');
+  if(!gate||!form)return;
+  let mode='login';
+  function setMode(next){
+    mode=next;
+    const registering=mode==='register';
+    title.textContent=registering?'Create your Zaythar account':'Sign in to Zaythar';
+    submit.textContent=registering?'CREATE ACCOUNT':'SIGN IN';
+    modeButton.textContent=registering?'BACK TO SIGN IN':'CREATE ACCOUNT';
+    tokenField.hidden=!registering;
+    tokenInput.required=registering;
+    $('#authPassword').autocomplete=registering?'new-password':'current-password';
+    status.textContent=registering?'Use the invitation token configured by your server administrator.':'Sign in to access your private assistant data.';
+  }
+  modeButton.addEventListener('click',()=>setMode(mode==='login'?'register':'login'));
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    submit.disabled=true;
+    status.textContent='SECURELY CONTACTING SERVER…';
+    const payload={
+      username:$('#authUsername').value.trim(),
+      password:$('#authPassword').value
+    };
+    if(mode==='register')payload.registration_token=tokenInput.value;
+    try{
+      const response=await fetch('/api/auth/'+mode,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.detail||'Account request failed.');
+      setAuthToken(data.token);
+      status.textContent='Access granted. Loading your private workspace…';
+      window.location.reload();
+    }catch(error){
+      status.textContent=error.message||'Authentication failed.';
+    }finally{
+      submit.disabled=false;
+    }
+  });
+  $('#logoutBtn')?.addEventListener('click',async()=>{
+    try{await apiFetch('/api/auth/logout',{method:'POST'})}catch{}
+    setAuthToken('');
+    activeUsername=null;
+    window.location.reload();
+  });
+  async function validateSession(){
+    const token=getAuthToken();
+    if(!token){gate.hidden=false;setMode('login');return}
+    try{
+      const response=await apiFetch('/api/auth/me',{cache:'no-store'});
+      if(!response.ok)throw new Error('Session expired');
+      const data=await response.json();
+      activeUsername=data.user.username;
+      gate.hidden=true;
+      loadChat();
+      renderNotes();
+    }catch{
+      setAuthToken('');
+      activeUsername=null;
+      gate.hidden=false;
+      setMode('login');
+    }
+  }
+  setMode('login');
+  validateSession();
 })();
