@@ -76,6 +76,7 @@ import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSecondaryButton
+import com.example.ui.components.NeuralCoreActivity
 import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.theme.LocalCyberColors
 
@@ -189,6 +190,8 @@ fun AssistantScreen(
                     modifier = Modifier.weight(0.75f),
                     motionEnabled = prefs.motion3dEnabled,
                     activeAgent = activeAgent,
+                    isBusy = isBusy,
+                    isListening = isListening,
                     onSuggestionClick = { onSend(it) }
                 )
                 AssistantChatCard(
@@ -239,7 +242,12 @@ fun AssistantScreen(
                             NeuralCoreVisualizer(
                                 size = 64.dp,
                                 motionEnabled = prefs.motion3dEnabled,
-                                coreLabel = activeAgent.shortCode
+                                coreLabel = activeAgent.shortCode,
+                                activity = when {
+                                    isListening -> NeuralCoreActivity.LISTENING
+                                    isBusy -> NeuralCoreActivity.THINKING
+                                    else -> NeuralCoreActivity.READY
+                                }
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -327,6 +335,8 @@ private fun AssistantOrbCard(
     modifier: Modifier = Modifier,
     motionEnabled: Boolean,
     activeAgent: AgentRole,
+    isBusy: Boolean,
+    isListening: Boolean,
     onSuggestionClick: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
@@ -344,7 +354,12 @@ private fun AssistantOrbCard(
             NeuralCoreVisualizer(
                 size = 170.dp,
                 motionEnabled = motionEnabled,
-                coreLabel = activeAgent.shortCode
+                coreLabel = activeAgent.shortCode,
+                activity = when {
+                    isListening -> NeuralCoreActivity.LISTENING
+                    isBusy -> NeuralCoreActivity.THINKING
+                    else -> NeuralCoreActivity.READY
+                }
             )
             Text(
                 text = buildAnnotatedString {
