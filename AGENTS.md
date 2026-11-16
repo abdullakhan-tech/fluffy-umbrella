@@ -1,18 +1,26 @@
 # Agent and Contributor Instructions
 
-## Before changing code
-1. Read `README.md`, `ARCHITECTURE.md`, `SECURITY.md`, and the relevant API/UI files.
-2. Confirm whether a feature is implemented or only represented visually.
-3. Keep changes small, reviewable, and compatible with mobile browsers.
+These instructions apply to humans and coding agents working on Zaythar AI.
 
-## Rules
-- Never put secrets in frontend code, commits, screenshots, tests, or logs.
-- Keep provider calls on the server.
-- Validate all request fields and bound input sizes.
-- Do not add autonomous actions, shell execution, or device access without explicit user permission and safeguards.
-- Preserve accessibility, keyboard operation, and reduced-motion support.
-- Add or update tests and documentation with behaviour changes.
-- Do not invent success states or fake live telemetry.
+## Before changing code
+1. Read README.md, ARCHITECTURE.md, SECURITY.md, docs/PROJECT_STATUS.md, and the relevant Kotlin/Firebase files.
+2. Treat the native Android Kotlin/Jetpack Compose app as the current source of truth.
+3. Distinguish implemented, partial, planned, and unverified functionality.
+4. Keep changes focused, compatible with the current Gradle and Firebase dependency versions, and covered by tests.
+
+## Architecture and provider rules
+- Use Firebase AI Logic for the current Android Gemini integration; do not add a standalone Gemini key to the APK.
+- A future server-side provider integration must keep provider secrets in a server secret manager.
+- Keep Firebase UID ownership checks in repository methods and Firestore rules.
+- Keep UI, domain orchestration, Firestore access, and platform APIs separated.
+- Use typed, allow-listed tools with input bounds, timeouts, cancellation, and confirmation gates.
+- Never execute arbitrary model-generated shell commands, code, or unrestricted intents.
+
+## Security and privacy
+- Never commit API keys, tokens, passwords, signing keys, service-account files, or private Firebase credentials.
+- Treat model output, retrieved content, and memory as untrusted data.
+- Never log private message content, user identifiers, or provider secrets unnecessarily.
+- Request Android permissions only when needed and provide a text fallback for speech.
 
 ## Completion checklist
-Run available tests, inspect the diff, update docs, and report known limitations. If tests cannot be run, say so.
+Run the relevant Gradle tests and build, inspect the diff, update documentation, and report any unverified Firebase or device behaviour honestly.
