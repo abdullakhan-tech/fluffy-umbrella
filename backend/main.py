@@ -1,39 +1,81 @@
 import os
-from typing import Optional
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-from openai import OpenAI
+from pathlib import Path
+from typing import Optional, Dict, Any
 
-app = FastAPI(title="Zaythar AI API", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from openai import OpenAI, APIError, RateLimitError, AuthenticationError
+from pydantic import BaseModel, Field
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+app = FastAPI(title="Zaythar AI API", version="1.1.0")
+
+class PersonaSettings(BaseModel):
+    empathy: int = Field(default=70, ge=0, le=100)
+    cognitive_capacity: int = Field(default=70, ge=0, le=100)
+    adaptability: int = Field(default=70, ge=0, le=100)
+    creativity: int = Field(default=70, ge=0, le=100)
+    style: str = Field(default="Balanced & helpful", max_length=80)
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
-    language: Optional[str] = "en-US"
+    language: Optional[str] = Field(default="en-US", max_length=16)
+    persona: Optional[PersonaSettings] = None
+    settings: Optional[Dict[str, Any]] = None
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "Zaythar AI", "ai_configured": bool(os.getenv("OPENAI_API_KEY"))}
+    return {
+        "status": "ok",
+        "service": "Zaythar AI",
+        "ai_configured": bool(os.getenv("OPENAI_API_KEY")),
+        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        "version": app.version,
+    }
 
 @app.post("/api/chat")
 def chat(body: ChatRequest):
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=503, detail="AI provider is not configured. Set OPENAI_API_KEY on the server.")
+        raise HTTPException(status_code=503, detail="AI is not configured. Add OPENAI_API_KEY to the server environment.")
+    persona = body.persona or PersonaSettings()
+    language_names = {
+        "en-US": "English", "ur-PK": "Urdu", "ar-SA": "Arabic",
+        "hi-IN": "Hindi", "fr-FR": "French", "es-ES": "Spanish",
+        "de-DE": "German", "zh-CN": "Chinese", "ja-JP": "Japanese",
+    }
+    language = language_names.get(body.language or "", "the language used by the user")
+    system_prompt = (
+        "You are Zaythar AI, a helpful, safe, multilingual personal assistant. "
+        f"Reply in {language}, unless the user explicitly requests another language. "
+        f"Persona style: {persona.style}. Empathy: {persona.empathy}/100; "
+        f"analytical depth: {persona.cognitive_capacity}/100; adaptability: "
+        f"{persona.adaptability}/100; creativity: {persona.creativity}/100. "
+        "Treat these as tone preferences, not permission to ignore safety or accuracy. "
+        "Be clear, practical, and honest about limitations."
+    )
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=45.0, max_retries=1)
         response = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             messages=[
-                {"role": "system", "content": "You are Zaythar AI, a helpful, safe, multilingual personal assistant. Reply in the language used by the user. Be clear and practical."},
-                {"role": "user", "content": body.message}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": body.message},
             ],
             temperature=0.7,
         )
-        return {"reply": response.choices[0].message.content or ""}
+        return {"reply": response.choices[0].message.content or "", "model": response.model}
+    except AuthenticationError:
+        raise HTTPException(status_code=502, detail="The server API key was rejected. Check OPENAI_API_KEY.")
+    except RateLimitError:
+        raise HTTPException(status_code=429, detail="AI provider rate limit or quota reached. Check billing and usage.")
+    except APIError as exc:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {type(exc).__name__}")
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"AI provider request failed: {type(exc).__name__}")
+        raise HTTPException(status_code=502, detail=f"AI request failed: {type(exc).__name__}")
 
-app.mount("/", StaticFiles(directory=".", html=True), name="web")
+# Same-origin hosting: no permissive wildcard CORS is needed.
+app.mount("/", StaticFiles(directory=str(BASE_DIR), html=True), name="web")
