@@ -1,0 +1,413 @@
+package com.example.ui.screens
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import com.example.data.local.ZaytharPreferences
+import com.example.ui.components.CyberActionButton
+import com.example.ui.components.CyberCard
+import com.example.ui.components.CyberCardHeader
+import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.TelemetryBar
+import com.example.ui.theme.AccentSwatches
+import com.example.ui.theme.LocalCyberColors
+import com.example.ui.theme.SpaceGroteskFontFamily
+
+@Composable
+fun PersonaBuilderScreen(
+    prefs: ZaytharPreferences,
+    onUpdatePrefs: ((ZaytharPreferences) -> ZaytharPreferences) -> Unit,
+    onToast: (String) -> Unit
+) {
+    val cyber = LocalCyberColors.current
+    val styles = listOf(
+        "Balanced & helpful",
+        "Professional & concise",
+        "Friendly & expressive",
+        "Technical & analytical"
+    )
+    var styleMenuExpanded by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            CyberSectionTitle(
+                eyebrow = "IDENTITY MATRIX",
+                titlePrefix = "AI Persona",
+                titleAccent = "Builder"
+            )
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(140.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(cyber.accent.copy(alpha = 0.4f), cyber.panelGlass)
+                                )
+                            )
+                            .border(2.5.dp, cyber.accent, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Z",
+                            fontFamily = SpaceGroteskFontFamily,
+                            style = MaterialTheme.typography.displaySmall,
+                            color = Color.White
+                        )
+                    }
+                    Text(
+                        text = "ZAYTHAR NEURAL",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = "Adaptive personal intelligence · ${prefs.personaStyle}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "● SYSTEM ACTIVE",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cyber.cyberGreen
+                    )
+                }
+            }
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                CyberCardHeader(title = "PERSONALITY PARAMETERS")
+
+                CyberSliderRow(
+                    label = "Empathy ratio",
+                    value = prefs.empathyRatio,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(empathyRatio = v) } }
+                )
+                CyberSliderRow(
+                    label = "Cognitive capacity",
+                    value = prefs.cognitiveCapacity,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(cognitiveCapacity = v) } }
+                )
+                CyberSliderRow(
+                    label = "Adaptability",
+                    value = prefs.adaptability,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(adaptability = v) } }
+                )
+                CyberSliderRow(
+                    label = "Creativity",
+                    value = prefs.personaCreativity,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(personaCreativity = v) } }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "ASSISTANT PERSONALITY",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .minimumInteractiveComponentSize()
+                            .clickable { styleMenuExpanded = true }
+                            .testTag("persona_style_dropdown"),
+                        shape = MaterialTheme.shapes.small,
+                        color = cyber.panelElevated,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Text(
+                            text = prefs.personaStyle,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = styleMenuExpanded,
+                        onDismissRequest = { styleMenuExpanded = false }
+                    ) {
+                        styles.forEach { style ->
+                            DropdownMenuItem(
+                                text = { Text(style) },
+                                onClick = {
+                                    onUpdatePrefs { it.copy(personaStyle = style) }
+                                    styleMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                CyberActionButton(
+                    text = "INITIALIZE PERSONA",
+                    onClick = { onToast("Persona preferences saved and applied to future chats.") },
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "initialize_persona_button"
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SettingsScreen(
+    prefs: ZaytharPreferences,
+    onUpdatePrefs: ((ZaytharPreferences) -> ZaytharPreferences) -> Unit,
+    onSelectAccent: (Long) -> Unit,
+    onToast: (String) -> Unit
+) {
+    val cyber = LocalCyberColors.current
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            CyberSectionTitle(
+                eyebrow = "NEURAL CONFIGURATION",
+                titlePrefix = "AI Cognitive",
+                titleAccent = "Settings",
+                trailing = {
+                    CyberActionButton(
+                        text = "SAVE",
+                        onClick = { onToast("Preferences saved on this device.") },
+                        testTag = "save_settings_button"
+                    )
+                }
+            )
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                CyberCardHeader(title = "PROCESSING PARAMETERS")
+
+                CyberSliderRow(
+                    label = "Processing velocity",
+                    value = prefs.processingVelocity,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(processingVelocity = v) } }
+                )
+                CyberSliderRow(
+                    label = "Synaptic depth",
+                    value = prefs.synapticDepth,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(synapticDepth = v) } }
+                )
+                CyberSliderRow(
+                    label = "Response precision",
+                    value = prefs.responsePrecision,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(responsePrecision = v) } }
+                )
+                CyberSliderRow(
+                    label = "Creativity bias",
+                    value = prefs.creativityBias,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(creativityBias = v) } }
+                )
+
+                CyberToggleRow(
+                    label = "Neural overdrive",
+                    checked = prefs.neuralOverdrive,
+                    onCheckedChange = { c -> onUpdatePrefs { it.copy(neuralOverdrive = c) } }
+                )
+                CyberToggleRow(
+                    label = "Holographic interface",
+                    checked = prefs.holographicUi,
+                    onCheckedChange = { c -> onUpdatePrefs { it.copy(holographicUi = c) } }
+                )
+                CyberToggleRow(
+                    label = "Auto cognition",
+                    checked = prefs.autoCognition,
+                    onCheckedChange = { c -> onUpdatePrefs { it.copy(autoCognition = c) } }
+                )
+            }
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                CyberCardHeader(title = "THEME & VISUALIZER")
+
+                CyberSliderRow(
+                    label = "Secondary glow",
+                    value = prefs.glowStrength,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(glowStrength = v) } }
+                )
+                CyberSliderRow(
+                    label = "Metallic specularity",
+                    value = prefs.metalSpecularity,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(metalSpecularity = v) } }
+                )
+                CyberSliderRow(
+                    label = "Contrast",
+                    value = prefs.contrastStrength,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(contrastStrength = v) } }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "ACCENT COLOR",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    AccentSwatches.forEach { (hex, name) ->
+                        val selected = prefs.accentHex == hex
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(Color(hex), MaterialTheme.shapes.small)
+                                .border(
+                                    width = if (selected) 3.dp else 1.dp,
+                                    color = if (selected) Color.White else MaterialTheme.colorScheme.outline,
+                                    shape = MaterialTheme.shapes.small
+                                )
+                                .clickable { onSelectAccent(hex) }
+                                .testTag("accent_swatch_${name.lowercase()}")
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Select an accent color to personalize the command interface.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                TelemetryBar(
+                    label = "Interface glow",
+                    statusText = "${prefs.glowStrength.toInt()}%",
+                    progress = prefs.glowStrength / 100f
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                TelemetryBar(
+                    label = "Metallic contrast",
+                    statusText = "${prefs.contrastStrength.toInt()}%",
+                    progress = prefs.contrastStrength / 100f
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CyberSliderRow(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit
+) {
+    val cyber = LocalCyberColors.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "${value.toInt()}%",
+                style = MaterialTheme.typography.titleSmall,
+                color = cyber.accentSoft
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = 0f..100f,
+            colors = SliderDefaults.colors(
+                thumbColor = cyber.accentSoft,
+                activeTrackColor = cyber.accent
+            )
+        )
+    }
+}
+
+@Composable
+private fun CyberToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val cyber = LocalCyberColors.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = cyber.accent
+                )
+            )
+        }
+    }
+}

@@ -12,3 +12,6 @@ __pycache__/
 # Local persistent memory database
 backend/data/
 *.db
+
+# Firebase CLI debug logs
+*-debug.log

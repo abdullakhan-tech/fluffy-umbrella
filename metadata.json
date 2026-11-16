@@ -1,0 +1,8 @@
+{
+  "name": "Zaythar AI",
+  "description": "Multilingual neural command nexus with AI assistant, multi-agent team orchestrator, persona builder, and local knowledge base.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

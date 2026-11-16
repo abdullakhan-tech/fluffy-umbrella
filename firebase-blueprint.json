@@ -1,0 +1,151 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated operator profile scoped to a Firebase user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the profile owner."
+        },
+        "operatorName": {
+          "type": "string",
+          "description": "Operator display handle (1-32 characters)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "operatorName", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "User or AI assistant conversation message stored in user-scoped history.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the message owner."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "description": "Message author role."
+        },
+        "text": {
+          "type": "string",
+          "description": "Message body text (1-24000 characters)."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent identifier handling the message."
+        },
+        "modelLabel": {
+          "type": "string",
+          "description": "Model or local-tool label used to produce the reply."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "role", "text", "agent", "modelLabel", "createdAt", "updatedAt"]
+    },
+    "MemoryNote": {
+      "title": "MemoryNote",
+      "description": "Durable user memory note injected as context into AI Assistant and Multi-Agent runs.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the note owner."
+        },
+        "content": {
+          "type": "string",
+          "description": "Memory note text (1-2000 characters)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "content", "createdAt", "updatedAt"]
+    },
+    "KnowledgeFact": {
+      "title": "KnowledgeFact",
+      "description": "Structured knowledge graph triple (subject, predicate, objectValue) owned by a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the fact owner."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Triple subject (1-300 characters)."
+        },
+        "predicate": {
+          "type": "string",
+          "description": "Triple predicate or relation (1-300 characters)."
+        },
+        "objectValue": {
+          "type": "string",
+          "description": "Triple object value (1-300 characters)."
+        },
+        "source": {
+          "type": "string",
+          "description": "Origin of the fact (e.g. operator)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written with FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated with FieldValue.serverTimestamp()."
+        }
+      },
+      "required": ["userId", "subject", "predicate", "objectValue", "source", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile document keyed by Firebase Auth UID."
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User-scoped AI conversation history."
+    },
+    "/users/{userId}/memories/{memoryId}": {
+      "schema": { "$ref": "#/entities/MemoryNote" },
+      "description": "User-scoped long-term memory notes."
+    },
+    "/users/{userId}/knowledge_facts/{factId}": {
+      "schema": { "$ref": "#/entities/KnowledgeFact" },
+      "description": "User-scoped structured knowledge graph triples."
+    }
+  }
+}
