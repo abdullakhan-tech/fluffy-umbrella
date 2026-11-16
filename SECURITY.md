@@ -27,7 +27,8 @@ Do not publish exploitable vulnerabilities, credentials, invitation tokens, sess
 - Registration uses one shared invitation secret. Distribute it privately and remove it from the environment when account creation should stop.
 - Rate limiting is in-process and resets on restart; multi-worker/public deployments need a trusted shared gateway limiter and monitoring.
 - Deploy only behind HTTPS. Do not expose the development server directly to the public internet.
-- Browser XSS could expose an active session token. Keep frontend dependencies and content trusted, use a restrictive production Content Security Policy, and sign out on shared devices.
+- Browser XSS could expose an active session token. Keep frontend dependencies and content trusted, add a restrictive production Content Security Policy, and sign out on shared devices.
+- Browser chat history, notes and display names are stored in account-namespaced localStorage and are not encrypted by this application; clear browser data on shared devices.
 - Existing legacy rows keyed by browser-generated session IDs are not automatically assigned to accounts. They remain unclaimed in the old database namespace; do not migrate them without a verified owner mapping.
 
 ## Safe development
