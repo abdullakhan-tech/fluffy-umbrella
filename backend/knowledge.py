@@ -70,7 +70,7 @@ def list_facts(session_id: str, limit: int = 50) -> list[dict]:
 
 def knowledge_context(session_id: str, limit: int = 30) -> str:
     facts = list_facts(session_id, limit)
-    return "\\n".join(f"- {f['subject']} — {f['predicate']} — {f['object']} (source: {f['source']})" for f in reversed(facts))
+    return "\n".join(f"- {f['subject']} — {f['predicate']} — {f['object']} (source: {f['source']})" for f in reversed(facts))
 
 
 def delete_fact(session_id: str, fact_id: int) -> bool:
