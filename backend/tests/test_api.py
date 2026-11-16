@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from backend import auth, main, memory
+from backend import auth, main, memory, knowledge
 
 client = TestClient(main.app)
 REGISTRATION_TOKEN = "test-registration-token-" + ("x" * 32)
@@ -10,6 +10,7 @@ REGISTRATION_TOKEN = "test-registration-token-" + ("x" * 32)
 @pytest.fixture(autouse=True)
 def isolated_security_state(tmp_path, monkeypatch):
     monkeypatch.setattr(memory, "DB_PATH", tmp_path / "security-test.db")
+    monkeypatch.setattr(knowledge, "DB_PATH", tmp_path / "security-test.db")
     monkeypatch.setenv("ZAYTHAR_REGISTRATION_TOKEN", REGISTRATION_TOKEN)
     monkeypatch.setattr(main, "_RATE_LIMIT", 20)
     monkeypatch.setattr(main, "_AUTH_RATE_LIMIT", 20)
@@ -123,6 +124,9 @@ def test_client_cannot_choose_memory_owner_or_session(auth_headers):
 
 
 def test_memory_and_knowledge_are_isolated_between_users(register_user):
+    # A legacy browser session may have guessed a future username namespace.
+    memory.save_memory("zaythar_user_1", "legacy session data must not become account data")
+    knowledge.add_fact("zaythar_user_1", "Legacy", "must not leak", "into account")
     alice = register_user("alice-user")
     bob = register_user("bob-user")
     alice_headers = {"Authorization": "Bearer " + alice["token"]}
@@ -187,8 +191,8 @@ def test_chat_rate_limit_returns_retry_after(monkeypatch, auth_headers):
 def test_multi_agent_endpoint_uses_server_derived_user_scope(monkeypatch, auth_headers):
     captured = {}
 
-    def fake_run(task, agents, provider, language, session_id):
-        captured["session_id"] = session_id
+    def fake_run(task, agents, provider, language, user_id):
+        captured["user_id"] = user_id
         return {"reply": "Coordinated output", "agents": [], "completed_agents": 1,
                 "total_agents": 1, "provider": "openai", "model": "test"}
 
@@ -197,7 +201,7 @@ def test_multi_agent_endpoint_uses_server_derived_user_scope(monkeypatch, auth_h
         "task": "Review this function", "agents": ["coding"],
     })
     assert response.status_code == 200
-    assert captured["session_id"].startswith("zaythar_user_")
+    assert type(captured["user_id"]) is int and captured["user_id"] > 0
 
 
 def test_multi_agent_rejects_more_than_four_specialists(auth_headers):
