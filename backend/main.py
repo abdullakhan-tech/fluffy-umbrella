@@ -15,7 +15,7 @@ from backend import auth
 from backend.agents import run_multi_agent
 from backend.brain import run_brain
 from backend.knowledge import add_user_fact, clear_user_facts, delete_user_fact, list_user_facts
-from backend.memory import clear_user_memories, delete_user_memory, list_user_memories, user_memory_context, save_user_memory
+from backend.memory import clear_user_memories, delete_user_memory, list_user_memories, user_memory_context, save_user_memory, update_user_memory
 from backend.reasoning import reasoning_hint, route_tool
 
 BASE_DIR = FilePath(__file__).resolve().parent.parent
@@ -304,6 +304,17 @@ def create_memory(body: MemoryRequest, user: dict = Depends(require_user)):
         return save_user_memory(int(user["id"]), body.content)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.put("/api/memory/{memory_id}")
+def update_memory(
+    body: MemoryRequest,
+    memory_id: int = FastAPIPath(..., ge=1),
+    user: dict = Depends(require_user),
+):
+    if not update_user_memory(int(user["id"]), memory_id, body.content):
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return {"updated": True}
 
 
 @app.delete("/api/memory/{memory_id}")
