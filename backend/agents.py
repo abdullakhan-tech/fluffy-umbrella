@@ -58,7 +58,7 @@ def run_multi_agent(task: str, agents: list[str], provider: str = "hybrid", lang
 
     if not isinstance(session_id, str) or not session_id or len(session_id) > 64 or not all(ch.isalnum() or ch in '_-' for ch in session_id):
         raise ValueError('Invalid session_id')
-    shared_context = '\n'.join(part for part in (memory_context(session_id), knowledge_context(session_id)) if part)
+    shared_context = '\n'.join(part for part in (memory_context(session_id), knowledge_context(session_id)) if part)[:6000]
     results: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=min(4, len(selected))) as pool:
         futures = {pool.submit(_run_specialist, name, task, provider, language, shared_context): name for name in selected}
@@ -74,7 +74,7 @@ def run_multi_agent(task: str, agents: list[str], provider: str = "hybrid", lang
     if not completed:
         raise RuntimeError("All selected specialists failed. Check provider configuration and service availability.")
 
-    evidence = "\\n\\n".join(
+    evidence = "\n\n".join(
         f"[{item['agent'].upper()} SPECIALIST]\n{item['output']}" for item in completed
     )
     coordinator_prompt = (
