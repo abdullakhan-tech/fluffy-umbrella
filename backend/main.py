@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.brain import run_brain
 from backend.agents import run_multi_agent
 from backend.memory import save_memory, list_memories, delete_memory, clear_memories, memory_context
+from backend.knowledge import add_fact, list_facts, delete_fact, clear_facts
 from backend.reasoning import route_tool, reasoning_hint
 from pydantic import BaseModel, Field
 
@@ -117,19 +118,66 @@ class AgentRunRequest(BaseModel):
     agents: list[str] = Field(min_length=1, max_length=4)
     provider: str = Field(default="hybrid", pattern="^(openai|gemini|hybrid)$")
     language: str = Field(default="English", max_length=32)
+    session_id: str = Field(default="default", min_length=1, max_length=64, pattern="^[a-zA-Z0-9_-]+$")
 
 
 @app.post("/api/agents/run")
 def run_agents(body: AgentRunRequest):
     """Run selected allow-listed specialists concurrently and synthesize their work."""
     try:
-        return run_multi_agent(body.task, body.agents, body.provider, body.language)
+        return run_multi_agent(body.task, body.agents, body.provider, body.language, body.session_id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Agent orchestration failed: {type(exc).__name__}")
+
+
+class KnowledgeFactRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=64, pattern="^[a-zA-Z0-9_-]+$")
+    subject: str = Field(min_length=1, max_length=300)
+    predicate: str = Field(min_length=1, max_length=300)
+    object: str = Field(min_length=1, max_length=300)
+    source: str = Field(default="user", max_length=300)
+
+
+class KnowledgeDeleteRequest(BaseModel):
+    session_id: str = Field(min_length=1, max_length=64, pattern="^[a-zA-Z0-9_-]+$")
+
+
+@app.get("/api/knowledge")
+def get_knowledge(session_id: str = "default"):
+    try:
+        return {"facts": list_facts(session_id)}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/api/knowledge")
+def create_knowledge(body: KnowledgeFactRequest):
+    try:
+        return add_fact(body.session_id, body.subject, body.predicate, body.object, body.source)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.delete("/api/knowledge/{fact_id}")
+def remove_knowledge(fact_id: int, session_id: str):
+    try:
+        if not delete_fact(session_id, fact_id):
+            raise HTTPException(status_code=404, detail="Knowledge fact not found")
+        return {"deleted": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.delete("/api/knowledge")
+def remove_all_knowledge(body: KnowledgeDeleteRequest):
+    try:
+        return {"deleted_count": clear_facts(body.session_id)}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 class MemoryRequest(BaseModel):
