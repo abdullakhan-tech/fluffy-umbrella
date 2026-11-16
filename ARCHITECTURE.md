@@ -1,31 +1,45 @@
 # Architecture
 
-## Current system
-```text
-Browser (HTML/CSS/JavaScript)
-  | same-origin HTTP
-  v
-FastAPI backend
-  | server-side OPENAI_API_KEY
-  v
-OpenAI Chat Completions API
-```
+## Current Android system
 
-## Frontend
-- `index.html`: application shell and module markup.
-- `style.css`: responsive styling, themes, and CSS-based holographic effects.
-- `app.js`: UI events, localStorage preferences/history, browser speech APIs, and chat requests.
+~~~text
+Android app (Kotlin + Jetpack Compose)
+  ├── Firebase Authentication (Google Sign-In)
+  ├── Firebase AI Logic SDK
+  │     └── Firebase AI Logic proxy → Gemini Developer API
+  ├── Cloud Firestore (UID-scoped user data)
+  ├── Firebase App Check
+  └── Jetpack DataStore (local UI preferences)
+~~~
 
-## Backend
-- `backend/main.py`: FastAPI health and chat endpoints; serves the frontend.
-- `backend/requirements.txt`: Python dependencies.
-- `.env.example`: documented environment variable names only.
+## Android app
 
-## State and boundaries
-- Chat history, notes, and preferences are browser-local; they are not synced across devices or authenticated to a user.
-- AI chat requires a configured server-side provider key.
-- Specialist modes change system instructions; there is no multi-agent runtime.
-- Image/video generation, document ingestion/RAG, user accounts, and hardware/device control are not implemented.
+- app/src/main/java/com/example/MainActivity.kt: app entry point, App Check initialization, authentication gate, and authenticated ViewModel lifecycle.
+- app/build.gradle.kts: Android application, Firebase SDK, Google Services plugin, and build configuration.
+- app/src/main/AndroidManifest.xml: network and microphone permissions plus launcher activity.
+- gradle/libs.versions.toml: dependency and plugin version catalog.
 
-## Future direction
-Add authentication, database-backed encrypted memory, file ingestion with access controls, task orchestration with approvals, observability, and deployment automation as separate reviewed components.
+## Firebase services
+
+- **Authentication:** Google sign-in; the signed-in Firebase UID is the identity boundary.
+- **Firestore:** user data is stored under users/{userId} and its subcollections.
+- **Security rules:** firestore.rules denies access by default and checks authenticated ownership.
+- **AI:** Firebase AI Logic provides the client SDK and proxy path to Gemini models.
+- **App Check:** protects AI Logic and Firebase resources from unauthorized clients.
+
+## Secrets and configuration
+
+The Android module expects the Firebase-generated app/google-services.json file. It is not currently present in the inspected default branch. Register the app with package name com.aistudio.zaythar.zxtmkr and follow docs/ANDROID_SETUP.md.
+
+The Android Firebase AI Logic integration does not require a standalone Gemini API key in the app. Firebase manages Gemini Developer API authorization. Never embed a Gemini key in the APK.
+
+## Local preferences and platform APIs
+
+Jetpack DataStore stores local appearance and cognitive preferences. Android SpeechRecognizer and TextToSpeech provide voice input/output subject to OS support and runtime permission.
+
+## Boundaries and limitations
+
+- Firebase project setup, Google sign-in, App Check attestation, Firestore deployment, and live Gemini requests require external Firebase Console configuration.
+- An Android source tree does not prove a successful APK build or real-device test.
+- Creative Studio prepares prompts/briefs; it is not a media generation backend.
+- Do not claim device control or live hardware telemetry unless separately implemented and permissioned.
