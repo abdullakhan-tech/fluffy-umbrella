@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [ ! -d "$PREFIX" ] || [ -z "${TERMUX_VERSION:-}" ]; then
+if [ -z "${PREFIX:-}" ] || [ ! -d "$PREFIX" ] || [ -z "${TERMUX_VERSION:-}" ]; then
   echo "Run this script inside the Termux app from F-Droid or the official GitHub release."
   exit 1
 fi
