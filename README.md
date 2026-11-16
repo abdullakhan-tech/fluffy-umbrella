@@ -7,6 +7,10 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - Zaythar Neural Core orchestration layer with OpenAI and Gemini provider adapters
 - Provider selection: OpenAI, Gemini, or hybrid (tries OpenAI first, then Gemini)
 - Bounded recent conversation context is sent to the selected model
+- SQLite-backed, browser-session-scoped long-term memory with list, add, delete and clear API endpoints
+- Knowledge Base notes sync to server-side memory when the backend is online
+- Safe local tool router for arithmetic and UTC time; arbitrary code execution is not permitted
+- Lightweight task-decomposition hints guide planning without exposing private chain-of-thought
 - Provider API keys stay server-side in environment variables
 - Persona settings and language preference included with chat requests
 - Browser speech recognition where supported, plus optional speech-synthesis replies
@@ -27,7 +31,7 @@ A JARVIS/FRIDAY-inspired multilingual personal assistant with a red cybernetic c
 - **Image & Video Studio:** prepares a creative brief; image/video provider is not integrated
 - **Code Copilot:** sample secure API request, not a full code execution environment
 - **Prompt Nexus:** searchable prompt templates
-- **Knowledge Base:** notes saved in this browser only; no document upload, cross-device sync, vector search or RAG yet
+- **Knowledge Base:** notes saved in this browser and synced to session-scoped SQLite memory when online; no verified account identity, cross-device sync, vector search or RAG yet
 - **Profile:** local interface profile, not a verified account or subscription
 - **API & Security:** setup guidance and backend configuration status; no API key entry field in the browser
 
@@ -45,7 +49,8 @@ Host the FastAPI app on a Python-capable service for AI chat. Static-only hostin
 
 ## Remaining major upgrades
 - Training a proprietary foundation model from scratch (the current Neural Core orchestrates hosted models; it is not a newly trained LLM)
-- Real agent orchestration and task tools with explicit user permissions
+- Real agent orchestration and a broader permissioned tool ecosystem
+- Authentication and authorization for multi-user memory; session IDs are not an account security boundary
 - Media generation provider integration
 - Document upload, parsing, embeddings and retrieval-augmented generation
 - Authenticated user accounts and encrypted server-side synced memory
