@@ -18,3 +18,13 @@ backend/data/
 
 # Optional external companion checkout (never commit upstream data/assets)
 .local/
+
+# Android/Firebase local configuration and build output
+local.properties
+app/google-services.json
+*.keystore
+*.jks
+.gradle/
+**/.gradle/
+**/build/
+firebase-debug.log
