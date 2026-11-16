@@ -33,6 +33,7 @@ class UsernameUnavailable(Exception):
     pass
 
 
+@contextmanager
 def _connect():
     memory.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(memory.DB_PATH, timeout=10)
