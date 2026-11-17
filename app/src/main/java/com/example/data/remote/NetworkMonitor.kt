@@ -9,6 +9,9 @@ import android.net.NetworkCapabilities
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
@@ -36,7 +39,16 @@ class NetworkMonitor(context: Context) {
         }
         publish()
         runCatching { connectivity.registerDefaultNetworkCallback(callback) }
-        awaitClose { runCatching { connectivity.unregisterNetworkCallback(callback) } }
+        val poller = launch {
+            while (isActive) {
+                delay(5_000L)
+                publish()
+            }
+        }
+        awaitClose {
+            poller.cancel()
+            runCatching { connectivity.unregisterNetworkCallback(callback) }
+        }
     }
 
     fun refresh(): NetworkSnapshot = readSnapshot()
