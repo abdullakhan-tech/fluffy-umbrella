@@ -150,8 +150,16 @@ fun NetworkStatusScreen() {
                 NetworkMetricRow("Network generation", snapshot.generation)
                 NetworkMetricRow("Estimated downlink", formatBandwidth(snapshot.downstreamKbps))
                 NetworkMetricRow("Estimated uplink", formatBandwidth(snapshot.upstreamKbps))
-                NetworkMetricRow("Metered connection", if (snapshot.metered) "Yes" else "No")
-                NetworkMetricRow("Roaming", if (snapshot.roaming) "Yes" else "No / unavailable")
+                NetworkMetricRow("Metered connection", if (!snapshot.connected) "Unavailable" else if (snapshot.metered) "Yes" else "No")
+                NetworkMetricRow(
+                    "Roaming",
+                    when {
+                        snapshot.transport != "Mobile network" -> "Not applicable"
+                        !hasPermission -> "Permission needed"
+                        snapshot.roaming -> "Yes"
+                        else -> "No"
+                    }
+                )
             }
         }
 
