@@ -39,9 +39,13 @@ class NetworkMonitor(context: Context) {
     fun observe(): Flow<NetworkSnapshot> = callbackFlow {
         fun publish() { trySend(readSnapshot()) }
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) = publish()
+            // Android delivers capabilities immediately after onAvailable on API 26+.
+            // Wait for that callback instead of synchronously querying a just-arrived network.
+            override fun onAvailable(network: Network) = Unit
             override fun onLost(network: Network) = publish()
-            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = publish()
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                trySend(readSnapshot(capabilities))
+            }
         }
         publish()
         runCatching { connectivity.registerDefaultNetworkCallback(callback) }
@@ -77,9 +81,9 @@ class NetworkMonitor(context: Context) {
 
     fun refresh(): NetworkSnapshot = readSnapshot()
 
-    private fun readSnapshot(): NetworkSnapshot {
+    private fun readSnapshot(capabilitiesOverride: NetworkCapabilities? = null): NetworkSnapshot {
         val network = connectivity.activeNetwork
-        val caps = network?.let(connectivity::getNetworkCapabilities)
+        val caps = capabilitiesOverride ?: network?.let(connectivity::getNetworkCapabilities)
         val connected = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         val validated = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
         val transport = when {
