@@ -361,6 +361,7 @@ private fun ZaytharNavHost(
     val visionState by workspaceViewModel.visionState.collectAsStateWithLifecycle()
     val codeCopilotState by workspaceViewModel.codeCopilotState.collectAsStateWithLifecycle()
     val studioBriefState by workspaceViewModel.studioBriefState.collectAsStateWithLifecycle()
+    val studioImageState by workspaceViewModel.studioImageState.collectAsStateWithLifecycle()
     val agentRunState by workspaceViewModel.agentRunState.collectAsStateWithLifecycle()
 
     val syncedOperatorName = (userProfileState as? UiState.Success)
@@ -521,9 +522,17 @@ private fun ZaytharNavHost(
         composable(ZaytharRoutes.STUDIO) {
             StudioScreen(
                 briefState = studioBriefState,
+                imageState = studioImageState,
                 onGenerateBrief = { prompt, outputType, style ->
                     workspaceViewModel.generateCreativeBrief(prompt, outputType, style, prefs, viewModel::emitToast)
-                }
+                },
+                onGenerateImage = { prompt, style ->
+                    workspaceViewModel.generateStudioImage(prompt, style, viewModel::emitToast)
+                },
+                onSaveToKnowledge = { content ->
+                    workspaceViewModel.addMemoryNote(content, viewModel::emitToast)
+                },
+                onToast = viewModel::emitToast
             )
         }
         composable(ZaytharRoutes.CODE) {
