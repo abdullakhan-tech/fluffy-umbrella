@@ -46,7 +46,7 @@ class ToolRegistryTest {
 
         val approved = registry.execute(
             call,
-            context(approvedTools = setOf(registry.approvalFor(call)))
+            context(approvedTools = setOf(registry.approvalFor(call, context())))
         )
         assertTrue(approved is ToolExecutionResult.Completed)
         assertEquals(1, executions)
@@ -79,7 +79,7 @@ class ToolRegistryTest {
 
         val result = registry.execute(
             changedCall,
-            context(approvedTools = setOf(registry.approvalFor(approvedCall)))
+            context(approvedTools = setOf(registry.approvalFor(approvedCall, context())))
         )
 
         assertTrue(result is ToolExecutionResult.ApprovalRequired)
@@ -106,12 +106,37 @@ class ToolRegistryTest {
             "target" to ToolValue.Text("shown-to-user")
         )
         val call = ToolCall("request_mutable", "sample_tool", mutableArguments)
-        val approvalSnapshot = registry.approvalFor(call)
+        val approvalSnapshot = registry.approvalFor(call, context())
         mutableArguments["target"] = ToolValue.Text("changed-after-preview")
 
         val result = registry.execute(
             call,
             context(approvedTools = setOf(approvalSnapshot))
+        )
+
+        assertTrue(result is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
+    }
+
+    @Test
+    fun approvalCannotBeReusedAcrossSessions() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(risk = ToolRiskLevel.REVERSIBLE),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Preference updated")
+                }
+            )
+        )
+        val call = ToolCall("request_session_scope", "sample_tool")
+        val approval = registry.approvalFor(call, context())
+
+        val result = registry.execute(
+            call,
+            context(approvedTools = setOf(approval), sessionId = "another-session")
         )
 
         assertTrue(result is ToolExecutionResult.ApprovalRequired)
@@ -237,10 +262,12 @@ class ToolRegistryTest {
 
     private fun context(
         approvedTools: Set<ToolApproval> = emptySet(),
-        permissions: Set<String> = emptySet()
+        permissions: Set<String> = emptySet(),
+        authenticatedUid: String = "firebase-user",
+        sessionId: String = "chat-session"
     ) = ToolExecutionContext(
-        authenticatedUid = "firebase-user",
-        sessionId = "chat-session",
+        authenticatedUid = authenticatedUid,
+        sessionId = sessionId,
         grantedPermissions = permissions,
         approvedTools = approvedTools
     )
