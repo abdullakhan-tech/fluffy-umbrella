@@ -1,0 +1,284 @@
+package com.example.domain.tools
+
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ToolRegistryTest {
+    @Test
+    fun readOnlyToolRunsWithoutApproval() = runBlocking {
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(risk = ToolRiskLevel.READ_ONLY),
+                handler = { _, _ -> ToolPayload("Device status ready") }
+            )
+        )
+
+        val result = registry.execute(
+            ToolCall("request_1", "sample_tool"),
+            context()
+        )
+
+        assertTrue(result is ToolExecutionResult.Completed)
+    }
+
+    @Test
+    fun mutatingToolCannotRunUntilTheExactCallIsApproved() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(risk = ToolRiskLevel.REVERSIBLE),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Preference updated")
+                }
+            )
+        )
+        val call = ToolCall("request_2", "sample_tool")
+
+        val pending = registry.execute(call, context())
+        assertTrue(pending is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
+
+        val approved = registry.execute(
+            call,
+            context(approvedTools = setOf(registry.approvalFor(call, context())))
+        )
+        assertTrue(approved is ToolExecutionResult.Completed)
+        assertEquals(1, executions)
+    }
+
+    @Test
+    fun changedArgumentsInvalidateThePreviousApproval() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(
+                    risk = ToolRiskLevel.HIGH_IMPACT,
+                    parameters = listOf(ToolParameter("target", ToolValueType.TEXT))
+                ),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Action completed")
+                }
+            )
+        )
+        val approvedCall = ToolCall(
+            "request_approval",
+            "sample_tool",
+            mapOf("target" to ToolValue.Text("original"))
+        )
+        val changedCall = approvedCall.copy(
+            arguments = mapOf("target" to ToolValue.Text("changed"))
+        )
+
+        val result = registry.execute(
+            changedCall,
+            context(approvedTools = setOf(registry.approvalFor(approvedCall, context())))
+        )
+
+        assertTrue(result is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
+    }
+
+    @Test
+    fun mutatingArgumentsAfterPreviewCannotChangeTheApprovedAction() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(
+                    risk = ToolRiskLevel.HIGH_IMPACT,
+                    parameters = listOf(ToolParameter("target", ToolValueType.TEXT))
+                ),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Action completed")
+                }
+            )
+        )
+        val mutableArguments = mutableMapOf<String, ToolValue>(
+            "target" to ToolValue.Text("shown-to-user")
+        )
+        val call = ToolCall("request_mutable", "sample_tool", mutableArguments)
+        val approvalSnapshot = registry.approvalFor(call, context())
+        mutableArguments["target"] = ToolValue.Text("changed-after-preview")
+
+        val result = registry.execute(
+            call,
+            context(approvedTools = setOf(approvalSnapshot))
+        )
+
+        assertTrue(result is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
+    }
+
+    @Test
+    fun approvalCannotBeReusedAcrossSessions() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(risk = ToolRiskLevel.REVERSIBLE),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Preference updated")
+                }
+            )
+        )
+        val call = ToolCall("request_session_scope", "sample_tool")
+        val approval = registry.approvalFor(call, context())
+
+        val result = registry.execute(
+            call,
+            context(approvedTools = setOf(approval), sessionId = "another-session")
+        )
+
+        assertTrue(result is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
+    }
+
+    @Test
+    fun missingAndroidPermissionBlocksExecution() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(
+                    risk = ToolRiskLevel.READ_ONLY,
+                    permissions = setOf("android.permission.CAMERA")
+                ),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Camera ready")
+                }
+            )
+        )
+
+        val result = registry.execute(ToolCall("request_3", "sample_tool"), context())
+
+        assertTrue(result is ToolExecutionResult.Rejected)
+        assertEquals(
+            ToolRejectionCode.PERMISSION_REQUIRED,
+            (result as ToolExecutionResult.Rejected).code
+        )
+        assertEquals(0, executions)
+    }
+
+    @Test
+    fun rejectsUnknownAndOversizedArguments() = runBlocking {
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(
+                    parameters = listOf(
+                        ToolParameter(
+                            name = "query",
+                            type = ToolValueType.TEXT,
+                            maxLength = 8
+                        )
+                    )
+                ),
+                handler = { _, _ -> ToolPayload("Search complete") }
+            )
+        )
+
+        val unknown = registry.execute(
+            ToolCall("request_4", "sample_tool", mapOf("shell" to ToolValue.Text("whoami"))),
+            context()
+        )
+        val oversized = registry.execute(
+            ToolCall("request_5", "sample_tool", mapOf("query" to ToolValue.Text("123456789"))),
+            context()
+        )
+
+        assertTrue(unknown is ToolExecutionResult.Rejected)
+        assertTrue(oversized is ToolExecutionResult.Rejected)
+    }
+
+    @Test
+    fun rejectsUnauthenticatedContext() = runBlocking {
+        val registry = ToolRegistry()
+        registry.register(FakeTool(descriptor(), handler = { _, _ -> ToolPayload("OK") }))
+
+        val result = registry.execute(
+            ToolCall("request_6", "sample_tool"),
+            ToolExecutionContext(authenticatedUid = "", sessionId = "session")
+        )
+
+        assertEquals(
+            ToolRejectionCode.UNAUTHENTICATED,
+            (result as ToolExecutionResult.Rejected).code
+        )
+    }
+
+    @Test
+    fun timesOutSlowToolAndDoesNotExposeExceptionText() = runBlocking {
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor(timeoutMillis = 20),
+                handler = { _, _ ->
+                    delay(250)
+                    ToolPayload("Too late")
+                }
+            )
+        )
+
+        val result = registry.execute(ToolCall("request_7", "sample_tool"), context())
+
+        assertTrue(result is ToolExecutionResult.Failed)
+        val failure = result as ToolExecutionResult.Failed
+        assertEquals(ToolFailureCode.TIMED_OUT, failure.code)
+        assertTrue(failure.message.contains("time limit"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun duplicateToolIdsCannotReplaceAnExistingAdapter() {
+        val registry = ToolRegistry()
+        registry.register(FakeTool(descriptor(), handler = { _, _ -> ToolPayload("First") }))
+        registry.register(FakeTool(descriptor(), handler = { _, _ -> ToolPayload("Second") }))
+    }
+
+    private fun descriptor(
+        risk: ToolRiskLevel = ToolRiskLevel.READ_ONLY,
+        permissions: Set<String> = emptySet(),
+        parameters: List<ToolParameter> = emptyList(),
+        timeoutMillis: Long = 1_000
+    ) = ToolDescriptor(
+        id = "sample_tool",
+        displayName = "Sample tool",
+        description = "A test-only adapter.",
+        riskLevel = risk,
+        requiredPermissions = permissions,
+        parameters = parameters,
+        timeoutMillis = timeoutMillis
+    )
+
+    private fun context(
+        approvedTools: Set<ToolApproval> = emptySet(),
+        permissions: Set<String> = emptySet(),
+        authenticatedUid: String = "firebase-user",
+        sessionId: String = "chat-session"
+    ) = ToolExecutionContext(
+        authenticatedUid = authenticatedUid,
+        sessionId = sessionId,
+        grantedPermissions = permissions,
+        approvedTools = approvedTools
+    )
+
+    private class FakeTool(
+        override val descriptor: ToolDescriptor,
+        private val handler: suspend (ToolExecutionContext, ToolArguments) -> ToolPayload
+    ) : ZaytharTool {
+        override suspend fun execute(
+            context: ToolExecutionContext,
+            arguments: ToolArguments
+        ): ToolPayload = handler(context, arguments)
+    }
+}

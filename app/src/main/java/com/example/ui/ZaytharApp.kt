@@ -457,6 +457,8 @@ private fun ZaytharNavHost(
         composable(ZaytharRoutes.PLUGINS) {
             PluginHubScreen(
                 pluginsState = pluginsState,
+                runtimeTools = viewModel.toolDescriptors,
+                onRunTool = viewModel::runPluginSandbox,
                 onTogglePlugin = { id, enabled ->
                     workspaceViewModel.togglePlugin(id, enabled, viewModel::emitToast)
                 },

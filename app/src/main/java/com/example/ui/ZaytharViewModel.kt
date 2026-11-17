@@ -24,6 +24,8 @@ import com.example.domain.AiRepository
 import com.example.domain.ChatStreamEvent
 import com.example.domain.ProviderRoute
 import com.example.domain.SupportedLanguage
+import com.example.domain.tools.LocalCommandToolAdapter
+import com.example.domain.tools.ToolExecutionResult
 import com.example.domain.UiState
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -140,6 +142,31 @@ class ZaytharViewModel(
 ) : ViewModel() {
 
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore)
+    val toolDescriptors = aiRepo.toolDescriptors()
+
+    suspend fun runPluginSandbox(command: String): String {
+        val sessionId = _activeSessionId.value.ifBlank { "plugin-sandbox" }
+        return when (
+            val result = aiRepo.executeLocalTool(
+                message = command,
+                authenticatedUid = currentUserId,
+                sessionId = sessionId,
+                activePlugins = activePluginsFlow.value
+            )
+        ) {
+            is ToolExecutionResult.Completed -> {
+                val payload = result.payload
+                if (payload.summary == LocalCommandToolAdapter.NO_MATCH) {
+                    "No local tool matched (or the required plugin is disabled)."
+                } else {
+                    "[${payload.summary.uppercase()}]\n${payload.content}"
+                }
+            }
+            is ToolExecutionResult.Rejected -> "Tool runtime blocked this request: ${result.message}"
+            is ToolExecutionResult.ApprovalRequired -> "This action needs explicit approval before it can run."
+            is ToolExecutionResult.Failed -> "Tool runtime failed safely: ${result.message}"
+        }
+    }
 
     val preferences: StateFlow<ZaytharPreferences> = prefsRepo.preferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), ZaytharPreferences())
@@ -452,7 +479,9 @@ class ZaytharViewModel(
                     prefs = currentPrefs,
                     recentHistory = historySnapshot,
                     activePlugins = activePluginsFlow.value,
-                    webConnectEnabled = currentPrefs.webConnectEnabled
+                    webConnectEnabled = currentPrefs.webConnectEnabled,
+                    authenticatedUid = currentUserId,
+                    sessionId = sessionId
                 ).collect { event ->
                     when (event) {
                         is ChatStreamEvent.Chunk -> {

@@ -7,6 +7,9 @@ import com.example.data.remote.FirestorePluginConfig
 import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.example.data.remote.FirestoreSessionMessage
+import com.example.domain.tools.BuiltInToolRuntime
+import com.example.domain.tools.LocalCommandToolAdapter
+import com.example.domain.tools.ToolExecutionResult
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Content
@@ -42,6 +45,34 @@ class AiRepository(
     private val firestoreRepo: FirestoreRepository,
     private val workspaceStore: FirestoreSessionAndBrainStore? = null
 ) {
+    private val toolRuntime = BuiltInToolRuntime { event ->
+        // Redacted audit metadata only; prompts, arguments, and tool output are never logged.
+        Log.i(
+            TAG,
+            "Tool runtime: id=${event.toolId} outcome=${event.outcome} reason=${event.reasonCode ?: "none"}"
+        )
+    }
+
+    fun toolDescriptors() = toolRuntime.descriptors()
+
+    private fun enabledPluginKeys(activePlugins: List<FirestorePluginConfig>): Set<String> =
+        if (activePlugins.isEmpty()) {
+            setOf("calculator", "utc_clock", "unit_converter", "json_inspector", "web_grounding")
+        } else {
+            activePlugins.filter { it.enabled }.map { it.pluginKey }.toSet()
+        }
+
+    suspend fun executeLocalTool(
+        message: String,
+        authenticatedUid: String,
+        sessionId: String,
+        activePlugins: List<FirestorePluginConfig>
+    ): ToolExecutionResult = toolRuntime.executeLocalCommand(
+        message = message,
+        authenticatedUid = authenticatedUid,
+        sessionId = sessionId,
+        enabledPluginKeys = enabledPluginKeys(activePlugins)
+    )
 
     // Lazily access Firebase.ai only on first inference, never at construction time.
     private val ai by lazy { Firebase.ai }
@@ -83,18 +114,25 @@ class AiRepository(
         prefs: ZaytharPreferences,
         recentHistory: List<FirestoreSessionMessage>,
         activePlugins: List<FirestorePluginConfig> = emptyList(),
-        webConnectEnabled: Boolean = true
+        webConnectEnabled: Boolean = true,
+        authenticatedUid: String,
+        sessionId: String
     ): Flow<ChatStreamEvent> = flow {
-        val enabledKeys = if (activePlugins.isEmpty()) {
-            setOf("calculator", "utc_clock", "unit_converter", "json_inspector", "web_grounding")
-        } else {
-            activePlugins.filter { it.enabled }.map { it.pluginKey }.toSet()
-        }
-
-        val toolResult = LocalToolRouter.routeTool(message, enabledKeys)
-        if (toolResult != null) {
-            emit(ChatStreamEvent.Completed(toolResult.result, "plugin:${toolResult.tool}"))
-            return@flow
+        val enabledKeys = enabledPluginKeys(activePlugins)
+        when (val toolResult = executeLocalTool(message, authenticatedUid, sessionId, activePlugins)) {
+            is ToolExecutionResult.Completed -> {
+                val payload = toolResult.payload
+                if (payload.summary != LocalCommandToolAdapter.NO_MATCH) {
+                    emit(ChatStreamEvent.Completed(payload.content, "plugin:${payload.summary}"))
+                    return@flow
+                }
+            }
+            is ToolExecutionResult.Rejected ->
+                throw SecurityException("Local tool request rejected: ${toolResult.message}")
+            is ToolExecutionResult.ApprovalRequired ->
+                throw SecurityException("Local tool approval is required before execution.")
+            is ToolExecutionResult.Failed ->
+                throw IllegalStateException("Local tool failed: ${toolResult.message}")
         }
 
         val webEnabled = webConnectEnabled || "web_grounding" in enabledKeys &&
