@@ -9,6 +9,7 @@ Welcome to the project handbook for **Zaythar AI**. This wiki-style documentatio
 - [AI and agents](AI-and-Agents.md) — Gemini integration and specialist workflows.
 - [Voice assistant](Voice-Assistant.md) — speech input/output and safe future wake-word work.
 - [Security and privacy](Security-and-Privacy.md) — account isolation, secrets, permissions, and memory.
+- [OpenClaw-inspired adaptation](OpenClaw-Adaptation.md) — licence boundaries and compatible architecture ideas.
 - [Troubleshooting](Troubleshooting.md) — common setup and runtime issues.
 - [Roadmap](Roadmap.md) — current capabilities versus planned JARVIS features.
 
@@ -19,6 +20,7 @@ Welcome to the project handbook for **Zaythar AI**. This wiki-style documentatio
 - [Gemini setup](../GEMINI_SETUP.md)
 - [Project status](../PROJECT_STATUS.md)
 - [JARVIS execution model](../JARVIS_EXECUTION_MODEL.md)
+- [OpenClaw adaptation notes](../OPENCLAW_ADAPTATION.md)
 
 ## Documentation accuracy
 
