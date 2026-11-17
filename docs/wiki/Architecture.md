@@ -12,9 +12,15 @@
 ## Main boundaries
 
 - **UI layer:** Compose screens and ViewModels expose state and user actions.
-- **Domain layer:** assistant orchestration, provider routing, local deterministic tools, and specialist-agent coordination.
+- **Domain layer:** assistant orchestration, provider routing, local deterministic tools, specialist-agent coordination, and the typed tool-runtime foundation.
 - **Data layer:** preferences and Firestore repositories.
 - **Platform layer:** Android speech, lifecycle, permissions, and app integration.
+
+## Tool execution boundary
+
+The original Kotlin tool registry is an allowlist for adapters registered by application code. It validates typed arguments, checks the authenticated execution context and required Android permissions, requires approval for non-read-only actions, enforces timeouts, propagates cancellation, and emits audit metadata without raw user content.
+
+The registry is not yet wired to the chat model loop, Android permission launcher, Plugin Hub UI, or Firestore audit persistence. Do not treat model output as approval and do not execute arbitrary scripts, shell commands, or unrestricted intents. See [OpenClaw adaptation](../OPENCLAW_ADAPTATION.md).
 
 ## Identity and data flow
 
@@ -28,6 +34,6 @@ The authenticated Firebase UID is the ownership boundary for user data. Reposito
 4. Stream model output to the conversation UI.
 5. Persist messages and memory only through the authenticated repository boundary.
 
-For future tools, use a typed allowlist with argument validation, timeouts, cancellation, and confirmation gates. Never execute arbitrary model-generated code or shell commands.
+For future tools, use the typed allowlist with argument validation, timeouts, cancellation, and confirmation gates. Never execute arbitrary model-generated code or shell commands.
 
 See [JARVIS execution model](../JARVIS_EXECUTION_MODEL.md) for the target interaction and authorization flow.
