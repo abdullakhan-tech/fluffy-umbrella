@@ -15,6 +15,7 @@ The default branch contains a native Android application using:
 - Parallel specialist-agent execution with coordinator synthesis and bounded model fallback.
 - Activity-aware Compose neural orb (Ready, Listening, Thinking, and TextToSpeech-callback-driven Speaking state).
 - Native cyber-command UI across existing settings, persona, model routing, profile, diagnostics, collaboration, and coding screens; profile telemetry reads Android OS RAM/storage values.
+- Overview dashboard includes a custom animated red-neon agent-topology visualization connected to the existing reduced-motion preference; the topology represents app modules and does not falsely report agent execution.
 - Media Studio image generation through Firebase AI Logic Nano Banana 2.1 (16:9, 1K) with gallery export on Android 10+; video output is a Gemini-generated storyboard/shot list, not a rendered video file.
 - Local calculator, UTC clock, unit converter, JSON inspector, camera/photo picker, and plugin hub.
 
