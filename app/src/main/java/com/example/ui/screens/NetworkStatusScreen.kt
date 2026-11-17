@@ -94,10 +94,19 @@ private fun NetworkMetricCard(snapshot: NetworkSnapshot) {
             }
             MetricLine("Transport", snapshot.transport)
             MetricLine("Network generation", snapshot.generation)
+            MetricLine("Estimated downlink", formatBandwidth(snapshot.downstreamKbps))
+            MetricLine("Estimated uplink", formatBandwidth(snapshot.upstreamKbps))
             MetricLine("Metered connection", if (snapshot.metered) "Yes" else "No")
             MetricLine("Roaming", if (snapshot.roaming) "Yes" else "No / unavailable")
         }
     }
+}
+
+@Composable
+private fun formatBandwidth(kbps: Int): String = when {
+    kbps <= 0 -> "Unavailable"
+    kbps >= 1_000 -> String.format("%.1f Mbps", kbps / 1_000f)
+    else -> "$kbps Kbps"
 }
 
 @Composable
