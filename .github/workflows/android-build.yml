@@ -7,6 +7,10 @@ on:
       - "gradle/**"
       - "*.gradle.kts"
       - "settings.gradle.kts"
+      - "firebase.json"
+      - "firestore.rules"
+      - "firestore.test.js"
+      - "package.json"
       - ".github/workflows/android-build.yml"
   push:
     branches: [main]
@@ -15,6 +19,10 @@ on:
       - "gradle/**"
       - "*.gradle.kts"
       - "settings.gradle.kts"
+      - "firebase.json"
+      - "firestore.rules"
+      - "firestore.test.js"
+      - "package.json"
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
