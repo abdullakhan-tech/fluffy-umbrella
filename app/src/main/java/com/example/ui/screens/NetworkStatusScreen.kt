@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -10,9 +12,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SignalCellularAlt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,7 +56,7 @@ fun NetworkStatusScreen() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("NETWORK INTELLIGENCE", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -74,6 +79,15 @@ fun NetworkStatusScreen() {
         OutlinedButton(onClick = { snapshot = monitor.refresh() }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.Refresh, contentDescription = null)
             Text("  Refresh network status")
+        }
+        OutlinedButton(
+            onClick = {
+                runCatching { context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Settings, contentDescription = null)
+            Text("  Open Android network settings")
         }
     }
 }
