@@ -32,7 +32,7 @@ data class ToolParameter(
         require(name.matches(Regex("^[a-z][a-zA-Z0-9_]{0,63}$"))) {
             "Tool parameter names must be stable identifiers."
         }
-        require(maxLength in 1..8_000)
+        require(maxLength in 1..12_000)
         require(minNumber == null || minNumber.isFinite())
         require(maxNumber == null || maxNumber.isFinite())
         require(minNumber == null || maxNumber == null || minNumber <= maxNumber)
@@ -88,7 +88,9 @@ data class ToolExecutionContext(
     val authenticatedUid: String,
     val sessionId: String,
     val grantedPermissions: Set<String> = emptySet(),
-    val approvedTools: Set<ToolApproval> = emptySet()
+    val approvedTools: Set<ToolApproval> = emptySet(),
+    /** Enabled declarative plugin keys supplied by the authenticated app, never by the model. */
+    val enabledPluginKeys: Set<String> = emptySet()
 )
 
 data class ToolPayload(
