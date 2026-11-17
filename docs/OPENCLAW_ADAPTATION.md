@@ -35,7 +35,11 @@ Copying OpenClaw's workspace or server folders into this Android repository woul
 
 ## Current implementation boundary
 
-The registry is a tested domain-layer foundation. It is not yet connected to the chat model loop, Plugin Hub UI, Android permission launcher, or Firestore audit persistence. Existing calculator, clock, and other local tools are not silently replaced by this change. Do not advertise arbitrary device control, shell access, background gateway service, messaging-channel support, or OpenClaw feature parity.
+The Kotlin registry is connected to the authenticated chat path and the Plugin Hub sandbox. Existing calculator, UTC clock, unit conversion, and JSON inspection commands run through one first-party, read-only adapter. The enabled plugin keys are supplied by the authenticated app session; model output cannot register adapters, grant permissions, or approve actions. The Plugin Hub displays the registered tool descriptor and uses the same registry as chat.
+
+The runtime validates typed arguments and bounds, checks the signed-in user and session context, enforces timeouts/cancellation, and emits redacted audit metadata to Android logging. It does not log prompts, raw arguments, or tool output. The approval gate is implemented for future non-read-only adapters, but no mutating/device-control adapter is currently registered, so there is no misleading claim of device control. Custom plugins remain declarative system instructions and never execute uploaded code.
+
+This is not OpenClaw feature parity. Zaythar does not import OpenClaw's Node.js gateway, shell execution, messaging channels, dynamic plugin loading, or background daemon. Any future capability must be implemented as a narrow first-party adapter with its own permission, lifecycle, and approval design.
 
 ## Verification
 
