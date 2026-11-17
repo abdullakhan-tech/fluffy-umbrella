@@ -518,8 +518,10 @@ class ZaytharViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
+        ttsSpeaker.stop()
+        _isSpeaking.value = false
         ttsSpeaker.shutdown()
+        super.onCleared()
     }
 
     companion object {
