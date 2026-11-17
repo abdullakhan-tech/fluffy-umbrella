@@ -26,7 +26,7 @@ class ToolRegistryTest {
     }
 
     @Test
-    fun mutatingToolCannotRunUntilTheExactRequestIsApproved() = runBlocking {
+    fun mutatingToolCannotRunUntilTheExactCallIsApproved() = runBlocking {
         var executions = 0
         val registry = ToolRegistry()
         registry.register(
@@ -46,10 +46,44 @@ class ToolRegistryTest {
 
         val approved = registry.execute(
             call,
-            context(approved = setOf("request_2"))
+            context(approvedCalls = setOf(call))
         )
         assertTrue(approved is ToolExecutionResult.Completed)
         assertEquals(1, executions)
+    }
+
+    @Test
+    fun changedArgumentsInvalidateThePreviousApproval() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(
+                    risk = ToolRiskLevel.HIGH_IMPACT,
+                    parameters = listOf(ToolParameter("target", ToolValueType.TEXT))
+                ),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Action completed")
+                }
+            )
+        )
+        val approvedCall = ToolCall(
+            "request_approval",
+            "sample_tool",
+            mapOf("target" to ToolValue.Text("original"))
+        )
+        val changedCall = approvedCall.copy(
+            arguments = mapOf("target" to ToolValue.Text("changed"))
+        )
+
+        val result = registry.execute(
+            changedCall,
+            context(approvedCalls = setOf(approvedCall))
+        )
+
+        assertTrue(result is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
     }
 
     @Test
@@ -142,11 +176,9 @@ class ToolRegistryTest {
         val result = registry.execute(ToolCall("request_7", "sample_tool"), context())
 
         assertTrue(result is ToolExecutionResult.Failed)
-        assertEquals(
-            ToolFailureCode.TIMED_OUT,
-            (result as ToolExecutionResult.Failed).code
-        )
-        assertTrue(result.message.contains("time limit"))
+        val failure = result as ToolExecutionResult.Failed
+        assertEquals(ToolFailureCode.TIMED_OUT, failure.code)
+        assertTrue(failure.message.contains("time limit"))
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -172,13 +204,13 @@ class ToolRegistryTest {
     )
 
     private fun context(
-        approved: Set<String> = emptySet(),
+        approvedCalls: Set<ToolCall> = emptySet(),
         permissions: Set<String> = emptySet()
     ) = ToolExecutionContext(
         authenticatedUid = "firebase-user",
         sessionId = "chat-session",
         grantedPermissions = permissions,
-        approvedRequestIds = approved
+        approvedCalls = approvedCalls
     )
 
     private class FakeTool(
