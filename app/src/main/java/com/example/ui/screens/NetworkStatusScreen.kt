@@ -31,7 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.data.remote.NetworkMonitor
-import com.example.data.remote.NetworkSnapshot
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
@@ -189,22 +188,24 @@ fun NetworkStatusScreen() {
         }
 
         item {
-            CyberActionButton(
-                text = "REFRESH NETWORK STATUS",
-                onClick = { snapshot = monitor.refresh() },
-                modifier = Modifier.fillMaxWidth(),
-                testTag = "refresh_network_button"
-            )
-            CyberSecondaryButton(
-                text = "OPEN ANDROID NETWORK SETTINGS",
-                onClick = {
-                    runCatching {
-                        context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                testTag = "open_network_settings_button"
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CyberActionButton(
+                    text = "REFRESH NETWORK STATUS",
+                    onClick = { snapshot = monitor.refresh() },
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "refresh_network_button"
+                )
+                CyberSecondaryButton(
+                    text = "OPEN ANDROID NETWORK SETTINGS",
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "open_network_settings_button"
+                )
+            }
         }
     }
 }
