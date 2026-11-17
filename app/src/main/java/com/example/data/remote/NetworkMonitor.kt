@@ -3,10 +3,13 @@ package com.example.data.remote
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.telephony.TelephonyManager
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyDisplayInfo
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -14,6 +17,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import java.util.concurrent.Executor
 
 data class NetworkSnapshot(
     val connected: Boolean,
@@ -29,6 +33,7 @@ class NetworkMonitor(context: Context) {
     private val appContext = context.applicationContext
     private val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
     private val telephony = appContext.getSystemService(TelephonyManager::class.java)
+    @Volatile private var displayOverrideType: Int = TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
 
     fun observe(): Flow<NetworkSnapshot> = callbackFlow {
         fun publish() { trySend(readSnapshot()) }
@@ -39,6 +44,19 @@ class NetworkMonitor(context: Context) {
         }
         publish()
         runCatching { connectivity.registerDefaultNetworkCallback(callback) }
+        var displayInfoCallback: TelephonyCallback? = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hasPhoneStatePermission()) {
+            val listener = object : TelephonyCallback(), TelephonyCallback.DisplayInfoListener {
+                override fun onDisplayInfoChanged(info: TelephonyDisplayInfo) {
+                    displayOverrideType = info.overrideNetworkType
+                    publish()
+                }
+            }
+            displayInfoCallback = listener
+            runCatching {
+                telephony.registerTelephonyCallback(ContextCompat.getMainExecutor(appContext), listener)
+            }
+        }
         val poller = launch {
             while (isActive) {
                 delay(5_000L)
@@ -47,6 +65,11 @@ class NetworkMonitor(context: Context) {
         }
         awaitClose {
             poller.cancel()
+            displayInfoCallback?.let { listener ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    runCatching { telephony.unregisterTelephonyCallback(listener) }
+                }
+            }
             runCatching { connectivity.unregisterNetworkCallback(callback) }
         }
     }
@@ -66,11 +89,9 @@ class NetworkMonitor(context: Context) {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
             else -> "Other"
         }
-        val hasPhonePermission = ContextCompat.checkSelfPermission(
-            appContext, Manifest.permission.READ_PHONE_STATE
-        ) == PackageManager.PERMISSION_GRANTED
+        val hasPhonePermission = hasPhoneStatePermission()
         val generation = if (transport == "Mobile network" && hasPhonePermission) {
-            runCatching { networkGeneration(telephony.dataNetworkType) }.getOrDefault("Cellular")
+            runCatching { networkGeneration(telephony.dataNetworkType, displayOverrideType) }.getOrDefault("Cellular")
         } else if (transport == "Mobile network") {
             "Cellular (grant phone-state permission for 3G/4G/5G detail)"
         } else if (connected) "Not applicable" else "Unavailable"
@@ -91,9 +112,19 @@ class NetworkMonitor(context: Context) {
         )
     }
 
+    private fun hasPhoneStatePermission(): Boolean = ContextCompat.checkSelfPermission(
+        appContext, Manifest.permission.READ_PHONE_STATE
+    ) == PackageManager.PERMISSION_GRANTED
+
     companion object {
-        fun networkGeneration(type: Int): String = when (type) {
-            TelephonyManager.NETWORK_TYPE_NR -> "5G"
+        fun networkGeneration(
+            type: Int,
+            overrideType: Int = TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
+        ): String = when {
+            overrideType == TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_NSA ||
+                overrideType == TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED -> "5G"
+            type == TelephonyManager.NETWORK_TYPE_NR -> "5G"
+            type == TelephonyManager.NETWORK_TYPE_LTE -> "4G"
             TelephonyManager.NETWORK_TYPE_LTE -> "4G"
             TelephonyManager.NETWORK_TYPE_HSPAP,
             TelephonyManager.NETWORK_TYPE_HSPA,
@@ -105,6 +136,7 @@ class NetworkMonitor(context: Context) {
             TelephonyManager.NETWORK_TYPE_EVDO_A,
             TelephonyManager.NETWORK_TYPE_EVDO_B,
             TelephonyManager.NETWORK_TYPE_EHRPD -> "3G"
+            TelephonyManager.NETWORK_TYPE_GSM,
             TelephonyManager.NETWORK_TYPE_GPRS,
             TelephonyManager.NETWORK_TYPE_EDGE,
             TelephonyManager.NETWORK_TYPE_CDMA,
