@@ -163,6 +163,7 @@ jobs:
       - name: Install Firestore rules test dependencies
         run: npm install --no-audit --no-fund
 
+      # PowerShell parses an unquoted comma as an array separator.
       - name: Run emulator rules, Android unit tests, and Windows debug APK build
         shell: pwsh
         run: >-
