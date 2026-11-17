@@ -135,22 +135,21 @@ fun NeuralCoreVisualizer(
         }
     }
 
-    val pulseTransition = rememberInfiniteTransition(label = "corePulse")
-    val pulseScale by pulseTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.04f,
-        animationSpec = if (animate) {
-            infiniteRepeatable(
+    val sphereScale = if (animate) {
+        val pulseTransition = rememberInfiniteTransition(label = "corePulse")
+        val pulseScale by pulseTransition.animateFloat(
+            initialValue = 0.96f,
+            targetValue = 1.04f,
+            animationSpec = infiniteRepeatable(
                 animation = tween(2200, easing = LinearEasing),
                 repeatMode = RepeatMode.Reverse
-            )
-        } else {
-            tween(durationMillis = 0)
-        },
-        label = "pulseScale"
-    )
-
-    val sphereScale = if (animate) pulseScale else 1f
+            ),
+            label = "pulseScale"
+        )
+        pulseScale
+    } else {
+        1f
+    }
     val coreSphereSize = size * 0.44f
 
     Box(
