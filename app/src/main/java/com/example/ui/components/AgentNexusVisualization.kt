@@ -95,7 +95,7 @@ fun AgentNexusVisualization(
             val radiusX = size.width * 0.36f
             val radiusY = size.height * 0.37f
             val nodes = agents.indices.map { index ->
-                val angle = Math.toRadians((index * 60.0) + (if (motionEnabled) phase else 0f) * 0.12)
+                val angle = Math.toRadians((index * 60.0) + (if (motionEnabled) phase.toDouble() else 0.0) * 0.12)
                 Offset(
                     center.x + cos(angle).toFloat() * radiusX,
                     center.y + sin(angle).toFloat() * radiusY
