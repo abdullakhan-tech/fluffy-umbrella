@@ -3,9 +3,16 @@
 ## Authentication and authorization
 
 - Firebase Authentication identifies the signed-in account.
+- Repository writes derive the owner UID from the current Firebase Auth user; a caller-supplied session or document ID is never an identity credential.
 - Firestore documents must be scoped to the authenticated UID.
 - Enforce ownership in both repository code and Firestore security rules.
 - Default-deny access when ownership cannot be established.
+
+## App integrity
+
+- Debug builds use the Firebase App Check debug provider. Register debug tokens only in a non-production Firebase project.
+- Release builds use the Play Integrity App Check provider. Register the package and release signing certificate in Firebase/Google Play, then enable App Check enforcement after checking production metrics.
+- Client initialization does not prove that Firebase Console enforcement is enabled.
 
 ## Secrets
 
@@ -13,6 +20,7 @@
 - Never embed standalone Gemini API keys or server credentials in the Android app.
 - Keep server-side provider secrets on a trusted backend if a backend is introduced.
 - Redact secrets and personal content from logs and crash reports.
+- Android app-data backup is disabled; do not re-enable it without explicit backup exclusions for private state.
 
 ## AI and tool safety
 
