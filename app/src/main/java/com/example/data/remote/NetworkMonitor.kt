@@ -82,8 +82,7 @@ class NetworkMonitor(context: Context) {
     fun refresh(): NetworkSnapshot = readSnapshot()
 
     private fun readSnapshot(capabilitiesOverride: NetworkCapabilities? = null): NetworkSnapshot {
-        val network = connectivity.activeNetwork
-        val caps = capabilitiesOverride ?: network?.let(connectivity::getNetworkCapabilities)
+        val caps = capabilitiesOverride ?: connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
         val connected = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         val validated = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
         val transport = when {
@@ -101,7 +100,7 @@ class NetworkMonitor(context: Context) {
             "Cellular (grant phone-state permission for 3G/4G/5G detail)"
         } else if (connected) "Not applicable" else "Unavailable"
         val roaming = if (hasPhonePermission) runCatching { telephony.isNetworkRoaming }.getOrDefault(false) else false
-        val metered = connectivity.isActiveNetworkMetered
+        val metered = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false
         return NetworkSnapshot(
             connected = connected,
             internetValidated = validated,
