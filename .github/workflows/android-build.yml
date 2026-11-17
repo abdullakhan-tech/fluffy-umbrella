@@ -90,7 +90,7 @@ jobs:
         run: >-
           firebase emulators:exec
           --project demo-no-project
-          --only auth,firestore
+          --only "auth,firestore"
           --non-interactive
           "npm run test:firestore && ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug"
 
