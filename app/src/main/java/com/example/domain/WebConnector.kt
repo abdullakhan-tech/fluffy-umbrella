@@ -66,6 +66,12 @@ object WebConnector {
         if (!uri.scheme.equals("https", ignoreCase = true)) {
             return Result.failure(IllegalArgumentException("Only secure https:// URLs are permitted."))
         }
+        if (uri.rawUserInfo != null) {
+            return Result.failure(IllegalArgumentException("URLs containing embedded credentials are blocked."))
+        }
+        if (uri.port != -1 && uri.port != 443) {
+            return Result.failure(IllegalArgumentException("Only the standard HTTPS port 443 is permitted."))
+        }
         val host = uri.host?.lowercase()?.trim()
             ?: return Result.failure(IllegalArgumentException("URL host is missing."))
         if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) {
@@ -89,6 +95,12 @@ object WebConnector {
                 (b0 == 169 && b1 == 254) ||
                 (b0 == 172 && b1 in 16..31) ||
                 (b0 == 192 && b1 == 168) ||
+                (b0 == 192 && b1 == 0) ||
+                (b0 == 192 && b1 == 2) ||
+                (b0 == 198 && b1 in 18..19) ||
+                (b0 == 198 && b1 == 51) ||
+                (b0 == 203 && b1 == 0) ||
+                b0 >= 240 ||
                 (b0 == 100 && b1 in 64..127)
         }
         if (clean.contains(':')) {
@@ -97,7 +109,8 @@ object WebConnector {
                 lower == "::" ||
                 lower.startsWith("fe80:") ||
                 lower.startsWith("fc") ||
-                lower.startsWith("fd")
+                lower.startsWith("fd") ||
+                lower.startsWith("2001:db8:")
         }
         return false
     }
@@ -120,12 +133,18 @@ object WebConnector {
                     (first == 100 && second in 64..127) ||
                     (first == 169 && second == 254) ||
                     (first == 172 && second in 16..31) ||
-                    (first == 192 && second == 168))
+                    (first == 192 && second == 168) ||
+                    (first == 192 && second == 0) ||
+                    (first == 192 && second == 2) ||
+                    (first == 198 && second in 18..19) ||
+                    (first == 198 && second == 51) ||
+                    (first == 203 && second == 0) ||
+                    first >= 240)
             }
             is Inet6Address -> {
                 val b0 = address.address[0].toInt() and 0xFF
-                // Unique local fc00::/7
-                (b0 and 0xFE) != 0xFC
+                // Unique local fc00::/7 and documentation-only 2001:db8::/32.
+                (b0 and 0xFE) != 0xFC && !address.hostAddress.lowercase().startsWith("2001:db8:")
             }
             else -> true
         }
