@@ -63,6 +63,29 @@ abstract class FirestoreEmulatorTestBase {
         auth = FirebaseAuth.getInstance(app)
     }
 
+    /**
+     * A fresh FirebaseApp has no cached signed-in user or ID token. Use it when a test
+     * needs to prove Firestore rules reject an unauthenticated client on every OS runner.
+     */
+    protected fun createUnauthenticatedFirestore(): Pair<FirebaseApp, FirebaseFirestore> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val app = FirebaseApp.initializeApp(
+            context,
+            FirebaseOptions.Builder()
+                .setApplicationId("com.example.unauthenticated.test")
+                .setProjectId(PROJECT_ID)
+                .setApiKey("fake-api-key-for-emulator")
+                .build(),
+            "unauthenticated_test_${System.nanoTime()}"
+        )
+        val unauthenticatedFirestore = FirebaseFirestore.getInstance(app, databaseId)
+        unauthenticatedFirestore.useEmulator(EMULATOR_HOST, FIRESTORE_PORT)
+        unauthenticatedFirestore.firestoreSettings = FirebaseFirestoreSettings.Builder()
+            .setLocalCacheSettings(MemoryCacheSettings.newBuilder().build())
+            .build()
+        return app to unauthenticatedFirestore
+    }
+
     @After
     open fun tearDownFirebase() {
         auth.signOut()
