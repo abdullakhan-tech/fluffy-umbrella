@@ -195,7 +195,7 @@ private fun ModelRouteCard(
                 size = 84.dp,
                 motionEnabled = motionEnabled && selected,
                 coreLabel = route.id.take(1).uppercase(),
-                activity = if (selected) NeuralCoreActivity.THINKING else NeuralCoreActivity.READY
+                activity = NeuralCoreActivity.READY
             )
             Text(
                 text = route.title,
