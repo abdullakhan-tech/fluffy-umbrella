@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.PsychologyAlt
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.HorizontalDivider
@@ -76,6 +77,7 @@ fun OverviewScreen(
 
     val deckModules = listOf(
         CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, voice & web", Icons.Default.ChatBubbleOutline, "deck_assistant"),
+        CommandDeckModule("network", "Network Intelligence", "Live Wi-Fi, 2G, 3G, 4G & 5G status", Icons.Default.SignalCellularAlt, "deck_network"),
         CommandDeckModule("brain", "AI Brain", "Structured neural functions", Icons.Default.PsychologyAlt, "deck_brain"),
         CommandDeckModule("camera_eyes", "Camera Eyes", "Live multimodal photo vision", Icons.Default.CameraAlt, "deck_camera_eyes"),
         CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Default.Extension, "deck_plugins"),
