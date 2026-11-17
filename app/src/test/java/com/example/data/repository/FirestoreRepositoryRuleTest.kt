@@ -3,8 +3,6 @@ package com.example.data.repository
 import com.example.base.FirestoreEmulatorTestBase
 import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -214,9 +212,17 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         val aliceRepo = FirestoreRepository(firestore)
         val aliceStore = FirestoreSessionAndBrainStore(firestore)
-        withTimeout(DEFAULT_TIMEOUT_MS) {
+        val aliceSessionId = withTimeout(DEFAULT_TIMEOUT_MS) {
             aliceRepo.addMemoryNote("Alice private note").getOrThrow()
+            aliceRepo.addKnowledgeFact("Alice", "owns", "private fact").getOrThrow()
             aliceStore.createChatSession("Alice private session", "general").getOrThrow()
+        }
+        withTimeout(DEFAULT_TIMEOUT_MS) {
+            aliceStore.addSessionMessage(
+                sessionId = aliceSessionId,
+                role = "user",
+                text = "Alice private session message"
+            ).getOrThrow()
         }
 
         signInTestUser(BOB_EMAIL)
@@ -231,6 +237,14 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val memFirestoreEx = checkNotNull(memEx.unwrapFirestoreException())
         assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, memFirestoreEx.code)
 
+        val factEx = assertFailsWithType<Exception> {
+            withTimeout(FLOW_TIMEOUT_MS) {
+                bobRepo.observeKnowledgeFacts(aliceUid).first()
+            }
+        }
+        val factFirestoreEx = checkNotNull(factEx.unwrapFirestoreException())
+        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, factFirestoreEx.code)
+
         val sessionEx = assertFailsWithType<Exception> {
             withTimeout(FLOW_TIMEOUT_MS) {
                 bobStore.observeChatSessions(aliceUid).first()
@@ -238,24 +252,37 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         }
         val sessionFirestoreEx = checkNotNull(sessionEx.unwrapFirestoreException())
         assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, sessionFirestoreEx.code)
+
+        val messageEx = assertFailsWithType<Exception> {
+            withTimeout(FLOW_TIMEOUT_MS) {
+                bobStore.observeSessionMessages(aliceUid, aliceSessionId).first()
+            }
+        }
+        val messageFirestoreEx = checkNotNull(messageEx.unwrapFirestoreException())
+        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, messageFirestoreEx.code)
     }
 
     @Test
     fun observeCollections_unauthenticatedUser_failsWithPermissionDenied() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         auth.signOut()
-        Firebase.auth.signOut()
-        val repository = FirestoreRepository(firestore)
+        val (unauthApp, unauthenticatedFirestore) = createUnauthenticatedFirestore()
 
-        val exception = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                repository.observeChatMessages(aliceUid).first()
+        try {
+            val repository = FirestoreRepository(unauthenticatedFirestore)
+            val exception = assertFailsWithType<Exception> {
+                withTimeout(FLOW_TIMEOUT_MS) {
+                    repository.observeChatMessages(aliceUid).first()
+                }
             }
+            val firestoreException = checkNotNull(exception.unwrapFirestoreException()) {
+                "Expected nested FirebaseFirestoreException, got $exception"
+            }
+            assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, firestoreException.code)
+        } finally {
+            runCatching { unauthenticatedFirestore.terminate() }
+            unauthApp.delete()
         }
-        val firestoreException = checkNotNull(exception.unwrapFirestoreException()) {
-            "Expected nested FirebaseFirestoreException, got $exception"
-        }
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, firestoreException.code)
     }
 
     private companion object {
