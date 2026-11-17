@@ -180,7 +180,11 @@ fun ProfileScreen(
 
         item {
             CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(title = "PLATFORM CAPABILITIES")
+                CyberCardHeader(
+                    title = "SUBSCRIPTION & ACCESS",
+                    badge = "NO BILLING ENABLED",
+                    badgeColor = cyber.accentSoft
+                )
 
                 PlanInfoCard(
                     tier = "CLOUD NEXUS SYNC",
