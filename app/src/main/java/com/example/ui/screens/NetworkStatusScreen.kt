@@ -46,7 +46,7 @@ fun NetworkStatusScreen() {
         snapshot = monitor.refresh()
     }
 
-    LaunchedEffect(monitor) {
+    LaunchedEffect(monitor, hasPermission) {
         monitor.observe().collect { snapshot = it }
     }
 
