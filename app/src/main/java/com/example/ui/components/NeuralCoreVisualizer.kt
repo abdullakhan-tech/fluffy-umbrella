@@ -139,10 +139,14 @@ fun NeuralCoreVisualizer(
     val pulseScale by pulseTransition.animateFloat(
         initialValue = 0.96f,
         targetValue = 1.04f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2200, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        animationSpec = if (animate) {
+            infiniteRepeatable(
+                animation = tween(2200, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            )
+        } else {
+            tween(durationMillis = 0)
+        },
         label = "pulseScale"
     )
 
