@@ -46,7 +46,7 @@ class ToolRegistryTest {
 
         val approved = registry.execute(
             call,
-            context(approvedCalls = setOf(call))
+            context(approvedTools = setOf(registry.approvalFor(call)))
         )
         assertTrue(approved is ToolExecutionResult.Completed)
         assertEquals(1, executions)
@@ -79,7 +79,39 @@ class ToolRegistryTest {
 
         val result = registry.execute(
             changedCall,
-            context(approvedCalls = setOf(approvedCall))
+            context(approvedTools = setOf(registry.approvalFor(approvedCall)))
+        )
+
+        assertTrue(result is ToolExecutionResult.ApprovalRequired)
+        assertEquals(0, executions)
+    }
+
+    @Test
+    fun mutatingArgumentsAfterPreviewCannotChangeTheApprovedAction() = runBlocking {
+        var executions = 0
+        val registry = ToolRegistry()
+        registry.register(
+            FakeTool(
+                descriptor = descriptor(
+                    risk = ToolRiskLevel.HIGH_IMPACT,
+                    parameters = listOf(ToolParameter("target", ToolValueType.TEXT))
+                ),
+                handler = { _, _ ->
+                    executions += 1
+                    ToolPayload("Action completed")
+                }
+            )
+        )
+        val mutableArguments = mutableMapOf<String, ToolValue>(
+            "target" to ToolValue.Text("shown-to-user")
+        )
+        val call = ToolCall("request_mutable", "sample_tool", mutableArguments)
+        val approvalSnapshot = registry.approvalFor(call)
+        mutableArguments["target"] = ToolValue.Text("changed-after-preview")
+
+        val result = registry.execute(
+            call,
+            context(approvedTools = setOf(approvalSnapshot))
         )
 
         assertTrue(result is ToolExecutionResult.ApprovalRequired)
@@ -204,13 +236,13 @@ class ToolRegistryTest {
     )
 
     private fun context(
-        approvedCalls: Set<ToolCall> = emptySet(),
+        approvedTools: Set<ToolApproval> = emptySet(),
         permissions: Set<String> = emptySet()
     ) = ToolExecutionContext(
         authenticatedUid = "firebase-user",
         sessionId = "chat-session",
         grantedPermissions = permissions,
-        approvedCalls = approvedCalls
+        approvedTools = approvedTools
     )
 
     private class FakeTool(
