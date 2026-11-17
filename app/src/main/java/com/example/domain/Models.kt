@@ -93,9 +93,9 @@ enum class ProviderRoute(
     ),
     HYBRID(
         id = "hybrid",
-        title = "HYBRID CORE",
-        modelName = "gemini-3.8-flash",
-        description = "Gemini 3.8 Flash primary routing with Gemini 3.5 Flash-Lite automatic fallback."
+        title = "GEMINI 4 HYDROGEN · HYBRID CORE",
+        modelName = "gemini-4-hydrogen",
+        description = "Gemini 4 Hydrogen primary routing with Gemini 3.8 Flash and Gemini 3.5 Flash-Lite automatic fallbacks."
     ),
     LITE(
         id = "lite",
@@ -103,6 +103,12 @@ enum class ProviderRoute(
         modelName = "gemini-3.5-flash-lite",
         description = "Ultra-fast Gemini 3.5 Flash-Lite routing for rapid responses."
     );
+
+    val candidateModels: List<String>
+        get() = when (this) {
+            HYBRID -> listOf(modelName, FLASH.modelName, LITE.modelName)
+            FLASH, LITE -> listOf(modelName)
+        }
 
     companion object {
         fun fromId(id: String): ProviderRoute = entries.find { it.id == id } ?: HYBRID
