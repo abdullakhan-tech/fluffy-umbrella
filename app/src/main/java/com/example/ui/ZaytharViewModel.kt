@@ -3,6 +3,7 @@ package com.example.ui
 import android.app.Application
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -52,7 +53,11 @@ import java.util.Locale
 private const val TAG = "ZaytharViewModel"
 
 interface TtsSpeaker {
-    fun speak(text: String, languageCode: String)
+    fun speak(
+        text: String,
+        languageCode: String,
+        onSpeakingChanged: (Boolean) -> Unit = {}
+    )
     fun stop()
     fun shutdown()
 }
@@ -60,20 +65,62 @@ interface TtsSpeaker {
 private class AndroidTtsSpeaker(context: Context) : TtsSpeaker, TextToSpeech.OnInitListener {
     private val tts: TextToSpeech? = runCatching { TextToSpeech(context.applicationContext, this) }.getOrNull()
     private var ready = false
+    private var onSpeakingChanged: (Boolean) -> Unit = {}
 
     override fun onInit(status: Int) {
         ready = status == TextToSpeech.SUCCESS
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                onSpeakingChanged(true)
+            }
+
+            override fun onDone(utteranceId: String?) {
+                onSpeakingChanged(false)
+            }
+
+            @Deprecated("Deprecated in Android API")
+            override fun onError(utteranceId: String?) {
+                onSpeakingChanged(false)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                onSpeakingChanged(false)
+            }
+
+            override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                onSpeakingChanged(false)
+            }
+        })
     }
 
-    override fun speak(text: String, languageCode: String) {
-        val engine = tts ?: return
-        if (!ready) return
-        engine.language = Locale.forLanguageTag(languageCode)
-        engine.speak(text.take(3500), TextToSpeech.QUEUE_FLUSH, null, "zaythar_${System.currentTimeMillis()}")
+    override fun speak(
+        text: String,
+        languageCode: String,
+        onSpeakingChanged: (Boolean) -> Unit
+    ) {
+        val engine = tts
+        if (engine == null || !ready || text.isBlank()) {
+            onSpeakingChanged(false)
+            return
+        }
+        this.onSpeakingChanged = onSpeakingChanged
+        val selectedLocale = Locale.forLanguageTag(languageCode)
+        val languageResult = runCatching { engine.setLanguage(selectedLocale) }.getOrDefault(TextToSpeech.LANG_NOT_SUPPORTED)
+        if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+            runCatching { engine.setLanguage(Locale.US) }
+        }
+        val result = engine.speak(
+            text.take(3500),
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "zaythar_${System.currentTimeMillis()}"
+        )
+        if (result == TextToSpeech.ERROR) onSpeakingChanged(false)
     }
 
     override fun stop() {
         tts?.stop()
+        onSpeakingChanged(false)
     }
 
     override fun shutdown() {
@@ -156,6 +203,9 @@ class ZaytharViewModel(
 
     private val _chatUiState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val chatUiState: StateFlow<UiState<String>> = _chatUiState.asStateFlow()
+
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
     private val _uptimeSeconds = MutableStateFlow(0L)
     val uptimeSeconds: StateFlow<Long> = _uptimeSeconds.asStateFlow()
@@ -429,7 +479,9 @@ class ZaytharViewModel(
                     }
                     _chatUiState.value = UiState.Success(finalReply)
                     if (currentPrefs.speakReplies) {
-                        ttsSpeaker.speak(finalReply, currentPrefs.languageCode)
+                        ttsSpeaker.speak(finalReply, currentPrefs.languageCode) { speaking ->
+                            _isSpeaking.value = speaking
+                        }
                     }
                 }
             } catch (e: TimeoutCancellationException) {
@@ -451,6 +503,7 @@ class ZaytharViewModel(
     fun clearChat() {
         chatJob?.cancel()
         ttsSpeaker.stop()
+        _isSpeaking.value = false
         val sessionId = _activeSessionId.value
         if (sessionId.isBlank()) return
         viewModelScope.launch {
@@ -465,8 +518,10 @@ class ZaytharViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
+        ttsSpeaker.stop()
+        _isSpeaking.value = false
         ttsSpeaker.shutdown()
+        super.onCleared()
     }
 
     companion object {

@@ -66,6 +66,7 @@ fun AssistantScreen(
     activePluginCount: Int,
     messagesState: UiState<List<FirestoreSessionMessage>>,
     chatUiState: UiState<String>,
+    isSpeaking: Boolean,
     onComposerChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onClearChat: () -> Unit,
@@ -174,6 +175,7 @@ fun AssistantScreen(
                     activeAgent = activeAgent,
                     isBusy = isBusy,
                     isListening = isListening,
+                    isSpeaking = isSpeaking,
                     onSuggestionClick = { onSend(it) }
                 )
                 AssistantChatCard(
@@ -234,6 +236,7 @@ fun AssistantScreen(
                                 activity = when {
                                     isListening -> NeuralCoreActivity.LISTENING
                                     isBusy -> NeuralCoreActivity.THINKING
+                                     isSpeaking -> NeuralCoreActivity.SPEAKING
                                     else -> NeuralCoreActivity.READY
                                 }
                             )
@@ -242,6 +245,7 @@ fun AssistantScreen(
                                     text = when {
                     isListening -> "PERSONAL INTELLIGENCE / LISTENING"
                     isBusy -> "PERSONAL INTELLIGENCE / THINKING"
+                     isSpeaking -> "PERSONAL INTELLIGENCE / SPEAKING"
                     else -> "PERSONAL INTELLIGENCE / READY"
                 },
                                     style = MaterialTheme.typography.labelSmall,
@@ -348,6 +352,7 @@ private fun AssistantOrbCard(
     activeAgent: AgentRole,
     isBusy: Boolean,
     isListening: Boolean,
+    isSpeaking: Boolean,
     onSuggestionClick: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
@@ -361,6 +366,7 @@ private fun AssistantOrbCard(
                 text = when {
                     isListening -> "PERSONAL INTELLIGENCE / LISTENING"
                     isBusy -> "PERSONAL INTELLIGENCE / THINKING"
+                     isSpeaking -> "PERSONAL INTELLIGENCE / SPEAKING"
                     else -> "PERSONAL INTELLIGENCE / READY"
                 },
                 style = MaterialTheme.typography.labelSmall,
@@ -373,6 +379,7 @@ private fun AssistantOrbCard(
                 activity = when {
                     isListening -> NeuralCoreActivity.LISTENING
                     isBusy -> NeuralCoreActivity.THINKING
+                                     isSpeaking -> NeuralCoreActivity.SPEAKING
                     else -> NeuralCoreActivity.READY
                 }
             )
