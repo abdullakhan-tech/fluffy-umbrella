@@ -9,7 +9,7 @@ The default branch contains a native Android application using:
 - Kotlin and Jetpack Compose.
 - Firebase Authentication with Google sign-in.
 - Cloud Firestore with per-user document paths and repository security rules.
-- Firebase AI Logic for Gemini model access.
+- Firebase AI Logic for Gemini model access (Hybrid route: Gemini 4 Hydrogen primary with Gemini 3.8 Flash and Gemini 3.5 Flash-Lite fallbacks; model access still requires the user's Firebase project setup).
 - Android speech recognition and TextToSpeech APIs.
 - Jetpack DataStore for local preferences.
 - Parallel specialist-agent execution with coordinator synthesis and bounded model fallback.
