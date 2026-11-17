@@ -103,6 +103,7 @@ class NexusWorkspaceViewModel(
     val studioImageState: StateFlow<UiState<Bitmap>> = _studioImageState.asStateFlow()
 
     private var codeJob: Job? = null
+    private var studioBriefJob: Job? = null
     private var studioImageJob: Job? = null
 
     private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable {
@@ -372,8 +373,10 @@ class NexusWorkspaceViewModel(
             return
         }
         if (_studioBriefState.value is UiState.Loading) return
+        studioImageJob?.cancel()
         _studioImageState.value = UiState.Idle
-        viewModelScope.launch {
+        studioBriefJob?.cancel()
+        studioBriefJob = viewModelScope.launch {
             _studioBriefState.value = UiState.Loading
             try {
                 val result = aiRepo.generateStudioConcept(cleaned, outputType, style, prefs)
@@ -404,8 +407,9 @@ class NexusWorkspaceViewModel(
         }
         if (_studioImageState.value is UiState.Loading) return
 
-        studioImageJob?.cancel()
+        studioBriefJob?.cancel()
         _studioBriefState.value = UiState.Idle
+        studioImageJob?.cancel()
         studioImageJob = viewModelScope.launch {
             _studioImageState.value = UiState.Loading
             try {
