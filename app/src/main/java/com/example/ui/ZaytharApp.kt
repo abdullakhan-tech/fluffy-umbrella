@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.PsychologyAlt
@@ -69,6 +70,7 @@ import com.example.ui.screens.KnowledgeBaseScreen
 import com.example.ui.screens.ModelMatrixScreen
 import com.example.ui.screens.NeuralBrainScreen
 import com.example.ui.screens.OverviewScreen
+import com.example.ui.screens.NetworkStatusScreen
 import com.example.ui.screens.PersonaBuilderScreen
 import com.example.ui.screens.PluginHubScreen
 import com.example.ui.screens.ProfileScreen
@@ -81,6 +83,7 @@ import kotlinx.coroutines.launch
 
 object ZaytharRoutes {
     const val OVERVIEW = "overview"
+    const val NETWORK = "network"
     const val ASSISTANT = "assistant"
     const val BRAIN = "brain"
     const val CAMERA_EYES = "camera_eyes"
@@ -99,6 +102,7 @@ object ZaytharRoutes {
 
 private val allDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.OVERVIEW, "Overview", "COMMAND", Icons.Default.Dashboard, "SYSTEM", "OVERVIEW"),
+    ZaytharNavDestination(ZaytharRoutes.NETWORK, "Network Intelligence", "COMMAND", Icons.Default.SignalCellularAlt, "LIVE", "NETWORK"),
     ZaytharNavDestination(ZaytharRoutes.ASSISTANT, "AI Assistant", "COMMAND", Icons.Default.ChatBubble, "AI", "ASSISTANT"),
     ZaytharNavDestination(ZaytharRoutes.BRAIN, "AI Brain", "COMMAND", Icons.Default.PsychologyAlt, "NEURAL", "BRAIN"),
     ZaytharNavDestination(ZaytharRoutes.PERSONA, "Persona Builder", "COMMAND", Icons.Default.Psychology, "PERSONA", "BUILDER"),
@@ -557,6 +561,9 @@ private fun ZaytharNavHost(
                 onSaveOperatorName = viewModel::saveOperatorName,
                 onSignOut = onSignOut
             )
+        }
+        composable(ZaytharRoutes.NETWORK) {
+            NetworkStatusScreen()
         }
         composable(ZaytharRoutes.SECURITY) {
             SecurityScreen(
