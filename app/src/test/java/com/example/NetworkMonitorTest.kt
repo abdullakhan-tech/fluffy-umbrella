@@ -12,4 +12,8 @@ class NetworkMonitorTest {
         assertEquals("3G", NetworkMonitor.networkGeneration(TelephonyManager.NETWORK_TYPE_UMTS))
         assertEquals("2G", NetworkMonitor.networkGeneration(TelephonyManager.NETWORK_TYPE_EDGE))
     }
+
+    @Test fun unknownTypeDoesNotClaimAHighSpeedGeneration() {
+        assertEquals("Cellular / unknown", NetworkMonitor.networkGeneration(TelephonyManager.NETWORK_TYPE_UNKNOWN))
+    }
 }
