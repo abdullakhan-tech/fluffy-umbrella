@@ -238,7 +238,7 @@ fun ProfileScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "Android OS memory and storage readings · refreshes every 5 seconds. CPU and connectivity are reported in their dedicated diagnostics modules.",
+                    text = "Android OS memory and storage readings · refreshes every 5 seconds. Network estimates are available in Network Intelligence; CPU load is not shown as a fabricated percentage.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
