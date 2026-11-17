@@ -72,7 +72,7 @@ data class ToolCall(
 
 /**
  * Immutable snapshot of the exact action shown to the user for approval.
- * Create it through ToolRegistry.approvalFor(call), not from model output.
+ * Create it through ToolRegistry.approvalFor(call, context), not from model output.
  */
 data class ToolApproval internal constructor(
     val authenticatedUid: String,
