@@ -28,48 +28,62 @@ class ToolRegistry(
         tools.values.map { it.descriptor }.sortedBy { it.id }
     }
 
+    /**
+     * Capture this snapshot when the UI renders the exact action preview.
+     * If the tool ID, request ID, or any argument changes, approval no longer matches.
+     */
+    fun approvalFor(call: ToolCall): ToolApproval = ToolApproval(
+        requestId = call.requestId,
+        toolId = call.toolId,
+        arguments = call.arguments.toMap()
+    )
+
     suspend fun execute(
         call: ToolCall,
         context: ToolExecutionContext
     ): ToolExecutionResult {
+        // Snapshot arguments once so a caller cannot mutate a map after validation.
+        val invocation = call.copy(arguments = call.arguments.toMap())
+
         if (context.authenticatedUid.isBlank()) {
-            return reject(call, ToolRejectionCode.UNAUTHENTICATED, "Sign in before using tools.")
+            return reject(invocation, ToolRejectionCode.UNAUTHENTICATED, "Sign in before using tools.")
         }
         if (context.sessionId.isBlank() || context.sessionId.length > 128) {
-            return reject(call, ToolRejectionCode.INVALID_CONTEXT, "A valid active session is required.")
+            return reject(invocation, ToolRejectionCode.INVALID_CONTEXT, "A valid active session is required.")
         }
-        if (!call.requestId.matches(Regex("^[A-Za-z0-9_-]{1,128}$"))) {
-            return reject(call, ToolRejectionCode.INVALID_REQUEST_ID, "The tool request ID is invalid.")
+        if (!invocation.requestId.matches(Regex("^[A-Za-z0-9_-]{1,128}$"))) {
+            return reject(invocation, ToolRejectionCode.INVALID_REQUEST_ID, "The tool request ID is invalid.")
         }
 
-        val tool = synchronized(lock) { tools[call.toolId] }
-            ?: return reject(call, ToolRejectionCode.UNKNOWN_TOOL, "This tool is not registered.")
+        val tool = synchronized(lock) { tools[invocation.toolId] }
+            ?: return reject(invocation, ToolRejectionCode.UNKNOWN_TOOL, "This tool is not registered.")
 
         val descriptor = tool.descriptor
-        validateArguments(descriptor, call.arguments)?.let { message ->
-            return reject(call, ToolRejectionCode.INVALID_ARGUMENTS, message)
+        validateArguments(descriptor, invocation.arguments)?.let { message ->
+            return reject(invocation, ToolRejectionCode.INVALID_ARGUMENTS, message)
         }
 
         val missingPermissions = descriptor.requiredPermissions - context.grantedPermissions
         if (missingPermissions.isNotEmpty()) {
             return reject(
-                call,
+                invocation,
                 ToolRejectionCode.PERMISSION_REQUIRED,
                 "Required Android permissions have not been granted."
             )
         }
 
-        if (descriptor.riskLevel != ToolRiskLevel.READ_ONLY && call !in context.approvedCalls) {
+        val approval = approvalFor(invocation)
+        if (descriptor.riskLevel != ToolRiskLevel.READ_ONLY && approval !in context.approvedTools) {
             record(
                 ToolAuditEvent(
-                    requestId = call.requestId,
+                    requestId = invocation.requestId,
                     toolId = descriptor.id,
                     outcome = ToolAuditOutcome.APPROVAL_REQUIRED,
                     reasonCode = descriptor.riskLevel.name
                 )
             )
             return ToolExecutionResult.ApprovalRequired(
-                requestId = call.requestId,
+                requestId = invocation.requestId,
                 toolId = descriptor.id,
                 explanation = "This exact action and its arguments need explicit user approval before it can run."
             )
@@ -77,26 +91,26 @@ class ToolRegistry(
 
         val payload = try {
             withTimeout(descriptor.timeoutMillis) {
-                tool.execute(context, call.arguments)
+                tool.execute(context, invocation.arguments)
             }
         } catch (_: TimeoutCancellationException) {
-            return fail(call, ToolFailureCode.TIMED_OUT, "The tool exceeded its time limit.")
+            return fail(invocation, ToolFailureCode.TIMED_OUT, "The tool exceeded its time limit.")
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
-            return fail(call, ToolFailureCode.EXECUTION_FAILED, "The tool could not complete safely.")
+            return fail(invocation, ToolFailureCode.EXECUTION_FAILED, "The tool could not complete safely.")
         }
 
         if (payload.summary.isBlank() ||
             payload.summary.length > MAX_SUMMARY_CHARS ||
             payload.content.length > MAX_OUTPUT_CHARS
         ) {
-            return fail(call, ToolFailureCode.INVALID_OUTPUT, "The tool returned an invalid or oversized result.")
+            return fail(invocation, ToolFailureCode.INVALID_OUTPUT, "The tool returned an invalid or oversized result.")
         }
 
         record(
             ToolAuditEvent(
-                requestId = call.requestId,
+                requestId = invocation.requestId,
                 toolId = descriptor.id,
                 outcome = ToolAuditOutcome.COMPLETED
             )
