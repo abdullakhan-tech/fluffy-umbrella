@@ -1,6 +1,6 @@
 # Zaythar AI — Android Command Nexus
 
-A native Android (Kotlin + Jetpack Compose) command center powered by **Google Sign-In + Cloud Firestore** persistence, **Firebase AI Logic** (`gemini-3.8-flash` / `gemini-3.5-flash-lite`) streaming & structured JSON inference, **Live Internet Grounding**, **Camera Eyes Vision**, **AI Brain**, and an extensible **Plugin Plug Hub**.
+A native Android (Kotlin + Jetpack Compose) command center powered by **Google Sign-In + Cloud Firestore** persistence, **Firebase AI Logic** (`gemini-4-hydrogen` primary, `gemini-3.8-flash` / `gemini-3.5-flash-lite` fallbacks) streaming & structured JSON inference, **Live Internet Grounding**, **Camera Eyes Vision**, **AI Brain**, and an extensible **Plugin Plug Hub**.
 
 ## Implemented Features
 

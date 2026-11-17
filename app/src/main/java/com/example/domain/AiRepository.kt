@@ -147,11 +147,7 @@ class AiRepository(
             }
 
         val route = ProviderRoute.fromId(prefs.selectedProviderRoute)
-        val candidateModels = when (route) {
-            ProviderRoute.HYBRID -> listOf("gemini-3.8-flash", "gemini-3.5-flash-lite")
-            ProviderRoute.FLASH -> listOf("gemini-3.8-flash")
-            ProviderRoute.LITE -> listOf("gemini-3.5-flash-lite")
-        }
+        val candidateModels = route.candidateModels
 
         val temperature = (0.35f + (prefs.creativityBias / 100f) * 0.65f).coerceIn(0.2f, 1.0f)
         var lastError: Exception? = null
@@ -343,7 +339,7 @@ class AiRepository(
             }
         }
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-        val modelName = "gemini-3.8-flash"
+        val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
         val visionModel = buildModel(
             modelName = modelName,
             systemPrompt = "You are Zaythar Camera Eyes multimodal vision core. ${mode.instruction} " +
@@ -447,11 +443,7 @@ class AiRepository(
 
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
         val route = ProviderRoute.fromId(prefs.selectedProviderRoute)
-        val modelCandidates = when (route) {
-            ProviderRoute.HYBRID -> listOf("gemini-3.8-flash", "gemini-3.5-flash-lite")
-            ProviderRoute.FLASH -> listOf("gemini-3.8-flash")
-            ProviderRoute.LITE -> listOf("gemini-3.5-flash-lite")
-        }
+        val modelCandidates = route.candidateModels
         val sharedContext = runCatching { buildSharedContext() }.getOrElse { error ->
             Log.w(TAG, "Shared memory unavailable; continuing without memory context.", error)
             ""
