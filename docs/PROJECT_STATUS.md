@@ -13,7 +13,7 @@ The default branch contains a native Android application using:
 - Android speech recognition and TextToSpeech APIs.
 - Jetpack DataStore for local preferences.
 - Parallel specialist-agent execution with coordinator synthesis and bounded model fallback.
-- Activity-aware Compose neural orb (Ready, Listening, Thinking; Speaking is a future state hookup).
+- Activity-aware Compose neural orb (Ready, Listening, Thinking, and TextToSpeech-callback-driven Speaking state).
 - Local calculator, UTC clock, unit converter, JSON inspector, camera/photo picker, and plugin hub.
 
 Application ID: `com.aistudio.zaythar.zxtmkr`. Minimum Android API 26, compile SDK 36, Java 21.
@@ -54,7 +54,7 @@ A successful CI compile does not prove Google sign-in, live Gemini requests, App
 - Confirm Firestore Emulator Suite rule tests pass in CI and verify two-account isolation against the intended Firebase project.
 - Verify live Gemini multi-agent execution and provider model availability with the real Firebase project.
 - Complete user-facing memory review/export/deletion controls.
-- Hook the neural orb's Speaking state to actual TextToSpeech lifecycle.
+- Verify the neural orb's TextToSpeech Speaking state on physical devices and across TTS engines.
 - Build and test a native Windows companion separately.
 
 Older root documentation describing a browser/FastAPI/OpenAI design has been reconciled to the native Android architecture; do not deploy the old backend unless it is deliberately restored and independently tested.
