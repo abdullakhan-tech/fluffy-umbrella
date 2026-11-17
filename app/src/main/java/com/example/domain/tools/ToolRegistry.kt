@@ -59,13 +59,19 @@ class ToolRegistry(
             )
         }
 
-        if (descriptor.riskLevel != ToolRiskLevel.READ_ONLY &&
-            call.requestId !in context.approvedRequestIds
-        ) {
+        if (descriptor.riskLevel != ToolRiskLevel.READ_ONLY && call !in context.approvedCalls) {
+            record(
+                ToolAuditEvent(
+                    requestId = call.requestId,
+                    toolId = descriptor.id,
+                    outcome = ToolAuditOutcome.APPROVAL_REQUIRED,
+                    reasonCode = descriptor.riskLevel.name
+                )
+            )
             return ToolExecutionResult.ApprovalRequired(
                 requestId = call.requestId,
                 toolId = descriptor.id,
-                explanation = "This action needs explicit user approval before it can run."
+                explanation = "This exact action and its arguments need explicit user approval before it can run."
             )
         }
 
