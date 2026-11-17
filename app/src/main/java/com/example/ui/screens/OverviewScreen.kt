@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.local.ZaytharPreferences
 import com.example.domain.ProviderRoute
+import com.example.ui.components.AgentNexusVisualization
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSectionTitle
@@ -135,6 +136,13 @@ fun OverviewScreen(
                     }
                 }
             }
+        }
+
+        item {
+            AgentNexusVisualization(
+                motionEnabled = prefs.motion3dEnabled,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         item {
