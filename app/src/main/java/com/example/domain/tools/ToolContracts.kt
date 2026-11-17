@@ -75,6 +75,8 @@ data class ToolCall(
  * Create it through ToolRegistry.approvalFor(call), not from model output.
  */
 data class ToolApproval internal constructor(
+    val authenticatedUid: String,
+    val sessionId: String,
     val requestId: String,
     val toolId: String,
     val arguments: ToolArguments
