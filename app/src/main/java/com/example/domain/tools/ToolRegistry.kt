@@ -32,7 +32,9 @@ class ToolRegistry(
      * Capture this snapshot when the UI renders the exact action preview.
      * If the tool ID, request ID, or any argument changes, approval no longer matches.
      */
-    fun approvalFor(call: ToolCall): ToolApproval = ToolApproval(
+    fun approvalFor(call: ToolCall, context: ToolExecutionContext): ToolApproval = ToolApproval(
+        authenticatedUid = context.authenticatedUid,
+        sessionId = context.sessionId,
         requestId = call.requestId,
         toolId = call.toolId,
         arguments = call.arguments.toMap()
@@ -72,7 +74,7 @@ class ToolRegistry(
             )
         }
 
-        val approval = approvalFor(invocation)
+        val approval = approvalFor(invocation, context)
         if (descriptor.riskLevel != ToolRiskLevel.READ_ONLY && approval !in context.approvedTools) {
             record(
                 ToolAuditEvent(
