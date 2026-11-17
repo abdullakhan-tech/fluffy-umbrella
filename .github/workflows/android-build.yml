@@ -78,7 +78,7 @@ jobs:
       - name: Set up Node.js for Firebase emulators
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
 
       - name: Install Firebase CLI
         run: npm install --global firebase-tools@14
@@ -155,7 +155,7 @@ jobs:
       - name: Set up Node.js for Firebase emulators
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
 
       - name: Install Firebase CLI
         run: npm install --global firebase-tools@14
