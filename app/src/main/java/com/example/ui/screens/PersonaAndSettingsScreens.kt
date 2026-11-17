@@ -47,6 +47,8 @@ import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.NeuralCoreActivity
+import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.components.TelemetryBar
 import com.example.ui.theme.AccentSwatches
 import com.example.ui.theme.LocalCyberColors
@@ -87,25 +89,12 @@ fun PersonaBuilderScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(140.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(cyber.accent.copy(alpha = 0.4f), cyber.panelGlass)
-                                )
-                            )
-                            .border(2.5.dp, cyber.accent, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Z",
-                            fontFamily = SpaceGroteskFontFamily,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = Color.White
-                        )
-                    }
+                    NeuralCoreVisualizer(
+                        size = 140.dp,
+                        motionEnabled = prefs.motion3dEnabled,
+                        coreLabel = "Z",
+                        activity = NeuralCoreActivity.READY
+                    )
                     Text(
                         text = "ZAYTHAR NEURAL",
                         style = MaterialTheme.typography.titleLarge
@@ -128,6 +117,11 @@ fun PersonaBuilderScreen(
             CyberCard(modifier = Modifier.fillMaxWidth()) {
                 CyberCardHeader(title = "PERSONALITY PARAMETERS")
 
+                CyberSliderRow(
+                    label = "Neural synapse depth",
+                    value = prefs.synapticDepth,
+                    onValueChange = { v -> onUpdatePrefs { it.copy(synapticDepth = v) } }
+                )
                 CyberSliderRow(
                     label = "Empathy ratio",
                     value = prefs.empathyRatio,
