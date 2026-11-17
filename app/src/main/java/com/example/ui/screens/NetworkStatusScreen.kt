@@ -116,7 +116,6 @@ private fun NetworkMetricCard(snapshot: NetworkSnapshot) {
     }
 }
 
-@Composable
 private fun formatBandwidth(kbps: Int): String = when {
     kbps <= 0 -> "Unavailable"
     kbps >= 1_000 -> String.format("%.1f Mbps", kbps / 1_000f)
