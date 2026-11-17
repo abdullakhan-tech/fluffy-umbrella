@@ -7,7 +7,8 @@ Zaythar's Network Intelligence screen reports the active Android network while t
 - Active transport: Wi-Fi, mobile network, Ethernet, VPN, or offline.
 - Android's validated-internet capability (not merely a connected radio).
 - Metered connection state.
-- Mobile data generation (2G / 3G / 4G / 5G) when Android exposes it and the user grants the optional phone-state permission.
+- Mobile data generation (2G / 3G / 4G / 5G) when Android exposes it and the user grants the optional phone-state permission. Android 12+ display callbacks also detect 5G NSA/advanced display overrides.
+- Android's estimated upstream and downstream bandwidth (not a speed-test result).
 - Roaming state when that permission is granted.
 
 The monitor subscribes to Android's default-network callbacks and refreshes metadata every five seconds while the screen is active. It unregisters the callback when the screen stops collecting.
@@ -21,7 +22,7 @@ If permission is declined, connectivity still works and the screen reports a gen
 
 ## Important limitations
 
-Zaythar does not create a 5G/4G/3G connection, switch carrier plans, or force the modem to use a radio generation. The modem, SIM/eSIM, carrier coverage, Android device firmware, and user-selected system network mode determine the available connection. Some 5G NSA deployments may be exposed by Android as LTE or an override type; this implementation reports the telephony data-network type and does not claim to detect every NSA state.
+Zaythar does not create a 5G/4G/3G connection, switch carrier plans, or force the modem to use a radio generation. The modem, SIM/eSIM, carrier coverage, Android device firmware, and user-selected system network mode determine the available connection. Some 5G NSA deployments are exposed by Android through a display override while the underlying data-network type remains LTE; on Android 12+ this implementation listens for that display callback. Older Android releases may only expose the underlying LTE type, so some 5G NSA sessions can still appear as 4G.
 
 A validated network capability is Android's assessment of internet reachability; it is not a guarantee that every website or AI provider is reachable.
 
