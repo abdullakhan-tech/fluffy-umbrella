@@ -12,11 +12,16 @@ import com.example.domain.tools.LocalCommandToolAdapter
 import com.example.domain.tools.ToolExecutionResult
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.AspectRatio
 import com.google.firebase.ai.type.Content
+import com.google.firebase.ai.type.ImageSize
+import com.google.firebase.ai.type.ResponseModality
 import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
+import com.google.firebase.ai.type.asImageOrNull
 import com.google.firebase.ai.type.generationConfig
+import com.google.firebase.ai.type.imageConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
@@ -463,6 +468,43 @@ class AiRepository(
             studioModel.generateContent("Concept: $cleaned\nOutput format: $outputType\nStyle: $style")
         }
         return res.text.orEmpty().trim().ifBlank { "No creative concept returned." }
+    }
+
+    /**
+     * Generates a real image with Firebase AI Logic's Nano Banana image model.
+     * This is separate from text-only creative briefs and uses the existing App Check protected
+     * Firebase AI Logic client rather than embedding provider keys in the app.
+     */
+    suspend fun generateStudioImage(prompt: String, style: String): Bitmap {
+        val cleaned = prompt.trim()
+        require(cleaned.isNotEmpty()) { "Enter an image prompt first." }
+
+        val imageModel = ai.generativeModel(
+            modelName = "gemini-nano-banana-2.1",
+            generationConfig = generationConfig {
+                responseModalities = listOf(ResponseModality.IMAGE)
+                imageConfig = imageConfig {
+                    aspectRatio = AspectRatio.LANDSCAPE_16x9
+                    imageSize = ImageSize.SIZE_1K
+                }
+            }
+        )
+
+        val response = withTimeout(AI_TIMEOUT_MS) {
+            imageModel.generateContent(
+                "Create one polished, production-quality image. Visual direction: $style. " +
+                    "Prompt: $cleaned. Do not add UI mockup text, captions, watermarks, or borders."
+            )
+        }
+
+        return response.candidates
+            .firstOrNull()
+            ?.content
+            ?.parts
+            ?.firstNotNullOfOrNull { part -> part.asImageOrNull() }
+            ?: throw IllegalStateException(
+                "The image model returned no image. Try a different prompt or check Firebase AI Logic access."
+            )
     }
 
     suspend fun runMultiAgentTeam(
