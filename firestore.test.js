@@ -60,6 +60,25 @@ test("Unauthenticated user: cannot read or write profiles, chat_sessions, sessio
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("messages").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("memories").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").get());
+  const unauthMemory = unauthDb.collection("users").doc(ALICE_UID).collection("memories").doc("memory_unauth");
+  const unauthFact = unauthDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").doc("fact_unauth");
+  await assertFails(unauthMemory.get());
+  await assertFails(unauthMemory.set({
+    userId: ALICE_UID,
+    content: "Unauthenticated write",
+    createdAt: pastTimestamp(),
+    updatedAt: pastTimestamp(),
+  }));
+  await assertFails(unauthFact.get());
+  await assertFails(unauthFact.set({
+    userId: ALICE_UID,
+    subject: "Unauthenticated",
+    predicate: "writes",
+    objectValue: "fact",
+    source: "operator",
+    createdAt: pastTimestamp(),
+    updatedAt: pastTimestamp(),
+  }));
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("plugins").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("brain_runs").get());
 });
