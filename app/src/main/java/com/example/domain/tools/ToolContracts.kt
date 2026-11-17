@@ -73,12 +73,14 @@ data class ToolCall(
 /**
  * Construct this context from the signed-in app session and Android permission state.
  * Never populate identity or approvals from model-generated arguments.
+ *
+ * Approval is bound to the complete immutable ToolCall, not just a reusable request ID.
  */
 data class ToolExecutionContext(
     val authenticatedUid: String,
     val sessionId: String,
     val grantedPermissions: Set<String> = emptySet(),
-    val approvedRequestIds: Set<String> = emptySet()
+    val approvedCalls: Set<ToolCall> = emptySet()
 )
 
 data class ToolPayload(
@@ -112,6 +114,7 @@ enum class ToolFailureCode {
 
 enum class ToolAuditOutcome {
     COMPLETED,
+    APPROVAL_REQUIRED,
     REJECTED,
     FAILED
 }
