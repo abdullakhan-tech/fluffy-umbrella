@@ -14,6 +14,8 @@ The default branch contains a native Android application using:
 - Jetpack DataStore for local preferences.
 - Parallel specialist-agent execution with coordinator synthesis and bounded model fallback.
 - Activity-aware Compose neural orb (Ready, Listening, Thinking, and TextToSpeech-callback-driven Speaking state).
+- Native cyber-command UI across existing settings, persona, model routing, profile, diagnostics, collaboration, and coding screens; profile telemetry reads Android OS RAM/storage values.
+- Media Studio image generation through Firebase AI Logic Nano Banana 2.1 (16:9, 1K) with gallery export on Android 10+; video output is a Gemini-generated storyboard/shot list, not a rendered video file.
 - Local calculator, UTC clock, unit converter, JSON inspector, camera/photo picker, and plugin hub.
 
 Application ID: `com.aistudio.zaythar.zxtmkr`. Minimum Android API 26, compile SDK 36, Java 21.
@@ -53,6 +55,7 @@ A successful CI compile does not prove Google sign-in, live Gemini requests, App
 - Confirm latest main-branch build and unit-test run passes.
 - Confirm Firestore Emulator Suite rule tests pass in CI and verify two-account isolation against the intended Firebase project.
 - Verify live Gemini multi-agent execution and provider model availability with the real Firebase project.
+- Verify Nano Banana 2.1 image generation quotas/model access and gallery export with the production Firebase App Check configuration.
 - Complete user-facing memory review/export/deletion controls.
 - Verify the neural orb's TextToSpeech Speaking state on physical devices and across TTS engines.
 - Build and test a native Windows companion separately.
