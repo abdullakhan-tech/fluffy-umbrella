@@ -71,16 +71,24 @@ data class ToolCall(
 )
 
 /**
+ * Immutable snapshot of the exact action shown to the user for approval.
+ * Create it through ToolRegistry.approvalFor(call), not from model output.
+ */
+data class ToolApproval internal constructor(
+    val requestId: String,
+    val toolId: String,
+    val arguments: ToolArguments
+)
+
+/**
  * Construct this context from the signed-in app session and Android permission state.
  * Never populate identity or approvals from model-generated arguments.
- *
- * Approval is bound to the complete immutable ToolCall, not just a reusable request ID.
  */
 data class ToolExecutionContext(
     val authenticatedUid: String,
     val sessionId: String,
     val grantedPermissions: Set<String> = emptySet(),
-    val approvedCalls: Set<ToolCall> = emptySet()
+    val approvedTools: Set<ToolApproval> = emptySet()
 )
 
 data class ToolPayload(
