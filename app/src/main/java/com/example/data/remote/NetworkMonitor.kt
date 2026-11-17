@@ -25,6 +25,8 @@ data class NetworkSnapshot(
     val generation: String,
     val metered: Boolean,
     val roaming: Boolean,
+    val downstreamKbps: Int,
+    val upstreamKbps: Int,
     val details: String
 )
 
@@ -103,6 +105,8 @@ class NetworkMonitor(context: Context) {
             generation = generation,
             metered = metered,
             roaming = roaming,
+            downstreamKbps = caps?.linkDownstreamBandwidthKbps ?: 0,
+            upstreamKbps = caps?.linkUpstreamBandwidthKbps ?: 0,
             details = when {
                 !connected -> "No active internet connection"
                 !validated -> "Connected, but Android has not validated internet access"
