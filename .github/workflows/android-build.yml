@@ -152,26 +152,11 @@ jobs:
           }
           '@ | Set-Content -Path app/google-services.json -Encoding utf8
 
-      - name: Set up Node.js for Firebase emulators
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Install Firebase CLI
-        run: npm install --global firebase-tools@14
-
-      - name: Install Firestore rules test dependencies
-        run: npm install --no-audit --no-fund
-
-      # PowerShell parses an unquoted comma as an array separator.
-      - name: Run emulator rules, Android unit tests, and Windows debug APK build
+      # Firestore emulator rules are exercised by the Ubuntu job above.
+      # Keep the Windows runner focused on validating the native Gradle/Android toolchain.
+      - name: Run Android unit tests and assemble Windows debug APK
         shell: pwsh
-        run: >-
-          firebase emulators:exec
-          --project demo-no-project
-          --only auth,firestore
-          --non-interactive
-          "npm run test:firestore && .\gradlew.bat --no-daemon :app:testDebugUnitTest :app:assembleDebug"
+        run: .\gradlew.bat --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
       - name: Upload Windows-built debug APK
         if: success()
