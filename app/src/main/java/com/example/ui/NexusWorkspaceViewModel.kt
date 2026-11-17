@@ -99,7 +99,11 @@ class NexusWorkspaceViewModel(
     private val _studioBriefState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val studioBriefState: StateFlow<UiState<String>> = _studioBriefState.asStateFlow()
 
+    private val _studioImageState = MutableStateFlow<UiState<Bitmap>>(UiState.Idle)
+    val studioImageState: StateFlow<UiState<Bitmap>> = _studioImageState.asStateFlow()
+
     private var codeJob: Job? = null
+    private var studioImageJob: Job? = null
 
     private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable {
         val firestoreError = generateSequence(error) { it.cause }
@@ -368,6 +372,7 @@ class NexusWorkspaceViewModel(
             return
         }
         if (_studioBriefState.value is UiState.Loading) return
+        _studioImageState.value = UiState.Idle
         viewModelScope.launch {
             _studioBriefState.value = UiState.Loading
             try {
@@ -382,6 +387,41 @@ class NexusWorkspaceViewModel(
             } catch (e: Exception) {
                 val msg = e.localizedMessage ?: "Studio generation failed."
                 _studioBriefState.value = UiState.Error(msg)
+                onToast(msg)
+            }
+        }
+    }
+
+    fun generateStudioImage(
+        prompt: String,
+        style: String,
+        onToast: (String) -> Unit
+    ) {
+        val cleaned = prompt.trim()
+        if (cleaned.isEmpty()) {
+            onToast("Enter an image prompt first.")
+            return
+        }
+        if (_studioImageState.value is UiState.Loading) return
+
+        studioImageJob?.cancel()
+        _studioBriefState.value = UiState.Idle
+        studioImageJob = viewModelScope.launch {
+            _studioImageState.value = UiState.Loading
+            try {
+                val image = aiRepo.generateStudioImage(cleaned, style)
+                _studioImageState.value = UiState.Success(image)
+                onToast("Image generated successfully.")
+            } catch (e: TimeoutCancellationException) {
+                val msg = "Image generation timed out. Try again with a shorter prompt."
+                _studioImageState.value = UiState.Error(msg)
+                onToast(msg)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Studio image generation failed", e)
+                val msg = e.localizedMessage ?: "Image generation failed."
+                _studioImageState.value = UiState.Error(msg)
                 onToast(msg)
             }
         }
