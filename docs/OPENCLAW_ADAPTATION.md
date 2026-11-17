@@ -50,12 +50,6 @@ Run the existing Android unit tests and build:
 ./gradlew :app:assembleDebug
 ```
 
-The new tests cover read-only execution, approval gating, Android permission gating, argument validation, unauthenticated contexts, duplicate registration, and timeout handling. A green CI run verifies compilation and unit tests; real Android permission and lifecycle behaviour still requires device testing.
+The tests cover read-only command execution through the registry, plugin enable/disable enforcement, no-match fall-through, authenticated user/session validation, exact-call approval binding, mutable-argument protection, permission denial, argument validation, duplicate registration, timeout handling, and safe failure output. CI runs the Firestore emulator rules tests, Android/Kotlin unit tests, and debug APK assembly.
 
-## Next integration steps
-
-1. Adapt existing deterministic local tools to `ZaytharTool` interfaces.
-2. Build an action-preview screen that creates an approval for one exact request ID.
-3. Supply the Firebase UID, active session ID, and current Android permission state from trusted app code.
-4. Persist only redacted audit metadata under the signed-in user's Firestore scope if the user-facing audit feature is approved.
-5. Add emulator and device tests before enabling consequential actions.
+No mutating or device-control adapter is enabled. If Zaythar later adds one, it must first receive a dedicated Android permission/lifecycle design, an action-preview UI that binds approval to the exact invocation, redacted audit persistence requirements, and device-level regression tests. Those are future product capabilities, not unfinished work in the current read-only runtime.
