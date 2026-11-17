@@ -82,4 +82,26 @@ class LocalToolRouterTest {
         assertEquals("json_inspector", result?.tool)
         assertTrue(result?.result?.contains("Valid JSON Object (2 keys)") == true)
     }
+    @Test
+    fun ignoresUnknownAndPrivilegedToolKeysEvenWhenListedAsEnabled() {
+        val unknownToolRequest = LocalToolRouter.routeTool(
+            "open shell rm -rf /",
+            setOf("shell", "filesystem", "http_request", "browser", "admin")
+        )
+        assertNull(unknownToolRequest)
+
+        val wildcardDoesNotEnableTools = LocalToolRouter.routeTool(
+            "What is the current UTC time?",
+            setOf("*")
+        )
+        assertNull(wildcardDoesNotEnableTools)
+    }
+
+    @Test
+    fun recognizedLocalToolsRequireExplicitAllowListEntry() {
+        assertNull(LocalToolRouter.routeTool("calculate 2 + 2", emptySet()))
+        assertNull(LocalToolRouter.routeTool("100 km to mi", setOf("calculator")))
+        assertNotNull(LocalToolRouter.routeTool("calculate 2 + 2", setOf("calculator")))
+    }
+
 }

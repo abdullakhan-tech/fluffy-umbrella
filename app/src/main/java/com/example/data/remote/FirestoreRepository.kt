@@ -34,6 +34,20 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
+    private fun requireText(value: String, field: String, maxLength: Int): String {
+        val cleaned = value.trim()
+        require(cleaned.isNotEmpty()) { "$field must not be blank." }
+        require(cleaned.length <= maxLength) { "$field must be at most $maxLength characters." }
+        return cleaned
+    }
+
+    private fun requireDocumentId(value: String, field: String): String {
+        require(Regex("^[A-Za-z0-9_-]{1,128}$").matches(value)) {
+            "$field must contain 1-128 letters, numbers, underscores, or hyphens."
+        }
+        return value
+    }
+
     // --- USER PROFILE ---
 
     fun observeUserProfile(userId: String): Flow<UserProfileDoc?> {
@@ -270,10 +284,11 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     suspend fun addMemoryNote(content: String): Result<String> {
         val uid = requireUserId()
+        val cleanedContent = requireText(content, "Memory content", 2000)
         val docRef = userDoc(uid).collection("memories").document()
         val payload = mapOf(
             "userId" to uid,
-            "content" to content.trim().take(2000),
+            "content" to cleanedContent,
             "createdAt" to FieldValue.serverTimestamp(),
             "updatedAt" to FieldValue.serverTimestamp()
         )
@@ -288,10 +303,31 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         }
     }
 
+    suspend fun updateMemoryNote(memoryId: String, content: String): Result<Unit> {
+        val uid = requireUserId()
+        val safeId = requireDocumentId(memoryId, "Memory ID")
+        val cleanedContent = requireText(content, "Memory content", 2000)
+        val docRef = userDoc(uid).collection("memories").document(safeId)
+        return try {
+            docRef.update(
+                mapOf(
+                    "content" to cleanedContent,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteMemoryNote(memoryId: String): Result<Unit> {
         val uid = requireUserId()
-        require(memoryId.isNotBlank()) { "Memory ID must not be blank" }
-        val docRef = userDoc(uid).collection("memories").document(memoryId)
+        val safeId = requireDocumentId(memoryId, "Memory ID")
+        val docRef = userDoc(uid).collection("memories").document(safeId)
         return try {
             docRef.delete().await()
             Result.success(Unit)
@@ -364,13 +400,17 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         source: String = "operator"
     ): Result<String> {
         val uid = requireUserId()
+        val cleanedSubject = requireText(subject, "Fact subject", 300)
+        val cleanedPredicate = requireText(predicate, "Fact predicate", 300)
+        val cleanedObject = requireText(objectValue, "Fact object", 300)
+        val cleanedSource = source.trim().take(40).ifBlank { "operator" }
         val docRef = userDoc(uid).collection("knowledge_facts").document()
         val payload = mapOf(
             "userId" to uid,
-            "subject" to subject.trim().take(300),
-            "predicate" to predicate.trim().take(300),
-            "objectValue" to objectValue.trim().take(300),
-            "source" to source.trim().take(40).ifBlank { "operator" },
+            "subject" to cleanedSubject,
+            "predicate" to cleanedPredicate,
+            "objectValue" to cleanedObject,
+            "source" to cleanedSource,
             "createdAt" to FieldValue.serverTimestamp(),
             "updatedAt" to FieldValue.serverTimestamp()
         )
@@ -385,10 +425,43 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         }
     }
 
+    suspend fun updateKnowledgeFact(
+        factId: String,
+        subject: String,
+        predicate: String,
+        objectValue: String,
+        source: String = "operator"
+    ): Result<Unit> {
+        val uid = requireUserId()
+        val safeId = requireDocumentId(factId, "Fact ID")
+        val cleanedSubject = requireText(subject, "Fact subject", 300)
+        val cleanedPredicate = requireText(predicate, "Fact predicate", 300)
+        val cleanedObject = requireText(objectValue, "Fact object", 300)
+        val cleanedSource = source.trim().take(40).ifBlank { "operator" }
+        val docRef = userDoc(uid).collection("knowledge_facts").document(safeId)
+        return try {
+            docRef.update(
+                mapOf(
+                    "subject" to cleanedSubject,
+                    "predicate" to cleanedPredicate,
+                    "objectValue" to cleanedObject,
+                    "source" to cleanedSource,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteKnowledgeFact(factId: String): Result<Unit> {
         val uid = requireUserId()
-        require(factId.isNotBlank()) { "Fact ID must not be blank" }
-        val docRef = userDoc(uid).collection("knowledge_facts").document(factId)
+        val safeId = requireDocumentId(factId, "Fact ID")
+        val docRef = userDoc(uid).collection("knowledge_facts").document(safeId)
         return try {
             docRef.delete().await()
             Result.success(Unit)

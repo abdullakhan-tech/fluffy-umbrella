@@ -178,18 +178,32 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val noteId = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.addMemoryNote("Persistent memory item").getOrThrow()
         }
+        assertTrue(
+            withTimeout(DEFAULT_TIMEOUT_MS) {
+                repository.updateMemoryNote(noteId, "Updated private memory item")
+            }.isSuccess
+        )
         val notes = withTimeout(FLOW_TIMEOUT_MS) {
-            repository.observeMemoryNotes(uid).first { list -> list.any { it.id == noteId } }
+            repository.observeMemoryNotes(uid).first { list ->
+                list.any { it.id == noteId && it.content == "Updated private memory item" }
+            }
         }
-        assertTrue(notes.any { it.id == noteId && it.content == "Persistent memory item" })
+        assertTrue(notes.any { it.id == noteId && it.content == "Updated private memory item" })
 
         val factId = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.addKnowledgeFact("Zaythar AI", "uses", "Firestore").getOrThrow()
         }
+        assertTrue(
+            withTimeout(DEFAULT_TIMEOUT_MS) {
+                repository.updateKnowledgeFact(factId, "Zaythar AI", "secures", "per-user memory")
+            }.isSuccess
+        )
         val facts = withTimeout(FLOW_TIMEOUT_MS) {
-            repository.observeKnowledgeFacts(uid).first { list -> list.any { it.id == factId } }
+            repository.observeKnowledgeFacts(uid).first { list ->
+                list.any { it.id == factId && it.predicate == "secures" }
+            }
         }
-        assertTrue(facts.any { it.id == factId && it.subject == "Zaythar AI" })
+        assertTrue(facts.any { it.id == factId && it.objectValue == "per-user memory" })
 
         assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { repository.deleteMemoryNote(noteId) }.isSuccess)
         assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { repository.deleteKnowledgeFact(factId) }.isSuccess)
