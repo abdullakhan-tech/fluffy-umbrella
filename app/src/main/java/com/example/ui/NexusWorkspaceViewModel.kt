@@ -22,9 +22,14 @@ import com.example.domain.CameraVisionResult
 import com.example.domain.ChatStreamEvent
 import com.example.domain.CodeCopilotMode
 import com.example.domain.CodeLanguage
+import com.example.domain.EngineHealthReport
+import com.example.domain.GeneratedImageResult
+import com.example.domain.GuestWorkspaceStore
 import com.example.domain.MultiAgentRunResult
 import com.example.domain.NeuralBrainAnalysis
 import com.example.domain.NeuralBrainMode
+import com.example.domain.SmartEngineRouter
+import com.example.domain.StudioAspectRatio
 import com.example.domain.SuggestedTriple
 import com.example.domain.UiState
 import com.example.domain.VisionMode
@@ -47,37 +52,42 @@ private const val TAG = "NexusWorkspaceVM"
 class NexusWorkspaceViewModel(
     private val firestoreRepo: FirestoreRepository,
     private val workspaceStore: FirestoreSessionAndBrainStore,
-    private val currentUserId: String
+    private val currentUserId: String,
+    private val guestStore: GuestWorkspaceStore? = null
 ) : ViewModel() {
 
-    private val aiRepo = AiRepository(firestoreRepo, workspaceStore)
+    private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
 
-    val memoryNotesState: StateFlow<UiState<List<FirestoreMemoryNote>>> = firestoreRepo.observeMemoryNotes(currentUserId)
-        .map<List<FirestoreMemoryNote>, UiState<List<FirestoreMemoryNote>>> { UiState.Success(it) }
+    val memoryNotesState: StateFlow<UiState<List<FirestoreMemoryNote>>> = (
+        guestStore?.memoryNotes ?: firestoreRepo.observeMemoryNotes(currentUserId)
+    ).map<List<FirestoreMemoryNote>, UiState<List<FirestoreMemoryNote>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
             emit(UiState.Error(root.message ?: "Failed to load memory notes"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
-    val knowledgeFactsState: StateFlow<UiState<List<FirestoreKnowledgeFact>>> = firestoreRepo.observeKnowledgeFacts(currentUserId)
-        .map<List<FirestoreKnowledgeFact>, UiState<List<FirestoreKnowledgeFact>>> { UiState.Success(it) }
+    val knowledgeFactsState: StateFlow<UiState<List<FirestoreKnowledgeFact>>> = (
+        guestStore?.knowledgeFacts ?: firestoreRepo.observeKnowledgeFacts(currentUserId)
+    ).map<List<FirestoreKnowledgeFact>, UiState<List<FirestoreKnowledgeFact>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
             emit(UiState.Error(root.message ?: "Failed to load knowledge graph"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
-    val pluginsState: StateFlow<UiState<List<FirestorePluginConfig>>> = workspaceStore.observePlugins(currentUserId)
-        .map<List<FirestorePluginConfig>, UiState<List<FirestorePluginConfig>>> { UiState.Success(it) }
+    val pluginsState: StateFlow<UiState<List<FirestorePluginConfig>>> = (
+        guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
+    ).map<List<FirestorePluginConfig>, UiState<List<FirestorePluginConfig>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
             emit(UiState.Error(root.message ?: "Failed to load plugins"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
-    val brainRunsState: StateFlow<UiState<List<FirestoreBrainRun>>> = workspaceStore.observeBrainRuns(currentUserId)
-        .map<List<FirestoreBrainRun>, UiState<List<FirestoreBrainRun>>> { UiState.Success(it) }
+    val brainRunsState: StateFlow<UiState<List<FirestoreBrainRun>>> = (
+        guestStore?.brainRuns ?: workspaceStore.observeBrainRuns(currentUserId)
+    ).map<List<FirestoreBrainRun>, UiState<List<FirestoreBrainRun>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
             emit(UiState.Error(root.message ?: "Failed to load AI Brain runs"))
@@ -99,6 +109,12 @@ class NexusWorkspaceViewModel(
     private val _studioBriefState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val studioBriefState: StateFlow<UiState<String>> = _studioBriefState.asStateFlow()
 
+    private val _studioImageState = MutableStateFlow<UiState<GeneratedImageResult>>(UiState.Idle)
+    val studioImageState: StateFlow<UiState<GeneratedImageResult>> = _studioImageState.asStateFlow()
+
+    private val _engineDiagnosticsState = MutableStateFlow<UiState<EngineHealthReport>>(UiState.Idle)
+    val engineDiagnosticsState: StateFlow<UiState<EngineHealthReport>> = _engineDiagnosticsState.asStateFlow()
+
     private var codeJob: Job? = null
 
     private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable {
@@ -118,19 +134,20 @@ class NexusWorkspaceViewModel(
             onToast("Note must be 2000 characters or fewer.")
             return
         }
+        if (guestStore != null) {
+            guestStore.addMemoryNote(cleaned)
+            onToast("Note saved to local guest RAG memory.")
+            return
+        }
         viewModelScope.launch {
             val res = firestoreRepo.addMemoryNote(cleaned)
-            onToast(
-                if (res.isSuccess) "Note synced to Zaythar cloud memory."
-                else "Could not save note: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
-            )
+            onToast(if (res.isSuccess) "Note synced to Zaythar cloud memory." else "Could not save note: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
         }
     }
 
     fun deleteMemoryNote(id: String, onToast: (String) -> Unit) {
-        viewModelScope.launch {
-            if (firestoreRepo.deleteMemoryNote(id).isFailure) onToast("Failed to delete note.")
-        }
+        if (guestStore != null) { guestStore.deleteMemoryNote(id); return }
+        viewModelScope.launch { if (firestoreRepo.deleteMemoryNote(id).isFailure) onToast("Failed to delete note.") }
     }
 
     fun addKnowledgeFact(
@@ -151,6 +168,11 @@ class NexusWorkspaceViewModel(
             onToast("Each field must be 300 characters or fewer.")
             return
         }
+        if (guestStore != null) {
+            val res = guestStore.addKnowledgeFact(subject, predicate, obj, source)
+            onToast(if (res.isSuccess) "Knowledge fact added to guest RAG graph." else res.exceptionOrNull()?.localizedMessage ?: "error")
+            return
+        }
         viewModelScope.launch {
             if (firestoreRepo.countKnowledgeFacts() >= 200) {
                 onToast("Knowledge graph limit reached (200 facts).")
@@ -165,23 +187,25 @@ class NexusWorkspaceViewModel(
     }
 
     fun deleteKnowledgeFact(id: String, onToast: (String) -> Unit) {
-        viewModelScope.launch {
-            if (firestoreRepo.deleteKnowledgeFact(id).isFailure) onToast("Failed to delete knowledge fact.")
-        }
+        if (guestStore != null) { guestStore.deleteKnowledgeFact(id); return }
+        viewModelScope.launch { if (firestoreRepo.deleteKnowledgeFact(id).isFailure) onToast("Failed to delete knowledge fact.") }
     }
 
     fun commitSuggestedTriples(triples: List<SuggestedTriple>, onToast: (String) -> Unit) {
         if (triples.isEmpty()) return
+        if (guestStore != null) {
+            val saved = triples.count { t -> guestStore.addKnowledgeFact(t.subject, t.predicate, t.objectValue, "neural_brain").isSuccess }
+            onToast("Committed $saved knowledge triple(s) to guest RAG graph.")
+            return
+        }
         viewModelScope.launch {
             val currentCount = firestoreRepo.countKnowledgeFacts()
             if (currentCount >= 200) {
                 onToast("Knowledge graph limit reached (200 facts).")
                 return@launch
             }
-            var saved = 0
-            for (t in triples.take(200 - currentCount)) {
-                val res = firestoreRepo.addKnowledgeFact(t.subject, t.predicate, t.objectValue, source = "neural_brain")
-                if (res.isSuccess) saved++
+            val saved = triples.take(200 - currentCount).count { t ->
+                firestoreRepo.addKnowledgeFact(t.subject, t.predicate, t.objectValue, source = "neural_brain").isSuccess
             }
             onToast("Committed $saved knowledge triple(s) to Cloud Firestore.")
         }
@@ -190,33 +214,25 @@ class NexusWorkspaceViewModel(
     // --- PLUGINS ---
 
     fun togglePlugin(pluginId: String, enabled: Boolean, onToast: (String) -> Unit) {
-        viewModelScope.launch {
-            val res = workspaceStore.setPluginEnabled(pluginId, enabled)
-            if (res.isFailure) onToast("Failed to update plugin state.")
-        }
+        if (guestStore != null) { guestStore.setPluginEnabled(pluginId, enabled); return }
+        viewModelScope.launch { if (workspaceStore.setPluginEnabled(pluginId, enabled).isFailure) onToast("Failed to update plugin state.") }
     }
 
-    fun addCustomPlugin(
-        name: String,
-        description: String,
-        category: String,
-        systemInstruction: String,
-        onToast: (String) -> Unit
-    ) {
-        if (name.isBlank() || description.isBlank()) {
-            onToast("Plugin name and description are required.")
+    fun addCustomPlugin(name: String, description: String, category: String, systemInstruction: String, onToast: (String) -> Unit) {
+        if (name.isBlank() || description.isBlank()) { onToast("Plugin name and description are required."); return }
+        if (guestStore != null) {
+            guestStore.addCustomPlugin(name, description, category, systemInstruction)
+            onToast("Custom plugin plugged into guest core.")
             return
         }
         viewModelScope.launch {
             val res = workspaceStore.addCustomPlugin(name, description, category, systemInstruction)
-            onToast(
-                if (res.isSuccess) "Custom plugin plugged into Zaythar Core."
-                else "Could not add plugin: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
-            )
+            onToast(if (res.isSuccess) "Custom plugin plugged into Zaythar Core." else "Could not add plugin: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
         }
     }
 
     fun deletePlugin(pluginId: String, onToast: (String) -> Unit) {
+        if (guestStore != null) { guestStore.deletePlugin(pluginId); onToast("Plugin unplugged and removed."); return }
         viewModelScope.launch {
             val res = workspaceStore.deletePlugin(pluginId)
             onToast(if (res.isSuccess) "Plugin unplugged and removed." else "Failed to remove plugin.")
@@ -261,6 +277,10 @@ class NexusWorkspaceViewModel(
     }
 
     fun deleteBrainRun(runId: String, onToast: (String) -> Unit) {
+        if (guestStore != null) {
+            guestStore.deleteBrainRun(runId)
+            return
+        }
         viewModelScope.launch {
             if (workspaceStore.deleteBrainRun(runId).isFailure) onToast("Failed to delete brain snapshot.")
         }
@@ -288,14 +308,12 @@ class NexusWorkspaceViewModel(
                 val res = aiRepo.analyzeImageWithVision(bitmap, prompt, mode, prefs)
                 _visionState.value = UiState.Success(res)
                 if (activeSessionId.isNotBlank()) {
-                    workspaceStore.addSessionMessage(
-                        sessionId = activeSessionId,
-                        role = "assistant",
-                        text = "[CAMERA EYES · ${mode.title}]\nPrompt: ${res.prompt}\n\n${res.analysis}",
-                        agent = "research",
-                        modelLabel = "${res.modelUsed}+vision",
-                        hasImage = true
-                    )
+                    val msgText = "[CAMERA EYES · ${mode.title}]\nPrompt: ${res.prompt}\n\n${res.analysis}"
+                    if (guestStore != null) {
+                        guestStore.addSessionMessage(activeSessionId, "assistant", msgText, "research", "${res.modelUsed}+vision", hasImage = true)
+                    } else {
+                        workspaceStore.addSessionMessage(activeSessionId, "assistant", msgText, "research", "${res.modelUsed}+vision", hasImage = true)
+                    }
                 }
             } catch (e: TimeoutCancellationException) {
                 val msg = "Camera Eyes vision analysis timed out."
@@ -320,7 +338,9 @@ class NexusWorkspaceViewModel(
         mode: CodeCopilotMode,
         existingCode: String,
         prefs: ZaytharPreferences,
-        onToast: (String) -> Unit
+        onToast: (String) -> Unit,
+        includeUnitTests: Boolean = true,
+        strictSecurityAudit: Boolean = true
     ) {
         if (task.isBlank() && existingCode.isBlank()) {
             onToast("Enter a task or paste source code first.")
@@ -331,7 +351,15 @@ class NexusWorkspaceViewModel(
             _codeCopilotState.value = UiState.Loading
             try {
                 var finalOutput = ""
-                aiRepo.streamCodeCopilot(task, language, mode, existingCode, prefs).collect { event ->
+                aiRepo.streamCodeCopilot(
+                    task = task,
+                    language = language,
+                    mode = mode,
+                    existingCode = existingCode,
+                    prefs = prefs,
+                    includeUnitTests = includeUnitTests,
+                    strictSecurityAudit = strictSecurityAudit
+                ).collect { event ->
                     when (event) {
                         is ChatStreamEvent.Chunk -> _codeCopilotState.value = UiState.Streaming(event.accumulatedText)
                         is ChatStreamEvent.Completed -> finalOutput = event.finalText
@@ -387,6 +415,68 @@ class NexusWorkspaceViewModel(
         }
     }
 
+    fun generateStudioImage(
+        prompt: String,
+        style: String,
+        aspectRatio: StudioAspectRatio,
+        referenceBitmap: Bitmap?,
+        onToast: (String) -> Unit
+    ) {
+        val cleaned = prompt.trim()
+        if (cleaned.isEmpty()) { onToast("Enter an image prompt first."); return }
+        if (_studioImageState.value is UiState.Loading) return
+        viewModelScope.launch {
+            _studioImageState.value = UiState.Loading
+            try {
+                val res = aiRepo.generateStudioImage(cleaned, style, aspectRatio, referenceBitmap)
+                _studioImageState.value = UiState.Success(res)
+                onToast("Image synthesized via ${res.modelUsed}.")
+            } catch (e: TimeoutCancellationException) {
+                val msg = "Image generation timed out after 60 seconds."
+                _studioImageState.value = UiState.Error(msg)
+                onToast(msg)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Image generation failed", e)
+                val msg = e.localizedMessage ?: "Image generation failed."
+                _studioImageState.value = UiState.Error(msg)
+                onToast(msg)
+            }
+        }
+    }
+
+    fun runAllEnginesDiagnostic(
+        includeLiveGeminiProbe: Boolean,
+        firebaseReady: Boolean,
+        activePluginsCount: Int,
+        onToast: (String) -> Unit
+    ) {
+        if (_engineDiagnosticsState.value is UiState.Loading) return
+        viewModelScope.launch {
+            _engineDiagnosticsState.value = UiState.Loading
+            try {
+                val memoriesCount = (memoryNotesState.value as? UiState.Success)?.data?.size ?: 0
+                val factsCount = (knowledgeFactsState.value as? UiState.Success)?.data?.size ?: 0
+                val liveProbe = if (includeLiveGeminiProbe) {
+                    runCatching { aiRepo.probeGeminiEngine() }
+                        .onFailure { if (it is CancellationException) throw it }
+                } else null
+                val report = SmartEngineRouter.runLocalAndHybridDiagnostics(
+                    memoriesCount, factsCount, activePluginsCount, firebaseReady, guestStore != null, liveProbe
+                )
+                _engineDiagnosticsState.value = UiState.Success(report)
+                onToast("Zaythar Engine Suite: ${report.passedCount}/${report.totalCount} engines online.")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val msg = e.localizedMessage ?: "Engine diagnostic run failed."
+                _engineDiagnosticsState.value = UiState.Error(msg)
+                onToast(msg)
+            }
+        }
+    }
+
     // --- MULTI-AGENT COLLABORATION ---
 
     fun runMultiAgent(
@@ -413,13 +503,12 @@ class NexusWorkspaceViewModel(
                 val result = aiRepo.runMultiAgentTeam(trimmed, selectedAgents, prefs)
                 _agentRunState.value = UiState.Success(result)
                 if (activeSessionId.isNotBlank()) {
-                    workspaceStore.addSessionMessage(
-                        sessionId = activeSessionId,
-                        role = "assistant",
-                        text = "[MULTI-AGENT RESULT]\n${result.reply}",
-                        agent = "coordinator",
-                        modelLabel = result.modelUsed
-                    )
+                    val text = "[MULTI-AGENT RESULT]\n${result.reply}"
+                    if (guestStore != null) {
+                        guestStore.addSessionMessage(activeSessionId, "assistant", text, "coordinator", result.modelUsed)
+                    } else {
+                        workspaceStore.addSessionMessage(activeSessionId, "assistant", text, "coordinator", result.modelUsed)
+                    }
                 }
             } catch (e: TimeoutCancellationException) {
                 val msg = "Agent orchestration timed out after 60 seconds."
@@ -439,7 +528,8 @@ class NexusWorkspaceViewModel(
     companion object {
         fun provideFactory(
             application: Application,
-            currentUserId: String
+            currentUserId: String,
+            guestStore: GuestWorkspaceStore? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val databaseId = application.getString(R.string.firestore_database_id)
@@ -447,7 +537,8 @@ class NexusWorkspaceViewModel(
                 NexusWorkspaceViewModel(
                     firestoreRepo = FirestoreRepository(db),
                     workspaceStore = FirestoreSessionAndBrainStore(db),
-                    currentUserId = currentUserId
+                    currentUserId = currentUserId,
+                    guestStore = guestStore
                 )
             }
         }

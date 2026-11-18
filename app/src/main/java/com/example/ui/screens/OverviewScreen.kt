@@ -18,17 +18,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.SignalCellularAlt
-import androidx.compose.material.icons.filled.PsychologyAlt
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Hub
+import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.PrecisionManufacturing
+import androidx.compose.material.icons.rounded.PsychologyAlt
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,8 +48,10 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.local.ZaytharPreferences
 import com.example.domain.ProviderRoute
+import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
+import com.example.ui.components.CyberIconBadge
 import com.example.ui.components.CyberSectionTitle
 import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.components.TelemetryBar
@@ -69,23 +71,25 @@ fun OverviewScreen(
     firebaseReady: Boolean,
     uptimeSeconds: Long,
     activePluginCount: Int,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    ragCorpusCount: Int = 0
 ) {
     val activeRoute = ProviderRoute.fromId(prefs.selectedProviderRoute)
     val uptimeLabel = if (uptimeSeconds < 60) "${uptimeSeconds}s" else "${uptimeSeconds / 60}m ${uptimeSeconds % 60}s"
     val uptimeProgress = (uptimeSeconds / 3600f).coerceIn(0.05f, 1f)
+    val coreActivity = (0.45f + (activePluginCount * 0.06f) + if (firebaseReady) 0.15f else 0f).coerceIn(0.35f, 1.0f)
 
     val deckModules = listOf(
-        CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, voice & web", Icons.Default.ChatBubbleOutline, "deck_assistant"),
-        CommandDeckModule("network", "Network Intelligence", "Live Wi-Fi, 2G, 3G, 4G & 5G status", Icons.Default.SignalCellularAlt, "deck_network"),
-        CommandDeckModule("brain", "AI Brain", "Structured neural functions", Icons.Default.PsychologyAlt, "deck_brain"),
-        CommandDeckModule("camera_eyes", "Camera Eyes", "Live multimodal photo vision", Icons.Default.CameraAlt, "deck_camera_eyes"),
-        CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Default.Extension, "deck_plugins"),
-        CommandDeckModule("code", "Code Copilot", "Live streaming code workbench", Icons.Default.Code, "deck_code"),
-        CommandDeckModule("collaboration", "Collaboration Nexus", "Multi-agent specialist swarm", Icons.Default.Hub, "deck_collaboration"),
-        CommandDeckModule("studio", "Media Studio", "Gemini art & storyboard engine", Icons.Default.AutoAwesome, "deck_studio"),
-        CommandDeckModule("knowledge", "Knowledge Base", "Cloud notes & context hub", Icons.Default.Memory, "deck_knowledge"),
-        CommandDeckModule("settingsPanel", "AI Core Settings", "Processing & visual tuning", Icons.Default.Tune, "deck_settings")
+        CommandDeckModule("engine_hub", "AI Engine Nexus", "Smart Router & live suite runner", Icons.Rounded.PrecisionManufacturing, "deck_engines"),
+        CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, RAG & web", Icons.Rounded.ChatBubbleOutline, "deck_assistant"),
+        CommandDeckModule("brain", "AI Brain", "RAG-grounded neural reasoning", Icons.Rounded.PsychologyAlt, "deck_brain"),
+        CommandDeckModule("camera_eyes", "Camera Eyes", "Live multimodal photo vision", Icons.Rounded.CameraAlt, "deck_camera_eyes"),
+        CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Rounded.Extension, "deck_plugins"),
+        CommandDeckModule("code", "Code Copilot", "Principal engineering & audits", Icons.Rounded.Code, "deck_code"),
+        CommandDeckModule("collaboration", "Collaboration Nexus", "Multi-agent specialist swarm", Icons.Rounded.Hub, "deck_collaboration"),
+        CommandDeckModule("studio", "Media Studio", "Nano Banana 2.1 AI image gen", Icons.Rounded.AutoAwesome, "deck_studio"),
+        CommandDeckModule("knowledge", "Knowledge Base", "Hybrid BM25 + Graph RAG", Icons.Rounded.Memory, "deck_knowledge"),
+        CommandDeckModule("settingsPanel", "AI Core Settings", "Processing & visual tuning", Icons.Rounded.Tune, "deck_settings")
     )
 
     LazyColumn(
@@ -103,7 +107,9 @@ fun OverviewScreen(
                     ) {
                         NeuralCoreHeroCard(
                             modifier = Modifier.weight(1.6f),
-                            motionEnabled = prefs.motion3dEnabled
+                            motionEnabled = prefs.motion3dEnabled,
+                            activityLevel = coreActivity,
+                            onOpenEngineHub = { onNavigate("engine_hub") }
                         )
                         TelemetryStatusCard(
                             modifier = Modifier.weight(1f),
@@ -113,14 +119,17 @@ fun OverviewScreen(
                             activePluginCount = activePluginCount,
                             uptimeLabel = uptimeLabel,
                             uptimeProgress = uptimeProgress,
-                            motionEnabled = prefs.motion3dEnabled
+                            motionEnabled = prefs.motion3dEnabled,
+                            ragCorpusCount = ragCorpusCount
                         )
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         NeuralCoreHeroCard(
                             modifier = Modifier.fillMaxWidth(),
-                            motionEnabled = prefs.motion3dEnabled
+                            motionEnabled = prefs.motion3dEnabled,
+                            activityLevel = coreActivity,
+                            onOpenEngineHub = { onNavigate("engine_hub") }
                         )
                         TelemetryStatusCard(
                             modifier = Modifier.fillMaxWidth(),
@@ -130,7 +139,8 @@ fun OverviewScreen(
                             activePluginCount = activePluginCount,
                             uptimeLabel = uptimeLabel,
                             uptimeProgress = uptimeProgress,
-                            motionEnabled = prefs.motion3dEnabled
+                            motionEnabled = prefs.motion3dEnabled,
+                            ragCorpusCount = ragCorpusCount
                         )
                     }
                 }
@@ -197,13 +207,15 @@ fun OverviewScreen(
 @Composable
 private fun NeuralCoreHeroCard(
     modifier: Modifier = Modifier,
-    motionEnabled: Boolean
+    motionEnabled: Boolean,
+    activityLevel: Float,
+    onOpenEngineHub: () -> Unit
 ) {
     val cyber = LocalCyberColors.current
     CyberCard(modifier = modifier) {
         CyberCardHeader(
             title = "NEURAL CORE VISUALIZER",
-            badge = "● HOLOGRAPHIC CORE",
+            badge = "● 2-LAYER SYNAPSE CORE",
             badgeColor = cyber.cyberGreen
         )
 
@@ -234,7 +246,8 @@ private fun NeuralCoreHeroCard(
             )
             NeuralCoreVisualizer(
                 size = 225.dp,
-                motionEnabled = motionEnabled
+                motionEnabled = motionEnabled,
+                activityLevel = activityLevel
             )
         }
 
@@ -245,7 +258,7 @@ private fun NeuralCoreHeroCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "NEURAL SYNAPTIC FIELD · LIVE RENDER",
+                text = "MULTI-LAYER SYNAPTIC CORE · LIVE RENDER",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -255,6 +268,13 @@ private fun NeuralCoreHeroCard(
                 color = cyber.cyberGreen
             )
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        CyberActionButton(
+            text = "OPEN AI ENGINE HUB & RUN SUITE",
+            onClick = onOpenEngineHub,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "open_engine_hub_hero_button"
+        )
     }
 }
 
@@ -267,7 +287,8 @@ private fun TelemetryStatusCard(
     activePluginCount: Int,
     uptimeLabel: String,
     uptimeProgress: Float,
-    motionEnabled: Boolean
+    motionEnabled: Boolean,
+    ragCorpusCount: Int
 ) {
     val cyber = LocalCyberColors.current
     CyberCard(modifier = modifier) {
@@ -283,6 +304,12 @@ private fun TelemetryStatusCard(
                 statusText = if (firebaseReady) "READY" else "UNCONFIGURED",
                 progress = if (firebaseReady) 1f else 0f,
                 useGreen = firebaseReady
+            )
+            TelemetryBar(
+                label = "Hybrid RAG Core",
+                statusText = if (ragCorpusCount > 0) "$ragCorpusCount DOCS INDEXED" else "BM25 + GRAPH READY",
+                progress = if (ragCorpusCount > 0) (ragCorpusCount / 20f).coerceIn(0.25f, 1f) else 0.5f,
+                useGreen = true
             )
             TelemetryBar(
                 label = "LLM Web Grounding",
@@ -356,11 +383,11 @@ private fun DeckModuleCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(
-                imageVector = module.icon,
+            CyberIconBadge(
+                icon = module.icon,
                 contentDescription = module.title,
-                tint = cyber.accentSoft,
-                modifier = Modifier.size(24.dp)
+                sizeDp = 42.dp,
+                iconSizeDp = 22.dp
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -384,7 +411,7 @@ private fun DeckModuleCard(
                     color = cyber.accentSoft
                 )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
                     contentDescription = null,
                     tint = cyber.accentSoft,
                     modifier = Modifier.size(12.dp)

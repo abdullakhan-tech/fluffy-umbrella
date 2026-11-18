@@ -1,7 +1,13 @@
 package com.example.data.remote
 
 import android.util.Log
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.QuerySnapshot
+import kotlinx.coroutines.CancellationException
+import org.json.JSONArray
 import org.json.JSONObject
 
 enum class OperationType(val value: String) {
@@ -13,24 +19,53 @@ enum class OperationType(val value: String) {
     WRITE("write"),
 }
 
-/**
- * Logs only non-sensitive diagnostic metadata.
- * Firestore paths, exception messages and auth details may contain private data.
- */
+internal inline fun <reified T> QuerySnapshot.toObjectsSafe(): List<T> =
+    documents.mapNotNull { doc ->
+        runCatching {
+            doc.toObject(T::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+        }.getOrNull()
+    }
+
+internal inline fun <reified T> DocumentSnapshot.toObjectSafe(): T? =
+    runCatching {
+        toObject(T::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+    }.getOrNull()
+
 fun handleFirestoreError(
     exception: Throwable,
     operationType: OperationType,
-    @Suppress("UNUSED_PARAMETER") path: String?
+    path: String?
 ): String {
-    val firestoreError = generateSequence(exception) { it.cause }
-        .filterIsInstance<FirebaseFirestoreException>()
-        .firstOrNull()
-    val errorCode = firestoreError?.code?.name ?: "UNKNOWN"
-    val safeSummary = JSONObject()
-        .put("code", errorCode)
-        .put("operationType", operationType.value)
-        .toString()
+    val causes = generateSequence(exception) { it.cause }
+    val rootError = causes.firstOrNull { it is FirebaseFirestoreException }
+        ?: causes.firstOrNull { it !is CancellationException }
+        ?: exception
 
-    Log.e("FirestoreError", "Firestore operation failed: $safeSummary")
-    return safeSummary
+    val currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
+
+    val providerInfoList = currentUser?.providerData?.map { provider ->
+        JSONObject().apply {
+            put("providerId", provider.providerId)
+            put("email", provider.email)
+        }
+    } ?: emptyList()
+
+    val authInfoJson = JSONObject().apply {
+        put("userId", currentUser?.uid)
+        put("email", currentUser?.email)
+        put("emailVerified", currentUser?.isEmailVerified)
+        put("tenantId", currentUser?.tenantId)
+        put("providerInfo", JSONArray(providerInfoList))
+    }
+
+    val errorInfoJson = JSONObject().apply {
+        put("error", rootError.message ?: rootError.toString())
+        put("operationType", operationType.value)
+        put("path", path)
+        put("authInfo", authInfoJson)
+    }
+
+    val jsonString = errorInfoJson.toString()
+    Log.e("FirestoreError", "Firestore Error: $jsonString")
+    return jsonString
 }

@@ -19,10 +19,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -51,6 +59,7 @@ import com.example.ui.components.TelemetryBar
 import com.example.ui.theme.AccentSwatches
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.SpaceGroteskFontFamily
+import com.example.ui.theme.ThemeMode
 
 @Composable
 fun PersonaBuilderScreen(
@@ -276,7 +285,68 @@ fun SettingsScreen(
 
         item {
             CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(title = "THEME & VISUALIZER")
+                CyberCardHeader(
+                    title = "THEME & VISUALIZER",
+                    badge = prefs.themeMode.label.uppercase()
+                )
+
+                Text(
+                    text = "CHAT INTERFACE APPEARANCE",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val modes = listOf(
+                        ThemeMode.SYSTEM to Icons.Default.BrightnessAuto,
+                        ThemeMode.LIGHT to Icons.Default.LightMode,
+                        ThemeMode.DARK to Icons.Default.DarkMode
+                    )
+                    modes.forEachIndexed { index, (mode, icon) ->
+                        val selected = prefs.themeMode == mode
+                        SegmentedButton(
+                            selected = selected,
+                            onClick = {
+                                onUpdatePrefs { it.copy(themeMode = mode) }
+                                onToast("Chat theme set to ${mode.label}.")
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
+                            colors = SegmentedButtonDefaults.colors(
+                                activeContainerColor = cyber.accent.copy(alpha = 0.2f),
+                                activeContentColor = cyber.accentSoft,
+                                activeBorderColor = cyber.accent
+                            ),
+                            icon = {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .testTag("theme_mode_${mode.id}")
+                        ) {
+                            Text(
+                                text = when (mode) {
+                                    ThemeMode.SYSTEM -> "System"
+                                    ThemeMode.LIGHT -> "Light"
+                                    ThemeMode.DARK -> "Dark"
+                                },
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Follow your device dark/light mode automatically or lock the chat interface to Light or Dark.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(14.dp))
 
                 CyberSliderRow(
                     label = "Secondary glow",

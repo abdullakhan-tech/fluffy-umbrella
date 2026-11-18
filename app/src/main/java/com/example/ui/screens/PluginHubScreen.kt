@@ -14,8 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,8 +43,10 @@ import com.example.domain.UiState
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
+import com.example.ui.components.CyberIconBadge
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.ZaytharIcons
 import com.example.ui.theme.LocalCyberColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -159,7 +160,7 @@ fun PluginHubScreen(
                     value = sandboxInput,
                     onValueChange = { sandboxInput = it },
                     label = { Text("TEST COMMAND") },
-                    placeholder = { Text("Try: 120 km to mi  |  calculate (8+4)*5  |  inspect json {\"ok\":true}") },
+                    placeholder = { Text("Try: 120 km to mi | sha256 zaythar | #FF3155 to rgb | generate uuid") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -224,11 +225,13 @@ fun PluginHubScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Extension,
-                        contentDescription = null,
-                        tint = if (plugin.enabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
+                    CyberIconBadge(
+                        icon = ZaytharIcons.forPlugin(plugin.pluginKey, plugin.category),
+                        contentDescription = plugin.category,
+                        sizeDp = 42.dp,
+                        iconSizeDp = 20.dp,
+                        tint = if (plugin.enabled) cyber.cyberGreen else null,
+                        isActive = plugin.enabled
                     )
                     Column(
                         modifier = Modifier.weight(1f),
@@ -260,7 +263,7 @@ fun PluginHubScreen(
                             modifier = Modifier.minimumInteractiveComponentSize()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
+                                imageVector = Icons.Rounded.Delete,
                                 contentDescription = "Delete custom plugin",
                                 tint = cyber.accentSoft
                             )

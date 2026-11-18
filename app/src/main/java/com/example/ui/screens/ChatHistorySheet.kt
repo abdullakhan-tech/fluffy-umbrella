@@ -15,8 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,7 +66,8 @@ fun ChatHistorySheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .testTag("chat_history_sheet"),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
@@ -134,7 +137,7 @@ fun ChatHistorySheet(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = session.title,
+                                        text = if (isActive) "${session.title} · ACTIVE" else session.title,
                                         style = MaterialTheme.typography.titleSmall,
                                         color = if (isActive) cyber.accentSoft else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
@@ -217,4 +220,66 @@ fun ChatHistorySheet(
             }
         )
     }
+}
+
+@Composable
+fun ClearSessionConfirmationDialog(
+    sessionTitle: String,
+    messageCount: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val cyber = LocalCyberColors.current
+    val countSummary = if (messageCount > 0) {
+        "$messageCount message${if (messageCount == 1) "" else "s"} in \"$sessionTitle\""
+    } else {
+        "\"$sessionTitle\""
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("clear_session_confirm_dialog"),
+        containerColor = cyber.panelGlass,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.DeleteSweep,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(
+                text = "Clear Chat & Start New Session?",
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Text(
+                text = "This will permanently delete $countSummary from Cloud Firestore and start a fresh conversation session.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("confirm_clear_new_session_button")
+            ) {
+                Text("DELETE & START NEW")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .testTag("cancel_clear_new_session_button")
+            ) {
+                Text("CANCEL")
+            }
+        }
+    )
 }

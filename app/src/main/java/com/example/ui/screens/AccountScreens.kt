@@ -1,8 +1,8 @@
 package com.example.ui.screens
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
+import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -42,8 +42,10 @@ import com.example.data.local.ZaytharPreferences
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
+import com.example.ui.components.CyberIconBadge
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.ZaytharIcons
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.SpaceGroteskFontFamily
 
@@ -53,7 +55,8 @@ fun ProfileScreen(
     userEmail: String?,
     userDisplayName: String?,
     onSaveOperatorName: (String) -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    isGuest: Boolean = false
 ) {
     val cyber = LocalCyberColors.current
     var nameField by remember(operatorName) { mutableStateOf(operatorName) }
@@ -126,18 +129,22 @@ fun ProfileScreen(
                         testTag = "save_profile_button"
                     )
                     CyberSecondaryButton(
-                        text = "SIGN OUT OF GOOGLE ACCOUNT",
+                        text = if (isGuest) "SIGN IN WITH GOOGLE / EXIT GUEST" else "SIGN OUT OF GOOGLE ACCOUNT",
                         onClick = onSignOut,
                         modifier = Modifier.fillMaxWidth(),
                         testTag = "sign_out_button"
                     )
                     Text(
-                        text = "● GOOGLE AUTH · CLOUD FIRESTORE SYNCED",
+                        text = if (isGuest) "● GUEST MODE · LOCAL DEVICE SESSION" else "● GOOGLE AUTH · CLOUD FIRESTORE SYNCED",
                         style = MaterialTheme.typography.labelSmall,
-                        color = cyber.cyberGreen
+                        color = if (isGuest) cyber.accentSoft else cyber.cyberGreen
                     )
                     Text(
-                        text = "Operator profile, conversations, memory notes, and knowledge graph are isolated per authenticated Google account.",
+                        text = if (isGuest) {
+                            "Guest conversations, RAG memory, and brain runs stay on this device for the active session. Sign in with Google anytime to enable Cloud Firestore sync."
+                        } else {
+                            "Operator profile, conversations, memory notes, and knowledge graph are isolated per authenticated Google account."
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -199,7 +206,9 @@ private fun PlanInfoCard(
 @Composable
 fun SecurityScreen(
     firebaseReady: Boolean,
-    userEmail: String?
+    userEmail: String?,
+    onToast: (String) -> Unit = {},
+    isGuest: Boolean = false
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
@@ -228,9 +237,15 @@ fun SecurityScreen(
             CyberCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(text = "⛨", fontSize = 52.sp, color = cyber.accent)
+                    CyberIconBadge(
+                        icon = ZaytharIcons.SecurityShield,
+                        contentDescription = "Zaythar Zero-Trust Security Shield",
+                        sizeDp = 72.dp,
+                        iconSizeDp = 36.dp
+                    )
                     Text(
                         text = "Protect your intelligence core",
                         style = MaterialTheme.typography.titleLarge,
@@ -252,14 +267,14 @@ fun SecurityScreen(
                     isSafe = true
                 )
                 SecurityStatusRow(
-                    label = "Google Sign-In session",
-                    status = userEmail ?: "AUTHENTICATED",
+                    label = if (isGuest) "Session mode" else "Google Sign-In session",
+                    status = if (isGuest) "GUEST (LOCAL SESSION)" else (userEmail ?: "AUTHENTICATED"),
                     isSafe = true
                 )
                 SecurityStatusRow(
                     label = "Cloud Firestore rules",
-                    status = "USER-ISOLATED",
-                    isSafe = true
+                    status = if (isGuest) "LOCAL ONLY (GUEST)" else "USER-ISOLATED",
+                    isSafe = !isGuest
                 )
                 SecurityStatusRow(
                     label = "Firebase AI Logic & App Check",
@@ -274,9 +289,11 @@ fun SecurityScreen(
                         runCatching {
                             val intent = Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("https://firebase.google.com/docs/ai-logic")
+                                "https://firebase.google.com/docs/ai-logic".toUri()
                             )
                             context.startActivity(intent)
+                        }.onFailure {
+                            onToast("No browser app available to open documentation.")
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

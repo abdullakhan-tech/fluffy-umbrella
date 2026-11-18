@@ -1,58 +1,45 @@
 package com.example.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.BrightnessAuto
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ZaytharPreferences
@@ -60,10 +47,11 @@ import com.example.data.remote.FirestoreSessionMessage
 import com.example.domain.AgentRole
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
-import com.example.ui.components.CyberActionButton
+import com.example.domain.toChatMessage
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.theme.LocalCyberColors
+import com.example.ui.theme.ThemeMode
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,6 +74,7 @@ internal fun AssistantChatCard(
     onComposerChange: (String) -> Unit,
     onSend: () -> Unit,
     onClearChat: () -> Unit,
+    onClearAndNewSession: () -> Unit = onClearChat,
     onOpenHistory: () -> Unit,
     onNewSession: () -> Unit,
     onOpenPlugins: () -> Unit,
@@ -94,17 +83,23 @@ internal fun AssistantChatCard(
     onSelectAgent: (AgentRole) -> Unit,
     onSelectLanguage: (SupportedLanguage) -> Unit,
     onToggleSpeakReplies: (Boolean) -> Unit,
-    onMicClick: () -> Unit
+    onMicClick: () -> Unit,
+    onSelectThemeMode: (ThemeMode) -> Unit = {},
+    onToast: (String) -> Unit
 ) {
-    val context = LocalContext.current
     val cyber = LocalCyberColors.current
     val currentLanguage = SupportedLanguage.fromCode(prefs.languageCode)
-    val messages = (messagesState as? UiState.Success)?.data ?: emptyList()
+    val rawMessages = (messagesState as? UiState.Success)?.data ?: emptyList()
+    val chatMessages = remember(rawMessages) { rawMessages.map { it.toChatMessage() } }
+    val streamingState = chatUiState as? UiState.Streaming
+    val streamingReply = streamingState?.partialText
+    var themeMenuExpanded by remember { mutableStateOf(false) }
+    var showClearSessionDialog by remember { mutableStateOf(false) }
 
     CyberCard(modifier = modifier) {
         CyberCardHeader(
             title = sessionTitle.uppercase(),
-            badge = if (prefs.webConnectEnabled) "WEB+CLOUD SYNC" else "CLOUD SYNC",
+            badge = if (prefs.webConnectEnabled) "GOOGLE SEARCH+CLOUD" else "CLOUD SYNC",
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
@@ -114,7 +109,7 @@ internal fun AssistantChatCard(
                             .testTag("open_chat_history_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.History,
+                            imageVector = Icons.Rounded.History,
                             contentDescription = "Open chat history threads",
                             tint = cyber.cyberGreen
                         )
@@ -126,20 +121,20 @@ internal fun AssistantChatCard(
                             .testTag("new_chat_thread_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            imageVector = Icons.Rounded.Add,
                             contentDescription = "New chat thread",
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(
-                        onClick = onClearChat,
+                        onClick = { showClearSessionDialog = true },
                         modifier = Modifier
                             .minimumInteractiveComponentSize()
                             .testTag("clear_chat_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = "Clear thread messages",
+                            imageVector = Icons.Rounded.DeleteSweep,
+                            contentDescription = "Clear chat history and start new session",
                             tint = cyber.accentSoft
                         )
                     }
@@ -147,7 +142,6 @@ internal fun AssistantChatCard(
             }
         )
 
-        // Status & Capability Toggle Strip: Web Connect, Plugins, Camera Eyes
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -155,6 +149,66 @@ internal fun AssistantChatCard(
                 .fillMaxWidth()
                 .padding(bottom = 8.dp)
         ) {
+            Surface(
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .clickable(onClick = onOpenHistory)
+                    .testTag("switch_thread_chip"),
+                shape = MaterialTheme.shapes.small,
+                color = cyber.panelElevated,
+                border = BorderStroke(1.dp, cyber.cyberGreen.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SwapHoriz,
+                        contentDescription = "Switch chat thread",
+                        tint = cyber.cyberGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "THREADS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cyber.cyberGreen,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .clickable { showClearSessionDialog = true }
+                    .testTag("clear_new_session_button"),
+                shape = MaterialTheme.shapes.small,
+                color = cyber.panelElevated,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.55f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = "Clear current chat history and start new session",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "CLEAR & NEW",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
             Surface(
                 modifier = Modifier
                     .minimumInteractiveComponentSize()
@@ -173,13 +227,13 @@ internal fun AssistantChatCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = null,
+                        imageVector = Icons.Rounded.Language,
+                        contentDescription = "Toggle Google Search Grounding",
                         tint = if (prefs.webConnectEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = if (prefs.webConnectEnabled) "WEB: ON" else "WEB: OFF",
+                        text = if (prefs.webConnectEnabled) "SEARCH: ON" else "SEARCH: OFF",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (prefs.webConnectEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -201,7 +255,7 @@ internal fun AssistantChatCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Extension,
+                        imageVector = Icons.Rounded.Extension,
                         contentDescription = null,
                         tint = cyber.accentSoft,
                         modifier = Modifier.size(16.dp)
@@ -228,7 +282,7 @@ internal fun AssistantChatCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CameraAlt,
+                        imageVector = Icons.Rounded.CameraAlt,
                         contentDescription = null,
                         tint = cyber.accentSoft,
                         modifier = Modifier.size(16.dp)
@@ -238,6 +292,78 @@ internal fun AssistantChatCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.accentSoft
                     )
+                }
+            }
+
+            Box {
+                Surface(
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .clickable { themeMenuExpanded = true }
+                        .testTag("chat_theme_chip"),
+                    shape = MaterialTheme.shapes.small,
+                    color = cyber.panelElevated,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = when (prefs.themeMode) {
+                                ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
+                                ThemeMode.LIGHT -> Icons.Rounded.LightMode
+                                ThemeMode.DARK -> Icons.Rounded.DarkMode
+                            },
+                            contentDescription = "Select chat theme",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = when (prefs.themeMode) {
+                                ThemeMode.SYSTEM -> "THEME: AUTO"
+                                ThemeMode.LIGHT -> "THEME: LIGHT"
+                                ThemeMode.DARK -> "THEME: DARK"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                DropdownMenu(
+                    expanded = themeMenuExpanded,
+                    onDismissRequest = { themeMenuExpanded = false }
+                ) {
+                    ThemeMode.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            text = { Text(mode.label) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = when (mode) {
+                                        ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
+                                        ThemeMode.LIGHT -> Icons.Rounded.LightMode
+                                        ThemeMode.DARK -> Icons.Rounded.DarkMode
+                                    },
+                                    contentDescription = null
+                                )
+                            },
+                            trailingIcon = if (prefs.themeMode == mode) {
+                                {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = "Selected",
+                                        tint = cyber.cyberGreen
+                                    )
+                                }
+                            } else null,
+                            modifier = Modifier.testTag("chat_theme_option_${mode.id}"),
+                            onClick = {
+                                onSelectThemeMode(mode)
+                                themeMenuExpanded = false
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -251,322 +377,58 @@ internal fun AssistantChatCard(
             )
         }
 
-        // Message list
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            if (messagesState is UiState.Loading && messages.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Syncing cloud thread…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else if (messages.isEmpty() && !isBusy) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Thread ready.\nAsk anything, toggle WEB for live internet search, or try \"120 km to mi\".",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
+        GeminiChatView(
+            messages = chatMessages,
+            inputText = composerText,
+            onInputChange = onComposerChange,
+            onSendMessage = { onSend() },
+            isGenerating = isBusy,
+            streamingReply = streamingReply,
+            streamingSearchQueries = streamingState?.searchQueries.orEmpty(),
+            streamingWebSources = streamingState?.webSources.orEmpty(),
+            isInitialLoading = messagesState is UiState.Loading,
+            operatorName = prefs.operatorName,
+            placeholderText = if (prefs.webConnectEnabled) {
+                "Ask ${activeAgent.title} for live Google Search answers or paste an https:// URL…"
             } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(messages, key = { it.id.ifBlank { "${it.role}_${it.text.hashCode()}" } }) { msg ->
-                        val isUser = msg.role == "user"
-                        val stripeColor = if (isUser) cyber.accent else cyber.cyberGreen
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-                        ) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(0.92f),
-                                shape = MaterialTheme.shapes.small,
-                                color = cyber.panelElevated,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                            ) {
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(4.dp)
-                                            .heightIn(min = 44.dp)
-                                            .background(stripeColor)
-                                    )
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Text(
-                                            text = buildString {
-                                                append(if (isUser) prefs.operatorName else "ZAYTHAR")
-                                                if (!isUser && msg.modelLabel.isNotBlank()) {
-                                                    append(" · ${msg.modelLabel}")
-                                                }
-                                                if (msg.hasImage) {
-                                                    append(" · VISION")
-                                                }
-                                            },
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = stripeColor
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = msg.text,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        if (msg.webSources.isNotEmpty()) {
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            FlowRow(
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                msg.webSources.forEach { url ->
-                                                    Surface(
-                                                        modifier = Modifier.clickable {
-                                                            if (url.startsWith("https://") || url.startsWith("http://")) {
-                                                                runCatching {
-                                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                                                                }
-                                                            }
-                                                        },
-                                                        shape = MaterialTheme.shapes.extraSmall,
-                                                        color = cyber.panelGlass,
-                                                        border = BorderStroke(1.dp, cyber.cyberGreen.copy(alpha = 0.45f))
-                                                    ) {
-                                                        Row(
-                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.OpenInNew,
-                                                                contentDescription = null,
-                                                                tint = cyber.cyberGreen,
-                                                                modifier = Modifier.size(12.dp)
-                                                            )
-                                                            Text(
-                                                                text = Uri.parse(url).host ?: url.take(28),
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                                color = cyber.cyberGreen,
-                                                                maxLines = 1,
-                                                                overflow = TextOverflow.Ellipsis
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (chatUiState is UiState.Loading || chatUiState is UiState.Streaming) {
-                        item(key = "streaming_assistant_reply") {
-                            val liveText = if (chatUiState is UiState.Streaming) {
-                                chatUiState.partialText
-                            } else {
-                                if (prefs.webConnectEnabled) "GROUNDING WEB & STREAMING…" else "PROCESSING REQUEST…"
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Start
-                            ) {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(0.92f),
-                                    shape = MaterialTheme.shapes.small,
-                                    color = cyber.panelElevated,
-                                    border = BorderStroke(1.dp, cyber.cyberGreen.copy(alpha = 0.6f))
-                                ) {
-                                    Row(modifier = Modifier.fillMaxWidth()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(4.dp)
-                                                .heightIn(min = 44.dp)
-                                                .background(cyber.cyberGreen)
-                                        )
-                                        Column(modifier = Modifier.padding(12.dp)) {
-                                            Text(
-                                                text = "ZAYTHAR · STREAMING",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = cyber.cyberGreen
-                                            )
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = liveText,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Composer Box
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f))
-                .padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = composerText,
-                onValueChange = onComposerChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("chat_prompt_input"),
-                placeholder = {
-                    Text(
-                        if (prefs.webConnectEnabled) "Ask ${activeAgent.title} or paste an https:// URL…"
-                        else "Message ${activeAgent.title}…",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                maxLines = 4,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = cyber.accent,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                "Message ${activeAgent.title}…"
+            },
+            emptyStateText = "Thread ready.\nAsk up-to-date questions with Google Search Grounding, or try \"120 km to mi\".",
+            loadingPromptText = if (prefs.webConnectEnabled) {
+                "SEARCHING GOOGLE & STREAMING…"
+            } else {
+                "PROCESSING REQUEST…"
+            },
+            listState = listState,
+            onToast = onToast,
+            composerControls = {
+                ChatComposerControls(
+                    activeAgent = activeAgent,
+                    currentLanguage = currentLanguage,
+                    prefs = prefs,
+                    isListening = isListening,
+                    langMenuExpanded = langMenuExpanded,
+                    agentMenuExpanded = agentMenuExpanded,
+                    onLangMenuToggle = onLangMenuToggle,
+                    onAgentMenuToggle = onAgentMenuToggle,
+                    onSelectAgent = onSelectAgent,
+                    onSelectLanguage = onSelectLanguage,
+                    onToggleSpeakReplies = onToggleSpeakReplies,
+                    onMicClick = onMicClick
                 )
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box {
-                        Surface(
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .clickable { onLangMenuToggle(true) }
-                                .testTag("language_selector"),
-                            shape = MaterialTheme.shapes.small,
-                            color = cyber.panelElevated,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                        ) {
-                            Text(
-                                text = currentLanguage.displayName.substringBefore(" "),
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = langMenuExpanded,
-                            onDismissRequest = { onLangMenuToggle(false) }
-                        ) {
-                            SupportedLanguage.entries.forEach { lang ->
-                                DropdownMenuItem(
-                                    text = { Text(lang.displayName) },
-                                    onClick = {
-                                        onSelectLanguage(lang)
-                                        onLangMenuToggle(false)
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    Box {
-                        Surface(
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .clickable { onAgentMenuToggle(true) }
-                                .testTag("agent_selector"),
-                            shape = MaterialTheme.shapes.small,
-                            color = cyber.panelElevated,
-                            border = BorderStroke(1.dp, cyber.accent.copy(alpha = 0.5f))
-                        ) {
-                            Text(
-                                text = activeAgent.title.uppercase(),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = cyber.accentSoft,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = agentMenuExpanded,
-                            onDismissRequest = { onAgentMenuToggle(false) }
-                        ) {
-                            AgentRole.entries.forEach { role ->
-                                DropdownMenuItem(
-                                    text = { Text("${role.title} — ${role.subtitle}") },
-                                    onClick = {
-                                        onSelectAgent(role)
-                                        onAgentMenuToggle(false)
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    IconButton(
-                        onClick = onMicClick,
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .border(
-                                1.dp,
-                                if (isListening) cyber.cyberGreen else cyber.accent,
-                                MaterialTheme.shapes.small
-                            )
-                            .testTag("voice_mic_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Mic,
-                            contentDescription = if (isListening) "Listening" else "Voice input",
-                            tint = if (isListening) cyber.cyberGreen else Color.White
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "Speak replies toggle",
-                        tint = if (prefs.speakReplies) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Switch(
-                        checked = prefs.speakReplies,
-                        onCheckedChange = onToggleSpeakReplies,
-                        modifier = Modifier.testTag("speak_replies_switch"),
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = cyber.accent
-                        )
-                    )
-                    CyberActionButton(
-                        text = if (isBusy) "…" else "SEND",
-                        onClick = onSend,
-                        enabled = !isBusy && composerText.isNotBlank(),
-                        testTag = "send_chat_button"
-                    )
-                }
             }
-        }
+        )
+    }
+
+    if (showClearSessionDialog) {
+        ClearSessionConfirmationDialog(
+            sessionTitle = sessionTitle,
+            messageCount = chatMessages.size,
+            onConfirm = {
+                showClearSessionDialog = false
+                onClearAndNewSession()
+            },
+            onDismiss = { showClearSessionDialog = false }
+        )
     }
 }

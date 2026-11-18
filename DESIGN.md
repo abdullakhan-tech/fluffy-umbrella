@@ -1,24 +1,19 @@
-# Zaythar AI Design System
+# Design System
 
 ## Visual direction
+Dark graphite command centre (`ZaytharTheme`) with glassmorphic elevated panels, configurable neon accent swatches, subtle grid lines, Space Grotesk + Rajdhani typography, and an animated Compose `Canvas` Neural Core visualizer. Supports both dark and light Material 3 themes.
 
-A dark graphite command interface with restrained neon accents, glass-like panels, readable typography, and a cinematic neural-core orb. The active app is native Android using Jetpack Compose and Material 3; this document does not describe a shipped browser/CSS application.
+## Motion
+- `NeuralCoreVisualizer` uses Compose animations for decorative interface polish.
+- Respects the persistent user **3D FX / Motion** toggle in DataStore (`motion3dEnabled`) and falls back cleanly to a static render when disabled.
 
-## Neural Core
+## Responsive design
+Uses Material 3 adaptive layouts (`NavigationBar` on compact phones, `NavigationRail` / persistent `NavigationDrawer` on medium/expanded screens) and `BoxWithConstraints` for multi-column cards.
 
-- The orb is an interactive Canvas-based visualizer, not a physical 3D simulation or proof of live hardware telemetry.
-- Activity states should reflect actual app state: Ready, Listening, Thinking, and Speaking.
-- Motion must respect the app motion preference and Android's system animation scale.
-- Status must remain understandable without colour alone.
-
-## Layout and accessibility
-
-- Support compact phone layouts and expanded tablet/foldable layouts.
-- Use semantic labels for interactive controls and meaningful touch targets.
-- Keep text readable at larger font scales.
-- Provide text interaction when speech recognition is unavailable or permission is denied.
-- Avoid decorative animation that blocks navigation or reading.
+## Accessibility
+- All interactive controls meet minimum `48.dp` touch target requirements (`minimumInteractiveComponentSize()`).
+- Icons and images provide descriptive `contentDescription` labels (or `null` when purely decorative).
+- Primary interactive controls expose `Modifier.testTag(...)` identifiers for UI testing.
 
 ## Honesty
-
-Never label simulated telemetry as real device monitoring. Do not imply the app is always listening, conscious, or controlling hardware unless a separately permissioned feature actually exists.
+Status indicators report real Firebase initialization, internet grounding toggle, plugin count, and session uptime. Informational capability cards on the Profile screen explicitly state that no paid billing or subscription entitlement is activated.

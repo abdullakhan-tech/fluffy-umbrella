@@ -2,9 +2,9 @@
 
 Follow `AGENTS.md`, `RULES.md`, `SECURITY.md`, and `ARCHITECTURE.md`.
 
-- Preserve frontend/backend separation; provider keys belong only on the server.
-- Do not invent working integrations for UI-only modules.
-- Keep the interface responsive, accessible, and reduced-motion aware.
-- Validate API inputs and avoid leaking secrets or prompts in errors/logs.
-- Update tests and docs for behaviour changes.
-- Specialist modes are prompt profiles, not autonomous agents.
+- Use Kotlin, Jetpack Compose Material 3, StateFlow/ViewModels, and Firebase AI Logic (`Firebase.ai`).
+- Never embed Gemini or Firebase secret keys in client source code, tests, or logs.
+- Isolate all Cloud Firestore reads/writes by authenticated `FirebaseAuth` UID and mirror rules in `firestore.rules`.
+- Keep interactive UI accessible (`>= 48.dp` touch targets, `contentDescription`, `testTag`) and reduced-motion aware.
+- Validate and bound all user inputs, URLs (`WebConnector`), and bitmap/image payloads (`CameraEyesScreen`).
+- Update tests (`app/src/test` and `firestore.test.js`) and documentation when behavior changes.

@@ -5,7 +5,6 @@ import com.example.R
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.auth
-import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -27,37 +26,20 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     private val auth get() = Firebase.auth
 
-    private fun requireUserId(requestedUserId: String? = null): String =
-        requireAuthenticatedOwner(requestedUserId, auth.currentUser?.uid)
+    private fun requireUserId(): String {
+        return auth.currentUser?.uid
+            ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
+    }
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
-
-    private fun requireText(value: String, field: String, maxLength: Int): String {
-        val cleaned = value.trim()
-        require(cleaned.isNotEmpty()) { "$field must not be blank." }
-        require(cleaned.length <= maxLength) { "$field must be at most $maxLength characters." }
-        return cleaned
-    }
-
-    private fun requireDocumentId(value: String, field: String): String {
-        require(Regex("^[A-Za-z0-9_-]{1,128}$").matches(value)) {
-            "$field must contain 1-128 letters, numbers, underscores, or hyphens."
-        }
-        return value
-    }
 
     // --- USER PROFILE ---
 
     fun observeUserProfile(userId: String): Flow<UserProfileDoc?> {
-        val uid = requireUserId(userId)
-        val docRef = userDoc(uid)
+        val docRef = userDoc(userId)
         return docRef.snapshots()
             .map { snapshot ->
-                if (snapshot.exists()) {
-                    snapshot.toObject(UserProfileDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
-                } else {
-                    null
-                }
+                if (snapshot.exists()) snapshot.toObjectSafe<UserProfileDoc>() else null
             }
             .catch { error ->
                 logFlowError(error, OperationType.GET, docRef.path, userId)
@@ -66,12 +48,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     }
 
     suspend fun ensureUserProfile(defaultOperatorName: String): Result<UserProfileDoc> {
-        val uid = requireUserId()
-        val docRef = userDoc(uid)
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val docRef = userDoc(uid)
+            path = docRef.path
             val snap = docRef.get().await()
             if (snap.exists()) {
-                val existing = snap.toObject(UserProfileDoc::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+                val existing = snap.toObjectSafe<UserProfileDoc>()
                     ?: UserProfileDoc(id = uid, userId = uid, operatorName = defaultOperatorName.take(32).ifBlank { "OPERATOR 01" })
                 Result.success(existing)
             } else {
@@ -88,16 +72,18 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.WRITE, docRef.path)
+            handleFirestoreError(e, OperationType.WRITE, path)
             Result.failure(e)
         }
     }
 
     suspend fun updateOperatorName(operatorName: String): Result<Unit> {
-        val uid = requireUserId()
-        val cleaned = operatorName.trim().take(32).ifBlank { "OPERATOR 01" }
-        val docRef = userDoc(uid)
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val cleaned = operatorName.trim().take(32).ifBlank { "OPERATOR 01" }
+            val docRef = userDoc(uid)
+            path = docRef.path
             val snap = docRef.get().await()
             if (snap.exists()) {
                 docRef.update(
@@ -120,7 +106,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            handleFirestoreError(e, OperationType.UPDATE, path)
             Result.failure(e)
         }
     }
@@ -128,17 +114,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- CHAT MESSAGES ---
 
     fun observeChatMessages(userId: String): Flow<List<FirestoreChatMessage>> {
-        val uid = requireUserId(userId)
-        val colRef = userDoc(uid).collection("messages")
+        val colRef = userDoc(userId).collection("messages")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limitToLast(60)
             .snapshots()
             .map { snapshot ->
-                snapshot.toObjects(
-                    FirestoreChatMessage::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                ).sortedBy { it.createdAt ?: Timestamp(0, 0) }
+                snapshot.toObjectsSafe<FirestoreChatMessage>()
+                    .sortedBy { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
                 logFlowError(error, OperationType.LIST, colRef.path, userId)
@@ -147,23 +130,22 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     }
 
     suspend fun getRecentChatMessages(limit: Long = 24): List<FirestoreChatMessage> {
-        val uid = requireUserId()
-        val colRef = userDoc(uid).collection("messages")
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val colRef = userDoc(uid).collection("messages")
+            path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit)
                 .get()
                 .await()
-                .toObjects(
-                    FirestoreChatMessage::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                .toObjectsSafe<FirestoreChatMessage>()
                 .reversed()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.LIST, colRef.path)
+            handleFirestoreError(e, OperationType.LIST, path)
             emptyList()
         }
     }
@@ -174,24 +156,26 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         agent: String = "general",
         modelLabel: String = ""
     ): Result<String> {
-        val uid = requireUserId()
-        val docRef = userDoc(uid).collection("messages").document()
-        val payload = mapOf(
-            "userId" to uid,
-            "role" to role,
-            "text" to text.take(24_000),
-            "agent" to agent.take(40).ifBlank { "general" },
-            "modelLabel" to modelLabel.take(80),
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val docRef = userDoc(uid).collection("messages").document()
+            path = docRef.path
+            val payload = mapOf(
+                "userId" to uid,
+                "role" to role,
+                "text" to text.take(24_000),
+                "agent" to agent.take(40).ifBlank { "general" },
+                "modelLabel" to modelLabel.take(80),
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
             docRef.set(payload).await()
             Result.success(docRef.id)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.CREATE, docRef.path)
+            handleFirestoreError(e, OperationType.CREATE, path)
             Result.failure(e)
         }
     }
@@ -201,10 +185,12 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         text: String,
         modelLabel: String
     ): Result<Unit> {
-        val uid = requireUserId()
-        require(messageId.isNotBlank()) { "Message ID must not be blank" }
-        val docRef = userDoc(uid).collection("messages").document(messageId)
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            require(messageId.isNotBlank()) { "Message ID must not be blank" }
+            val docRef = userDoc(uid).collection("messages").document(messageId)
+            path = docRef.path
             docRef.update(
                 mapOf(
                     "text" to text.take(24_000),
@@ -216,15 +202,17 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            handleFirestoreError(e, OperationType.UPDATE, path)
             Result.failure(e)
         }
     }
 
     suspend fun clearChatMessages(): Result<Unit> {
-        val uid = requireUserId()
-        val colRef = userDoc(uid).collection("messages")
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val colRef = userDoc(uid).collection("messages")
+            path = colRef.path
             val snapshot = colRef.get().await()
             val chunks = snapshot.documents.chunked(400)
             for (chunk in chunks) {
@@ -236,7 +224,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, colRef.path)
+            handleFirestoreError(e, OperationType.DELETE, path)
             Result.failure(e)
         }
     }
@@ -244,17 +232,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- MEMORY NOTES ---
 
     fun observeMemoryNotes(userId: String): Flow<List<FirestoreMemoryNote>> {
-        val uid = requireUserId(userId)
-        val colRef = userDoc(uid).collection("memories")
+        val colRef = userDoc(userId).collection("memories")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(100)
             .snapshots()
             .map { snapshot ->
-                snapshot.toObjects(
-                    FirestoreMemoryNote::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                ).sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
+                snapshot.toObjectsSafe<FirestoreMemoryNote>()
+                    .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
                 logFlowError(error, OperationType.LIST, colRef.path, userId)
@@ -263,79 +248,60 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     }
 
     suspend fun getRecentMemoryNotes(limit: Long = 20): List<FirestoreMemoryNote> {
-        val uid = requireUserId()
-        val colRef = userDoc(uid).collection("memories")
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val colRef = userDoc(uid).collection("memories")
+            path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit)
                 .get()
                 .await()
-                .toObjects(
-                    FirestoreMemoryNote::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                .toObjectsSafe()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.LIST, colRef.path)
+            handleFirestoreError(e, OperationType.LIST, path)
             emptyList()
         }
     }
 
     suspend fun addMemoryNote(content: String): Result<String> {
-        val uid = requireUserId()
-        val cleanedContent = requireText(content, "Memory content", 2000)
-        val docRef = userDoc(uid).collection("memories").document()
-        val payload = mapOf(
-            "userId" to uid,
-            "content" to cleanedContent,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val docRef = userDoc(uid).collection("memories").document()
+            path = docRef.path
+            val payload = mapOf(
+                "userId" to uid,
+                "content" to content.trim().take(2000),
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
             docRef.set(payload).await()
             Result.success(docRef.id)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.CREATE, docRef.path)
-            Result.failure(e)
-        }
-    }
-
-    suspend fun updateMemoryNote(memoryId: String, content: String): Result<Unit> {
-        val uid = requireUserId()
-        val safeId = requireDocumentId(memoryId, "Memory ID")
-        val cleanedContent = requireText(content, "Memory content", 2000)
-        val docRef = userDoc(uid).collection("memories").document(safeId)
-        return try {
-            docRef.update(
-                mapOf(
-                    "content" to cleanedContent,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
-            Result.success(Unit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            handleFirestoreError(e, OperationType.CREATE, path)
             Result.failure(e)
         }
     }
 
     suspend fun deleteMemoryNote(memoryId: String): Result<Unit> {
-        val uid = requireUserId()
-        val safeId = requireDocumentId(memoryId, "Memory ID")
-        val docRef = userDoc(uid).collection("memories").document(safeId)
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            require(memoryId.isNotBlank()) { "Memory ID must not be blank" }
+            val docRef = userDoc(uid).collection("memories").document(memoryId)
+            path = docRef.path
             docRef.delete().await()
             Result.success(Unit)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, docRef.path)
+            handleFirestoreError(e, OperationType.DELETE, path)
             Result.failure(e)
         }
     }
@@ -343,17 +309,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- KNOWLEDGE FACTS ---
 
     fun observeKnowledgeFacts(userId: String): Flow<List<FirestoreKnowledgeFact>> {
-        val uid = requireUserId(userId)
-        val colRef = userDoc(uid).collection("knowledge_facts")
+        val colRef = userDoc(userId).collection("knowledge_facts")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(200)
             .snapshots()
             .map { snapshot ->
-                snapshot.toObjects(
-                    FirestoreKnowledgeFact::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                ).sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
+                snapshot.toObjectsSafe<FirestoreKnowledgeFact>()
+                    .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
                 logFlowError(error, OperationType.LIST, colRef.path, userId)
@@ -362,35 +325,36 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     }
 
     suspend fun getRecentKnowledgeFacts(limit: Long = 20): List<FirestoreKnowledgeFact> {
-        val uid = requireUserId()
-        val colRef = userDoc(uid).collection("knowledge_facts")
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val colRef = userDoc(uid).collection("knowledge_facts")
+            path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit)
                 .get()
                 .await()
-                .toObjects(
-                    FirestoreKnowledgeFact::class.java,
-                    DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
-                )
+                .toObjectsSafe()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.LIST, colRef.path)
+            handleFirestoreError(e, OperationType.LIST, path)
             emptyList()
         }
     }
 
     suspend fun countKnowledgeFacts(): Int {
-        val uid = requireUserId()
-        val colRef = userDoc(uid).collection("knowledge_facts")
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val colRef = userDoc(uid).collection("knowledge_facts")
+            path = colRef.path
             colRef.limit(201).get().await().size()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.LIST, colRef.path)
+            handleFirestoreError(e, OperationType.LIST, path)
             0
         }
     }
@@ -401,76 +365,43 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         objectValue: String,
         source: String = "operator"
     ): Result<String> {
-        val uid = requireUserId()
-        val cleanedSubject = requireText(subject, "Fact subject", 300)
-        val cleanedPredicate = requireText(predicate, "Fact predicate", 300)
-        val cleanedObject = requireText(objectValue, "Fact object", 300)
-        val cleanedSource = source.trim().take(40).ifBlank { "operator" }
-        val docRef = userDoc(uid).collection("knowledge_facts").document()
-        val payload = mapOf(
-            "userId" to uid,
-            "subject" to cleanedSubject,
-            "predicate" to cleanedPredicate,
-            "objectValue" to cleanedObject,
-            "source" to cleanedSource,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp()
-        )
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            val docRef = userDoc(uid).collection("knowledge_facts").document()
+            path = docRef.path
+            val payload = mapOf(
+                "userId" to uid,
+                "subject" to subject.trim().take(300),
+                "predicate" to predicate.trim().take(300),
+                "objectValue" to objectValue.trim().take(300),
+                "source" to source.trim().take(40).ifBlank { "operator" },
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
             docRef.set(payload).await()
             Result.success(docRef.id)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.CREATE, docRef.path)
-            Result.failure(e)
-        }
-    }
-
-    suspend fun updateKnowledgeFact(
-        factId: String,
-        subject: String,
-        predicate: String,
-        objectValue: String,
-        source: String = "operator"
-    ): Result<Unit> {
-        val uid = requireUserId()
-        val safeId = requireDocumentId(factId, "Fact ID")
-        val cleanedSubject = requireText(subject, "Fact subject", 300)
-        val cleanedPredicate = requireText(predicate, "Fact predicate", 300)
-        val cleanedObject = requireText(objectValue, "Fact object", 300)
-        val cleanedSource = source.trim().take(40).ifBlank { "operator" }
-        val docRef = userDoc(uid).collection("knowledge_facts").document(safeId)
-        return try {
-            docRef.update(
-                mapOf(
-                    "subject" to cleanedSubject,
-                    "predicate" to cleanedPredicate,
-                    "objectValue" to cleanedObject,
-                    "source" to cleanedSource,
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-            ).await()
-            Result.success(Unit)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.UPDATE, docRef.path)
+            handleFirestoreError(e, OperationType.CREATE, path)
             Result.failure(e)
         }
     }
 
     suspend fun deleteKnowledgeFact(factId: String): Result<Unit> {
-        val uid = requireUserId()
-        val safeId = requireDocumentId(factId, "Fact ID")
-        val docRef = userDoc(uid).collection("knowledge_facts").document(safeId)
+        var path: String? = null
         return try {
+            val uid = requireUserId()
+            require(factId.isNotBlank()) { "Fact ID must not be blank" }
+            val docRef = userDoc(uid).collection("knowledge_facts").document(factId)
+            path = docRef.path
             docRef.delete().await()
             Result.success(Unit)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            handleFirestoreError(e, OperationType.DELETE, docRef.path)
+            handleFirestoreError(e, OperationType.DELETE, path)
             Result.failure(e)
         }
     }
@@ -486,7 +417,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             .firstOrNull()
         if (firestoreError == null && error is CancellationException) return
         val exceptionToLog = firestoreError ?: (error as? Exception)
-        if (exceptionToLog != null && auth.currentUser?.uid == expectedUid) {
+        if (exceptionToLog != null && runCatching { auth.currentUser?.uid }.getOrNull() == expectedUid) {
             handleFirestoreError(exceptionToLog, op, path)
         }
     }

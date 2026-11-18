@@ -29,9 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -59,8 +57,10 @@ import com.example.domain.VisionMode
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
+import com.example.ui.components.CyberIconBadge
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.ZaytharIcons
 import com.example.ui.theme.LocalCyberColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -72,7 +72,8 @@ import java.io.File
 fun CameraEyesScreen(
     visionState: UiState<CameraVisionResult>,
     onAnalyzeImage: (Bitmap?, String, VisionMode) -> Unit,
-    onToast: (String) -> Unit
+    onToast: (String) -> Unit,
+    onSaveToRag: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
@@ -173,11 +174,11 @@ fun CameraEyesScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Visibility,
+                            CyberIconBadge(
+                                icon = Icons.Rounded.Visibility,
                                 contentDescription = null,
-                                tint = cyber.accentSoft,
-                                modifier = Modifier.size(40.dp)
+                                sizeDp = 56.dp,
+                                iconSizeDp = 28.dp
                             )
                             Text(
                                 text = "Capture a live photo or select an image via Android Photo Picker",
@@ -236,12 +237,23 @@ fun CameraEyesScreen(
                                 if (active) cyber.accent else MaterialTheme.colorScheme.outline
                             )
                         ) {
-                            Text(
-                                text = mode.title,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (active) cyber.accentSoft else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = ZaytharIcons.forVisionMode(mode),
+                                    contentDescription = null,
+                                    tint = if (active) cyber.accentSoft else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = mode.title,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (active) cyber.accentSoft else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }
@@ -320,6 +332,15 @@ fun CameraEyesScreen(
                             text = res.analysis,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        CyberSecondaryButton(
+                            text = "SAVE ANALYSIS TO RAG MEMORY",
+                            onClick = {
+                                onSaveToRag("[CAMERA EYES · ${res.mode.title}]\n${res.analysis}".take(1950))
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = "save_vision_to_rag_button"
                         )
                     }
                 }

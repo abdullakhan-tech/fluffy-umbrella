@@ -37,6 +37,9 @@ data class FirestoreSessionMessage(
     val modelLabel: String = "",
     val hasImage: Boolean = false,
     val webSources: List<String> = emptyList(),
+    val webSourceTitles: List<String> = emptyList(),
+    val searchQueries: List<String> = emptyList(),
+    val searchEntryPointHtml: String = "",
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )

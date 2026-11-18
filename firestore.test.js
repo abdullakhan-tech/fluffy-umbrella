@@ -382,9 +382,28 @@ test("Authenticated owner: full CRUD lifecycle for chat_sessions, session messag
       role: "assistant",
       text: "Web grounding complete.",
       agent: "research",
-      modelLabel: "gemini-3.8-flash+web",
+      modelLabel: "gemini-3.8-flash+search",
       hasImage: false,
-      webSources: ["https://firebase.google.com/docs/ai-logic"],
+      webSources: ["https://vertexaisearch.cloud.google.com/grounding-api-redirect/sample"],
+      webSourceTitles: ["firebase.google.com"],
+      searchQueries: ["firebase ai logic google search grounding"],
+      searchEntryPointHtml: "<div>Search suggestions</div>",
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+  // Reject oversized searchQueries (> 8)
+  await assertFails(
+    sessionRef.collection("messages").doc("msg_bad_queries").set({
+      userId: ALICE_UID,
+      sessionId: "session_1",
+      role: "assistant",
+      text: "Too many queries.",
+      agent: "research",
+      modelLabel: "gemini-3.8-flash+search",
+      hasImage: false,
+      webSources: [],
+      searchQueries: Array.from({ length: 9 }, (_, i) => `q_${i}`),
       createdAt: ts,
       updatedAt: ts,
     })

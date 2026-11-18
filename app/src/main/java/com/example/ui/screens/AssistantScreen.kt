@@ -54,6 +54,7 @@ import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.NeuralCoreActivity
 import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.theme.LocalCyberColors
+import com.example.ui.theme.ThemeMode
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -70,6 +71,7 @@ fun AssistantScreen(
     onComposerChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onClearChat: () -> Unit,
+    onClearAndNewSession: () -> Unit = onClearChat,
     onSelectSession: (String) -> Unit,
     onCreateSession: (String) -> Unit,
     onRenameSession: (String, String) -> Unit,
@@ -80,6 +82,7 @@ fun AssistantScreen(
     onSelectAgent: (AgentRole) -> Unit,
     onSelectLanguage: (SupportedLanguage) -> Unit,
     onToggleSpeakReplies: (Boolean) -> Unit,
+    onSelectThemeMode: (ThemeMode) -> Unit = {},
     onToast: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -197,6 +200,7 @@ fun AssistantScreen(
                     onComposerChange = onComposerChange,
                     onSend = { onSend(composerText) },
                     onClearChat = onClearChat,
+                    onClearAndNewSession = onClearAndNewSession,
                     onOpenHistory = { showHistorySheet = true },
                     onNewSession = { onCreateSession("New Nexus Thread") },
                     onOpenPlugins = onOpenPlugins,
@@ -211,7 +215,9 @@ fun AssistantScreen(
                         } else {
                             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
-                    }
+                    },
+                    onSelectThemeMode = onSelectThemeMode,
+                    onToast = onToast
                 )
             }
         } else {
@@ -312,6 +318,7 @@ fun AssistantScreen(
                     onComposerChange = onComposerChange,
                     onSend = { onSend(composerText) },
                     onClearChat = onClearChat,
+                    onClearAndNewSession = onClearAndNewSession,
                     onOpenHistory = { showHistorySheet = true },
                     onNewSession = { onCreateSession("New Nexus Thread") },
                     onOpenPlugins = onOpenPlugins,
@@ -326,7 +333,9 @@ fun AssistantScreen(
                         } else {
                             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
-                    }
+                    },
+                    onSelectThemeMode = onSelectThemeMode,
+                    onToast = onToast
                 )
             }
         }

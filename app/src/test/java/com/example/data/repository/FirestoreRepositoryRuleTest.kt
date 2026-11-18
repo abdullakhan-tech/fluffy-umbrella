@@ -100,8 +100,11 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
                 role = "assistant",
                 text = "State hoisting moves state up to callers.",
                 agent = "coder",
-                modelLabel = "gemini-3.8-flash+web",
-                webSources = listOf("https://developer.android.com/develop/ui/compose/state")
+                modelLabel = "gemini-3.8-flash+search",
+                webSources = listOf("https://developer.android.com/develop/ui/compose/state"),
+                webSourceTitles = listOf("developer.android.com"),
+                searchQueries = listOf("compose state hoisting android"),
+                searchEntryPointHtml = "<div class=\"chip\">Compose State</div>"
             ).getOrThrow()
         }
         assertTrue(replyId.isNotBlank())
@@ -113,6 +116,9 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         }
         val assistantMsg = messages.first { it.id == replyId }
         assertEquals(listOf("https://developer.android.com/develop/ui/compose/state"), assistantMsg.webSources)
+        assertEquals(listOf("developer.android.com"), assistantMsg.webSourceTitles)
+        assertEquals(listOf("compose state hoisting android"), assistantMsg.searchQueries)
+        assertEquals("<div class=\"chip\">Compose State</div>", assistantMsg.searchEntryPointHtml)
 
         assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { store.renameChatSession(sessionId, "Compose State Thread") }.isSuccess)
         val sessions = withTimeout(FLOW_TIMEOUT_MS) {

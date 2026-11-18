@@ -4,12 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -21,7 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -35,12 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.domain.CodeCopilotMode
 import com.example.domain.CodeLanguage
 import com.example.domain.UiState
@@ -55,7 +48,7 @@ import com.example.ui.theme.LocalCyberColors
 @Composable
 fun CodeCopilotScreen(
     codeCopilotState: UiState<String>,
-    onRunCopilot: (String, CodeLanguage, CodeCopilotMode, String) -> Unit,
+    onRunCopilot: (String, CodeLanguage, CodeCopilotMode, String, Boolean, Boolean) -> Unit,
     onSaveToKnowledge: (String) -> Unit,
     onToast: (String) -> Unit
 ) {
@@ -65,6 +58,17 @@ fun CodeCopilotScreen(
     var selectedMode by remember { mutableStateOf(CodeCopilotMode.GENERATE) }
     var taskPrompt by remember { mutableStateOf("") }
     var sourceCode by remember { mutableStateOf("") }
+    var includeUnitTests by remember { mutableStateOf(true) }
+    var strictSecurityAudit by remember { mutableStateOf(true) }
+
+    val engineeringPresets = remember {
+        listOf(
+            "Clean MVVM + StateFlow" to "Implement a Clean Architecture ViewModel + Repository with StateFlow, sealed UiState, and CancellationException safety.",
+            "Thread-Safe LRU Cache" to "Build a generic bounded thread-safe cache with TTL expiration and O(1) lookup.",
+            "Resilient HTTP Retry" to "Implement exponential backoff with jitter, idempotency guard, and strict timeout cancellation.",
+            "Input & SSRF Guard" to "Create a strict URL & payload validator blocking private IPs, localhost, and oversized payloads."
+        )
+    }
 
     val isBusy = codeCopilotState is UiState.Loading || codeCopilotState is UiState.Streaming
     val outputText = when (codeCopilotState) {
@@ -80,12 +84,12 @@ fun CodeCopilotScreen(
     ) {
         item {
             CyberSectionTitle(
-                eyebrow = "PRINCIPAL ENGINEERING WORKBENCH",
+                eyebrow = "PRINCIPAL ENGINEERING & RAG WORKBENCH",
                 titlePrefix = "Code",
                 titleAccent = "Copilot",
                 trailing = {
                     Text(
-                        text = "${selectedLanguage.title.uppercase()} · AI CORE",
+                        text = "${selectedLanguage.title.uppercase()} · RAG CORE",
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.cyberGreen
                     )
@@ -164,11 +168,53 @@ fun CodeCopilotScreen(
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "ENGINEERING GUARANTEES & PRESETS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CopilotToggleChip(
+                        label = if (includeUnitTests) "TESTS: INCLUDED" else "TESTS: OFF",
+                        active = includeUnitTests,
+                        testTag = "code_toggle_unit_tests",
+                        onClick = { includeUnitTests = !includeUnitTests }
+                    )
+                    CopilotToggleChip(
+                        label = if (strictSecurityAudit) "SECURITY: STRICT" else "SECURITY: STANDARD",
+                        active = strictSecurityAudit,
+                        testTag = "code_toggle_security",
+                        onClick = { strictSecurityAudit = !strictSecurityAudit }
+                    )
+                    engineeringPresets.forEach { (title, spec) ->
+                        Surface(
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .clickable { taskPrompt = spec },
+                            shape = MaterialTheme.shapes.small,
+                            color = cyber.panelElevated,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = cyber.accentSoft,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = taskPrompt,
                     onValueChange = { if (it.length <= 4000) taskPrompt = it },
                     label = { Text("ENGINEERING SPECIFICATION") },
-                    placeholder = { Text("Describe what to build, debug, refactor, audit, or test…") },
+                    placeholder = { Text("Describe what to build, architect, debug, refactor, audit, or test…") },
                     minLines = 2,
                     maxLines = 5,
                     modifier = Modifier
@@ -192,7 +238,16 @@ fun CodeCopilotScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 CyberActionButton(
                     text = if (isBusy) "SYNTHESIZING CODE…" else "EXECUTE ${selectedMode.title.uppercase()}",
-                    onClick = { onRunCopilot(taskPrompt, selectedLanguage, selectedMode, sourceCode) },
+                    onClick = {
+                        onRunCopilot(
+                            taskPrompt,
+                            selectedLanguage,
+                            selectedMode,
+                            sourceCode,
+                            includeUnitTests,
+                            strictSecurityAudit
+                        )
+                    },
                     enabled = !isBusy,
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "execute_copilot_button"
@@ -204,7 +259,7 @@ fun CodeCopilotScreen(
             item {
                 CyberCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Connecting to Gemini Code Core…",
+                        text = "Ground-checking RAG memory & connecting to Gemini Code Core…",
                         style = MaterialTheme.typography.bodyMedium,
                         color = cyber.cyberGreen
                     )
@@ -241,7 +296,7 @@ fun CodeCopilotScreen(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             CyberSecondaryButton(
-                                text = "SAVE NOTE",
+                                text = "SAVE TO RAG",
                                 onClick = {
                                     onSaveToKnowledge("[CODE COPILOT · ${selectedLanguage.title}]\n${outputText.take(1900)}")
                                 }
@@ -258,24 +313,43 @@ fun CodeCopilotScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
-                    Box(
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    AiMarkdownContent(
+                        markdown = outputText,
+                        onToast = onToast,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF090C11), MaterialTheme.shapes.small)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                            .horizontalScroll(rememberScrollState())
-                            .padding(14.dp)
-                    ) {
-                        Text(
-                            text = outputText,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.5.sp,
-                            lineHeight = 19.sp,
-                            color = Color(0xFFE2C7CF)
-                        )
-                    }
+                            .testTag("code_copilot_markdown_output")
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CopilotToggleChip(
+    label: String,
+    active: Boolean,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    val cyber = LocalCyberColors.current
+    Surface(
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .clickable(onClick = onClick)
+            .testTag(testTag),
+        shape = MaterialTheme.shapes.small,
+        color = if (active) cyber.cyberGreen.copy(alpha = 0.14f) else cyber.panelElevated,
+        border = BorderStroke(1.dp, if (active) cyber.cyberGreen else MaterialTheme.colorScheme.outline)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (active) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+        )
     }
 }

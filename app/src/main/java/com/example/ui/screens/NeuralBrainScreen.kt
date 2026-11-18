@@ -17,10 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +47,7 @@ import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.ZaytharIcons
 import com.example.ui.theme.LocalCyberColors
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -60,12 +59,21 @@ fun NeuralBrainScreen(
     factsCount: Int,
     onRunBrain: (String, NeuralBrainMode) -> Unit,
     onCommitTriples: (List<SuggestedTriple>) -> Unit,
-    onDeleteBrainRun: (String) -> Unit
+    onDeleteBrainRun: (String) -> Unit,
+    onSaveSynthesisToMemory: (String) -> Unit = {}
 ) {
     val cyber = LocalCyberColors.current
     var selectedMode by remember { mutableStateOf(NeuralBrainMode.REASONER) }
     var prompt by remember { mutableStateOf("") }
     val pastRuns = (brainRunsState as? UiState.Success)?.data ?: emptyList()
+
+    val presets = remember {
+        listOf(
+            "System Audit" to "Audit my current architecture for concurrency risks, data integrity gaps, and performance bottlenecks.",
+            "Extract Facts" to "Consolidate key architectural decisions and entities from recent context into structured knowledge triples.",
+            "Execution Roadmap" to "Build a phased milestone execution plan with risks, mitigations, and measurable validation criteria."
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -74,12 +82,12 @@ fun NeuralBrainScreen(
     ) {
         item {
             CyberSectionTitle(
-                eyebrow = "COGNITIVE SYNAPSE ENGINE",
+                eyebrow = "RAG-GROUNDED COGNITIVE SYNAPSE ENGINE",
                 titlePrefix = "AI Brain &",
                 titleAccent = "Neural Functions",
                 trailing = {
                     Text(
-                        text = "$memoriesCount MEM · $factsCount FACTS",
+                        text = "$memoriesCount MEM · $factsCount GRAPH",
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.cyberGreen
                     )
@@ -91,7 +99,7 @@ fun NeuralBrainScreen(
             CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
                 CyberCardHeader(
                     title = "SELECT NEURAL PIPELINE",
-                    badge = "STRUCTURED JSON CORE"
+                    badge = "HYBRID RAG + JSON CORE"
                 )
 
                 FlowRow(
@@ -107,10 +115,7 @@ fun NeuralBrainScreen(
                                 .testTag("brain_mode_${mode.id}"),
                             shape = MaterialTheme.shapes.small,
                             color = if (active) cyber.accent.copy(alpha = 0.2f) else cyber.panelElevated,
-                            border = BorderStroke(
-                                1.dp,
-                                if (active) cyber.accent else MaterialTheme.colorScheme.outline
-                            )
+                            border = BorderStroke(1.dp, if (active) cyber.accent else MaterialTheme.colorScheme.outline)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -118,7 +123,7 @@ fun NeuralBrainScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Psychology,
+                                    imageVector = ZaytharIcons.forBrainMode(mode),
                                     contentDescription = null,
                                     tint = if (active) cyber.accentSoft else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
@@ -140,13 +145,37 @@ fun NeuralBrainScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
+                Spacer(modifier = Modifier.height(10.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    presets.forEach { (label, text) ->
+                        Surface(
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .clickable { prompt = text },
+                            shape = MaterialTheme.shapes.small,
+                            color = cyber.panelElevated,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = cyber.cyberGreen,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = prompt,
                     onValueChange = { if (it.length <= 4000) prompt = it },
                     label = { Text("COGNITIVE INPUT / CONTEXT") },
                     placeholder = {
-                        Text("Paste a decision, raw notes, architecture goal, or conversation log to synthesize…")
+                        Text("Paste a decision, architecture goal, code dilemma, or raw notes to synthesize with RAG memory…")
                     },
                     minLines = 3,
                     maxLines = 6,
@@ -171,7 +200,7 @@ fun NeuralBrainScreen(
                 item {
                     CyberCard(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "Running structured Gemini neural synthesis with saved memories & thread context…",
+                            text = "Running Hybrid RAG retrieval + structured Gemini neural synthesis…",
                             style = MaterialTheme.typography.bodyMedium,
                             color = cyber.cyberGreen
                         )
@@ -198,65 +227,11 @@ fun NeuralBrainScreen(
             is UiState.Success -> {
                 val analysis = brainAnalysisState.data
                 item {
-                    CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
-                        CyberCardHeader(
-                            title = "${analysis.mode.title.uppercase()} OUTPUT",
-                            badge = "${analysis.confidence}% CONFIDENCE · ${analysis.modelUsed}",
-                            badgeColor = cyber.cyberGreen
-                        )
-                        Text(
-                            text = analysis.summary,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (analysis.insights.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "KEY NEURAL INSIGHTS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = cyber.accentSoft
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                analysis.insights.forEachIndexed { idx, insight ->
-                                    Text(
-                                        text = "${idx + 1}. $insight",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-
-                        if (analysis.suggestedTriples.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "EXTRACTED KNOWLEDGE GRAPH TRIPLES (${analysis.suggestedTriples.size})",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = cyber.cyberGreen
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                analysis.suggestedTriples.forEach { t ->
-                                    Text(
-                                        text = "• ${t.subject}  —[${t.predicate}]→  ${t.objectValue}",
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            CyberSecondaryButton(
-                                text = "COMMIT ALL TO KNOWLEDGE GRAPH",
-                                onClick = { onCommitTriples(analysis.suggestedTriples) },
-                                modifier = Modifier.fillMaxWidth(),
-                                testTag = "commit_triples_button"
-                            )
-                        }
-                    }
+                    NeuralBrainResultCard(
+                        analysis = analysis,
+                        onCommitTriples = onCommitTriples,
+                        onSaveSynthesisToMemory = onSaveSynthesisToMemory
+                    )
                 }
             }
             else -> {}
@@ -289,7 +264,7 @@ fun NeuralBrainScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
+                                    imageVector = Icons.Rounded.AutoAwesome,
                                     contentDescription = null,
                                     tint = cyber.accentSoft,
                                     modifier = Modifier.size(14.dp)
@@ -300,11 +275,7 @@ fun NeuralBrainScreen(
                                     color = cyber.cyberGreen
                                 )
                             }
-                            Text(
-                                text = run.prompt,
-                                style = MaterialTheme.typography.labelLarge,
-                                maxLines = 1
-                            )
+                            Text(text = run.prompt, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                             Text(
                                 text = run.summary,
                                 style = MaterialTheme.typography.bodySmall,
@@ -317,7 +288,7 @@ fun NeuralBrainScreen(
                             modifier = Modifier.minimumInteractiveComponentSize()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
+                                imageVector = Icons.Rounded.Delete,
                                 contentDescription = "Delete brain run",
                                 tint = cyber.accentSoft
                             )
@@ -325,6 +296,116 @@ fun NeuralBrainScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun NeuralBrainResultCard(
+    analysis: NeuralBrainAnalysis,
+    onCommitTriples: (List<SuggestedTriple>) -> Unit,
+    onSaveSynthesisToMemory: (String) -> Unit
+) {
+    val cyber = LocalCyberColors.current
+    CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
+        CyberCardHeader(
+            title = "${analysis.mode.title.uppercase()} OUTPUT",
+            badge = "${analysis.confidence}% CONFIDENCE · ${analysis.modelUsed}",
+            badgeColor = cyber.cyberGreen
+        )
+        LinearProgressIndicator(
+            progress = { (analysis.confidence / 100f).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+            color = cyber.cyberGreen,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        AiMarkdownContent(markdown = analysis.summary)
+
+        if (analysis.ragCitations.isNotEmpty()) {
+            BrainListSection(
+                title = "RAG EVIDENCE GROUNDED (${analysis.ragCitations.size})",
+                items = analysis.ragCitations,
+                accentColor = cyber.cyberGreen
+            )
+        }
+        if (analysis.reasoningSteps.isNotEmpty()) {
+            BrainListSection(
+                title = "COGNITIVE REASONING TRACE",
+                items = analysis.reasoningSteps.mapIndexed { i, step -> "${i + 1}. $step" },
+                accentColor = cyber.accentSoft
+            )
+        }
+        if (analysis.insights.isNotEmpty()) {
+            BrainListSection(
+                title = "KEY NEURAL INSIGHTS",
+                items = analysis.insights.mapIndexed { i, item -> "${i + 1}. $item" },
+                accentColor = cyber.accentSoft
+            )
+        }
+        if (analysis.risksAndGaps.isNotEmpty()) {
+            BrainListSection(
+                title = "RISKS & BLIND SPOTS",
+                items = analysis.risksAndGaps.map { "• $it" },
+                accentColor = MaterialTheme.colorScheme.error
+            )
+        }
+        if (analysis.actionPlan.isNotEmpty()) {
+            BrainListSection(
+                title = "PRIORITIZED ACTION PLAN",
+                items = analysis.actionPlan.mapIndexed { i, step -> "P${i + 1} · $step" },
+                accentColor = cyber.cyberGreen
+            )
+        }
+        if (analysis.suggestedTriples.isNotEmpty()) {
+            BrainListSection(
+                title = "EXTRACTED KNOWLEDGE GRAPH TRIPLES (${analysis.suggestedTriples.size})",
+                items = analysis.suggestedTriples.map { "• ${it.subject}  —[${it.predicate}]→  ${it.objectValue}" },
+                accentColor = cyber.cyberGreen
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            CyberSecondaryButton(
+                text = "COMMIT ALL TO KNOWLEDGE GRAPH",
+                onClick = { onCommitTriples(analysis.suggestedTriples) },
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "commit_triples_button"
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        CyberSecondaryButton(
+            text = "SAVE SYNTHESIS TO RAG MEMORY",
+            onClick = {
+                onSaveSynthesisToMemory("[AI BRAIN · ${analysis.mode.title}]\n${analysis.summary}".take(1950))
+            },
+            modifier = Modifier.fillMaxWidth(),
+            testTag = "save_brain_memory_button"
+        )
+    }
+}
+
+@Composable
+private fun BrainListSection(
+    title: String,
+    items: List<String>,
+    accentColor: androidx.compose.ui.graphics.Color
+) {
+    Spacer(modifier = Modifier.height(12.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+    Spacer(modifier = Modifier.height(10.dp))
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        color = accentColor
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        items.forEach { line ->
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

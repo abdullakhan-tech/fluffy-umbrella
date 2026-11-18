@@ -4,10 +4,15 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.math.BigDecimal
 import java.math.MathContext
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Base64
 import java.util.Locale
+import java.util.UUID
+import kotlin.math.ceil
 import kotlin.math.pow
 
 data class ToolRouteResult(
@@ -27,17 +32,52 @@ object LocalToolRouter {
         option = RegexOption.IGNORE_CASE
     )
     private val unitPattern = Regex(
-        pattern = """^(?:convert\s+)?(-?\d+(?:\.\d+)?)\s*(km|mi|miles|kg|lb|lbs|c|celsius|f|fahrenheit|mb|gb)\s+(?:to|in)\s+(km|mi|miles|kg|lb|lbs|c|celsius|f|fahrenheit|mb|gb)\??$""",
+        pattern = """^(?:convert\s+)?(-?\d+(?:\.\d+)?)\s*(km|mi|miles|m|meters|ft|feet|cm|in|inch|inches|kg|lb|lbs|c|celsius|f|fahrenheit|kb|mb|gb|tb|ms|s|sec|min|hr|hours)\s+(?:to|in)\s+(km|mi|miles|m|meters|ft|feet|cm|in|inch|inches|kg|lb|lbs|c|celsius|f|fahrenheit|kb|mb|gb|tb|ms|s|sec|min|hr|hours)\??$""",
         option = RegexOption.IGNORE_CASE
     )
     private val jsonInspectPattern = Regex(
         pattern = """^(?:inspect|validate|format)\s+json\s+([\s\S]+)$""",
         option = RegexOption.IGNORE_CASE
     )
+    private val uuidPattern = Regex(
+        pattern = """^(?:generate\s+uuid|new\s+uuid|uuid\s*v4|uuid)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+    private val sha256Pattern = Regex(
+        pattern = """^sha256\s+([\s\S]+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+    private val base64EncodePattern = Regex(
+        pattern = """^base64\s+encode\s+([\s\S]+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+    private val base64DecodePattern = Regex(
+        pattern = """^base64\s+decode\s+([\s\S]+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
+    private val hexToRgbPattern = Regex(
+        pattern = """^#?([0-9a-fA-F]{6})\s+(?:to|in)\s+rgb$""",
+        option = RegexOption.IGNORE_CASE
+    )
+    private val rgbToHexPattern = Regex(
+        pattern = """^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)\s+(?:to|in)\s+hex$""",
+        option = RegexOption.IGNORE_CASE
+    )
+    private val textStatsPattern = Regex(
+        pattern = """^(?:count\s+words|text\s+stats)\s+([\s\S]+)$""",
+        option = RegexOption.IGNORE_CASE
+    )
 
     fun routeTool(
         rawMessage: String,
-        enabledPluginKeys: Set<String> = setOf("calculator", "utc_clock", "unit_converter", "json_inspector")
+        enabledPluginKeys: Set<String> = setOf(
+            "calculator",
+            "utc_clock",
+            "unit_converter",
+            "json_inspector",
+            "crypto_hash_uuid",
+            "color_text_metrics"
+        )
     ): ToolRouteResult? {
         val message = rawMessage.trim()
         if (message.isEmpty()) return null
@@ -73,6 +113,68 @@ object LocalToolRouter {
                 val rawJson = m.groupValues[1].trim()
                 val formatted = inspectJson(rawJson)
                 return ToolRouteResult(tool = "json_inspector", result = formatted)
+            }
+        }
+
+        if ("crypto_hash_uuid" in enabledPluginKeys) {
+            if (uuidPattern.matches(message)) {
+                return ToolRouteResult(
+                    tool = "crypto_uuid",
+                    result = "Generated UUID v4: ${UUID.randomUUID()}"
+                )
+            }
+            sha256Pattern.matchEntire(message)?.let { m ->
+                val payload = m.groupValues[1]
+                val digest = MessageDigest.getInstance("SHA-256")
+                    .digest(payload.toByteArray(StandardCharsets.UTF_8))
+                    .joinToString("") { "%02x".format(it) }
+                return ToolRouteResult(tool = "crypto_sha256", result = "SHA-256: $digest")
+            }
+            base64EncodePattern.matchEntire(message)?.let { m ->
+                val encoded = Base64.getEncoder()
+                    .encodeToString(m.groupValues[1].toByteArray(StandardCharsets.UTF_8))
+                return ToolRouteResult(tool = "crypto_base64", result = "Base64 Encoded: $encoded")
+            }
+            base64DecodePattern.matchEntire(message)?.let { m ->
+                val token = m.groupValues[1].trim()
+                return runCatching {
+                    val decoded = String(Base64.getDecoder().decode(token), StandardCharsets.UTF_8)
+                    ToolRouteResult(tool = "crypto_base64", result = "Base64 Decoded: $decoded")
+                }.getOrElse {
+                    ToolRouteResult(tool = "crypto_base64", result = "Invalid Base64 input.")
+                }
+            }
+        }
+
+        if ("color_text_metrics" in enabledPluginKeys) {
+            hexToRgbPattern.matchEntire(message)?.let { m ->
+                val hex = m.groupValues[1].uppercase(Locale.ROOT)
+                val r = hex.substring(0, 2).toInt(16)
+                val g = hex.substring(2, 4).toInt(16)
+                val b = hex.substring(4, 6).toInt(16)
+                return ToolRouteResult(tool = "color_converter", result = "#$hex = rgb($r, $g, $b)")
+            }
+            rgbToHexPattern.matchEntire(message)?.let { m ->
+                val r = m.groupValues[1].toIntOrNull()
+                val g = m.groupValues[2].toIntOrNull()
+                val b = m.groupValues[3].toIntOrNull()
+                if (r != null && g != null && b != null && r in 0..255 && g in 0..255 && b in 0..255) {
+                    val hex = "#%02X%02X%02X".format(r, g, b)
+                    return ToolRouteResult(tool = "color_converter", result = "rgb($r, $g, $b) = $hex")
+                }
+                return ToolRouteResult(tool = "color_converter", result = "RGB channels must be between 0 and 255.")
+            }
+            textStatsPattern.matchEntire(message)?.let { m ->
+                val text = m.groupValues[1]
+                val words = text.trim().split(Regex("""\s+""")).count { it.isNotBlank() }
+                val chars = text.length
+                val charsNoSpace = text.count { !it.isWhitespace() }
+                val lines = text.lines().size
+                val estTokens = ceil(chars / 4.0).toInt().coerceAtLeast(1)
+                return ToolRouteResult(
+                    tool = "text_metrics",
+                    result = "Words: $words | Chars: $chars ($charsNoSpace non-space) | Lines: $lines | Est. Tokens: ~$estTokens"
+                )
             }
         }
 
@@ -118,17 +220,26 @@ object LocalToolRouter {
 
     private fun normalizeUnit(raw: String): String = when (raw.lowercase(Locale.ROOT)) {
         "miles" -> "mi"
+        "meters" -> "m"
+        "feet" -> "ft"
+        "inch", "inches" -> "in"
         "lbs" -> "lb"
         "celsius" -> "c"
         "fahrenheit" -> "f"
+        "sec" -> "s"
+        "hours" -> "hr"
         else -> raw.lowercase(Locale.ROOT)
     }
 
     fun convertUnit(value: Double, from: String, to: String): Double? {
         if (from == to) return value
-        return when (from to to) {
+        val exact = when (from to to) {
             "km" to "mi" -> value * 0.621371192
             "mi" to "km" -> value / 0.621371192
+            "m" to "ft" -> value * 3.280839895
+            "ft" to "m" -> value / 3.280839895
+            "cm" to "in" -> value / 2.54
+            "in" to "cm" -> value * 2.54
             "kg" to "lb" -> value * 2.20462262
             "lb" to "kg" -> value / 2.20462262
             "c" to "f" -> (value * 9.0 / 5.0) + 32.0
@@ -137,6 +248,23 @@ object LocalToolRouter {
             "gb" to "mb" -> value * 1024.0
             else -> null
         }
+        if (exact != null) return exact
+
+        val dataUnitsKb = mapOf("kb" to 1.0, "mb" to 1024.0, "gb" to 1024.0 * 1024.0, "tb" to 1024.0 * 1024.0 * 1024.0)
+        val fromData = dataUnitsKb[from]
+        val toData = dataUnitsKb[to]
+        if (fromData != null && toData != null) {
+            return (value * fromData) / toData
+        }
+
+        val timeUnitsMs = mapOf("ms" to 1.0, "s" to 1000.0, "min" to 60_000.0, "hr" to 3_600_000.0)
+        val fromTime = timeUnitsMs[from]
+        val toTime = timeUnitsMs[to]
+        if (fromTime != null && toTime != null) {
+            return (value * fromTime) / toTime
+        }
+
+        return null
     }
 
     fun reasoningHint(message: String): String {

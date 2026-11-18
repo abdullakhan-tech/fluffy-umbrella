@@ -51,7 +51,10 @@ service cloud.firestore {
              data.modelLabel is string && data.modelLabel.size() <= 80 &&
              data.hasImage is bool &&
              data.webSources is list && data.webSources.size() <= 10 &&
-             (data.webSources.size() == 0 || data.webSources[0] is string);
+             (data.webSources.size() == 0 || data.webSources[0] is string) &&
+             (!('webSourceTitles' in data) || (data.webSourceTitles is list && data.webSourceTitles.size() <= 10 && (data.webSourceTitles.size() == 0 || data.webSourceTitles[0] is string))) &&
+             (!('searchQueries' in data) || (data.searchQueries is list && data.searchQueries.size() <= 8 && (data.searchQueries.size() == 0 || data.searchQueries[0] is string))) &&
+             (!('searchEntryPointHtml' in data) || (data.searchEntryPointHtml is string && data.searchEntryPointHtml.size() <= 24000));
     }
 
     function isValidChatMessage(data) {
@@ -159,7 +162,7 @@ service cloud.firestore {
                            isValidId(messageId) &&
                            incoming().userId == request.auth.uid &&
                            incoming().keys().hasAll(['userId', 'sessionId', 'role', 'text', 'agent', 'modelLabel', 'hasImage', 'webSources', 'createdAt', 'updatedAt']) &&
-                           incoming().keys().hasOnly(['userId', 'sessionId', 'role', 'text', 'agent', 'modelLabel', 'hasImage', 'webSources', 'createdAt', 'updatedAt']) &&
+                           incoming().keys().hasOnly(['userId', 'sessionId', 'role', 'text', 'agent', 'modelLabel', 'hasImage', 'webSources', 'webSourceTitles', 'searchQueries', 'searchEntryPointHtml', 'createdAt', 'updatedAt']) &&
                            incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
                            incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                            isValidSessionMessage(incoming(), sessionId);
@@ -174,7 +177,7 @@ service cloud.firestore {
                            incoming().role == existing().role &&
                            incoming().createdAt == existing().createdAt &&
                            incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
-                           incoming().diff(existing()).affectedKeys().hasOnly(['text', 'modelLabel', 'webSources', 'updatedAt']);
+                           incoming().diff(existing()).affectedKeys().hasOnly(['text', 'modelLabel', 'webSources', 'webSourceTitles', 'searchQueries', 'searchEntryPointHtml', 'updatedAt']);
 
           allow delete: if isOwner(userId) && isValidId(userId) && isValidId(sessionId) && isValidId(messageId);
         }

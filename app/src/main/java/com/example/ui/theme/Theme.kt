@@ -1,5 +1,6 @@
 package com.example.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -18,6 +19,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+
+enum class ThemeMode(val id: String, val label: String) {
+    SYSTEM("system", "System Default"),
+    LIGHT("light", "Light"),
+    DARK("dark", "Dark");
+
+    fun resolveIsDark(systemDark: Boolean): Boolean = when (this) {
+        SYSTEM -> systemDark
+        LIGHT -> false
+        DARK -> true
+    }
+
+    fun next(): ThemeMode = when (this) {
+        SYSTEM -> LIGHT
+        LIGHT -> DARK
+        DARK -> SYSTEM
+    }
+
+    companion object {
+        fun fromId(id: String?): ThemeMode = entries.find { it.id == id } ?: SYSTEM
+    }
+}
 
 val SpaceGroteskFontFamily = FontFamily(
     Font(R.font.space_grotesk, FontWeight.Normal),
@@ -142,7 +165,8 @@ val ZaytharShapes = Shapes(
 
 @Composable
 fun ZaytharTheme(
-    darkTheme: Boolean = true,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    darkTheme: Boolean = themeMode.resolveIsDark(isSystemInDarkTheme()),
     accentHex: Long = 0xFFFF3155L,
     glowStrength: Float = 0.72f,
     metalSpecularity: Float = 0.65f,

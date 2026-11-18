@@ -1,60 +1,33 @@
 # Zaythar AI project status
 
-This page distinguishes repository implementation from external service configuration and real-device verification.
+This page records the verified state of the Android + Firebase workspace and distinguishes local build/emulator checks from live Play Services device checks.
 
-## Current Android application
+## Current Android app implementation
 
-The default branch contains a native Android application using:
+The repository contains a native Android application built with:
 
-- Kotlin and Jetpack Compose.
-- Firebase Authentication with Google sign-in.
-- Cloud Firestore with per-user document paths and repository security rules.
-- Firebase AI Logic for Gemini model access (Hybrid route: Gemini 4 Hydrogen primary with Gemini 3.8 Flash and Gemini 3.5 Flash-Lite fallbacks; model access still requires the user's Firebase project setup).
-- Android speech recognition and TextToSpeech APIs.
-- Jetpack DataStore for local preferences.
-- Parallel specialist-agent execution with coordinator synthesis and bounded model fallback.
-- Activity-aware Compose neural orb (Ready, Listening, Thinking, and TextToSpeech-callback-driven Speaking state).
-- Local calculator, UTC clock, unit converter, JSON inspector, camera/photo picker, and plugin hub.
+- Kotlin and Jetpack Compose with Material Design 3 adaptive navigation (`Overview`, `AI Assistant`, `AI Brain`, `Camera Eyes`, `Plugin Plug Hub`, `Persona Builder`, `AI Settings`, `Collaboration Nexus`, `Model Matrix`, `Image & Video Studio`, `Code Copilot`, `Prompt Nexus`, `Knowledge Base`, `User Profile`, `API & Security`).
+- Firebase Authentication with Google Sign-In (`CredentialManager`).
+- Cloud Firestore (`users/{uid}/...`) with strict zero-trust security rules (`firestore.rules`) across chat sessions, messages, memories, knowledge graph facts, plugins, and neural brain snapshots.
+- Firebase AI Logic (`Firebase.ai`) for Gemini streaming chat, structured-JSON Neural Brain synthesis, Camera Eyes vision, Code Copilot, Studio creative briefs, and concurrent Multi-Agent teams.
+- Deterministic `LocalToolRouter` plugins, SSRF-hardened `WebConnector` grounding, Android speech/TTS, and Jetpack DataStore preferences.
 
-Application ID: `com.aistudio.zaythar.zxtmkr`. Minimum Android API 26, compile SDK 36, Java 21.
+The `app` module uses application ID **com.aistudio.zaythar.zxtmkr**, `minSdk 26`, `compileSdk 36`, `targetSdk 36`, and Java 21 compatibility.
 
-## Build tooling
+## Provisioned & external Firebase configuration
 
-- Official Gradle 9.3.1 wrapper is committed (`gradlew`, `gradlew.bat`, wrapper JAR and properties).
-- Main-branch GitHub Actions workflow runs Firestore Emulator security-rule tests, Android unit tests, and assembles a debug APK.
-- The workflow uses a temporary compile-only Firebase configuration; it is not a usable Firebase project credential.
-- CI uploads the debug APK only after tests and assembly succeed.
-
-## Configuration required outside the repository
-
-- Register the Android app in the intended Firebase project.
-- Add the matching `app/google-services.json` locally.
-- Enable Google sign-in and register signing fingerprints.
-- Enable Cloud Firestore and deploy the reviewed `firestore.rules`.
-- Enable Firebase AI Logic with the Gemini Developer API.
-- Configure Firebase App Check for debug and production builds.
-
-The Android Firebase AI Logic integration does not require a standalone Gemini API key.
-
-## Platform status
-
-- Android: native app source, Gradle wrapper, and CI build workflow are present.
-- Windows: Gradle wrapper can build from Windows with JDK/Android SDK installed, but a native Windows desktop assistant is not implemented.
-- Termux: wrapper scripts are POSIX-compatible; a full Android SDK build toolchain on-device is not guaranteed. Android Studio or CI is recommended for APK builds.
+- `app/google-services.json`, `app/src/main/res/values/firebase_applet_config.xml`, and `firestore.rules` are configured for Firebase project `gen-lang-client-0659731043` (`asia-east1`) and named database `ai-studio-android-fluffyum-16d0226b-744f-4389-a061-b5bf3e77239a`.
+- Production rollout still requires ensuring Google Sign-In OAuth client IDs, debug/release SHA-1/SHA-256 fingerprints, Play Integrity App Check, and Firebase AI Logic API enablement are active in the Firebase Console.
+- Firebase AI Logic requires **no** client-side `GEMINI_API_KEY` in the APK.
 
 ## Verification status
 
-The main-branch Android workflow for the latest neural-orb and wrapper updates is pending/running. A previous workflow run on an older CI branch passed, but it does not verify the current main commit.
+Verified in the local build environment:
+- Debug and Release APK compilation (`gradle :app:assembleDebug :app:assembleRelease`).
+- Android Lint analysis (`gradle :app:lintDebug`).
+- Local JVM + Robolectric Compose UI test suite (`gradle :app:testDebugUnitTest`).
+- Firebase Emulator Auth + Firestore security rules suites (`firestore.test.js` and `FirestoreRepositoryRuleTest` / `ChatSessionPersistenceTest`).
+- GitHub Actions Android CI workflow configured in `.github/workflows/android-ci.yml`.
 
-A successful CI compile does not prove Google sign-in, live Gemini requests, App Check attestation, deployed Firestore rules, or real-device behaviour. Verify those against the intended Firebase project and physical Android device before release.
-
-## Known outstanding work
-
-- Confirm latest main-branch build and unit-test run passes.
-- Confirm Firestore Emulator Suite rule tests pass in CI and verify two-account isolation against the intended Firebase project.
-- Verify live Gemini multi-agent execution and provider model availability with the real Firebase project.
-- Complete user-facing memory review/export/deletion controls.
-- Verify the neural orb's TextToSpeech Speaking state on physical devices and across TTS engines.
-- Build and test a native Windows companion separately.
-
-Older root documentation describing a browser/FastAPI/OpenAI design has been reconciled to the native Android architecture; do not deploy the old backend unless it is deliberately restored and independently tested.
+Not directly executable in a headless build container (no ADB/physical device):
+- Live end-to-end Google Sign-In interactive credential sheet, live Gemini network requests, hardware camera capture, and Play Integrity App Check attestation.

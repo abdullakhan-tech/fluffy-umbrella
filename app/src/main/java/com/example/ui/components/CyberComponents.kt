@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brightness6
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material.icons.rounded.BrightnessAuto
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.SpaceGroteskFontFamily
+import com.example.ui.theme.ThemeMode
 
 @Composable
 fun CyberGridBackground(
@@ -65,6 +68,7 @@ fun CyberGridBackground(
         modifier = modifier
             .background(bg)
             .drawBehind {
+                if (size.width <= 0f || size.height <= 0f) return@drawBehind
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
@@ -72,10 +76,10 @@ fun CyberGridBackground(
                             Color.Transparent
                         ),
                         center = Offset(size.width * 0.78f, 0f),
-                        radius = size.maxDimension * 0.65f
+                        radius = (size.maxDimension * 0.65f).coerceAtLeast(1f)
                     )
                 )
-                val step = 42.dp.toPx()
+                val step = 42.dp.toPx().coerceAtLeast(1f)
                 var x = 0f
                 while (x < size.width) {
                     drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
@@ -319,7 +323,8 @@ fun CyberTopBar(
     showMenuButton: Boolean,
     onMenuClick: () -> Unit,
     onToggleMotion: () -> Unit,
-    onToggleTheme: () -> Unit
+    onToggleTheme: () -> Unit,
+    themeMode: ThemeMode = ThemeMode.SYSTEM
 ) {
     val cyber = LocalCyberColors.current
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -342,7 +347,7 @@ fun CyberTopBar(
                             .testTag("nav_menu_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Menu,
+                            imageVector = Icons.Rounded.Menu,
                             contentDescription = "Open navigation menu",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
@@ -412,7 +417,7 @@ fun CyberTopBar(
                         .testTag("motion_toggle_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ViewInAr,
+                        imageVector = Icons.Rounded.ViewInAr,
                         contentDescription = if (motionEnabled) "Disable 3D effects" else "Enable 3D effects",
                         tint = if (motionEnabled) cyber.accentSoft else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -426,8 +431,12 @@ fun CyberTopBar(
                         .testTag("theme_toggle_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Brightness6,
-                        contentDescription = "Toggle light or dark theme",
+                        imageVector = when (themeMode) {
+                            ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
+                            ThemeMode.LIGHT -> Icons.Rounded.LightMode
+                            ThemeMode.DARK -> Icons.Rounded.DarkMode
+                        },
+                        contentDescription = "Theme: ${themeMode.label}. Tap to cycle System, Light, and Dark.",
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -439,24 +448,5 @@ fun CyberTopBar(
 
 @Composable
 fun BrandMarkBox(modifier: Modifier = Modifier, sizeDp: Int = 40) {
-    val cyber = LocalCyberColors.current
-    Box(
-        modifier = modifier
-            .size(sizeDp.dp)
-            .border(1.dp, cyber.accent, MaterialTheme.shapes.small)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(cyber.accent.copy(alpha = 0.35f), cyber.panelGlass)
-                )
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Z",
-            fontFamily = SpaceGroteskFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = (sizeDp * 0.58f).sp,
-            color = Color.White
-        )
-    }
+    ZaytharHexEmblem(modifier = modifier, size = sizeDp.dp)
 }

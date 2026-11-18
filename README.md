@@ -1,30 +1,28 @@
 # Zaythar AI — Android Command Nexus
 
-A native Android (Kotlin + Jetpack Compose) command center powered by **Google Sign-In + Cloud Firestore** persistence, **Firebase AI Logic** (`gemini-4-hydrogen` primary, `gemini-3.8-flash` / `gemini-3.5-flash-lite` fallbacks) streaming & structured JSON inference, **Live Internet Grounding**, **Camera Eyes Vision**, **AI Brain**, and an extensible **Plugin Plug Hub**.
+A native Android (Kotlin + Jetpack Compose) command center powered by **Google Sign-In + Cloud Firestore** persistence, **Firebase AI Logic** (`gemini-3.8-flash`, `gemini-3.5-flash-lite`, `gemini-4-argon`, and `gemini-nano-banana-2.1`) streaming, image generation, & structured JSON inference, **Smart Auto-Router**, **Live Internet Grounding**, **Camera Eyes Vision**, **AI Brain**, and an extensible **Plugin Plug Hub**.
 
 ## Implemented Features
 
-- **Google Sign-In & Auth Gate**: Authenticated session management via Jetpack `CredentialManager` (`GetSignInWithGoogleOption` interactive sign-in and `GetGoogleIdOption` silent auto-sign-in) gating all Cloud Firestore collections per user UID.
-- **Network Intelligence**: Live Android transport/internet validation, metered/roaming state, estimated link bandwidth, and optional 2G/3G/4G/5G reporting using the device telephony API. See [Network Intelligence](docs/NETWORK_INTELLIGENCE.md) for permissions and carrier limitations.
-- **Overview & 3D Neural Core Visualizer**: Custom Compose `Canvas` 3D Fibonacci-sphere neural network with touch/drag parallax, animated orbital rings, activity-aware Ready/Listening/Thinking states, live system telemetry indicators (Firebase AI Logic, LLM Web Grounding, Active Plugins, and session uptime), and a Command Deck launcher.
+- **AI Engine Nexus & Smart Auto-Router**: Dedicated `EngineHubScreen` featuring a deterministic prompt intent classifier (`SmartEngineRouter`) across 8 Zaythar engines, dynamic Gemini tier routing (`AUTO`, `HYBRID`, `FLASH`, `ARGON`, `LITE`), and an **All-Engine Verification Suite** running local deterministic checks + optional live `gemini-3.8-flash` connectivity probes.
+- **Google Sign-In & Guest Mode**: Authenticated session management via Jetpack `CredentialManager` (`GetSignInWithGoogleOption` & `GetGoogleIdOption`) gating all Cloud Firestore collections per user UID, plus isolated local device **Guest Mode**.
+- **Overview & 3D Neural Core Visualizer**: Custom Compose `Canvas` 3D Fibonacci-sphere neural network, custom hexagonal `ZaytharHexEmblem` & `CyberIconBadge` vector iconography, live system telemetry, and a Command Deck launcher.
 - **Multi-Session Chat History & AI Assistant**:
-  - Persistent multi-thread Cloud Firestore chat sessions (`/users/{userId}/chat_sessions/{sessionId}/messages/{messageId}`) with thread creation, switching, renaming, deletion, and automatic thread titling from the first prompt.
-  - Real-time streaming multilingual chat (English, Urdu, Arabic, Hindi, French, Spanish, German, Chinese, Japanese) with Android `SpeechRecognizer` voice input (`RECORD_AUDIO`) and Android `TextToSpeech` spoken replies.
+  - Persistent multi-thread Cloud Firestore chat sessions (`/users/{userId}/chat_sessions/{sessionId}/messages/{messageId}`) with thread creation, switching, renaming, deletion, and automatic thread titling.
+  - Real-time streaming multilingual chat with Android `SpeechRecognizer` voice input (`RECORD_AUDIO`) and Android `TextToSpeech` spoken replies.
 - **LLM Connect Internet (Live Web Grounding)**:
-  - Persistent `WEB: ON / OFF` chip in Chat backed by Jetpack DataStore.
-  - Combines Firebase AI Logic `Tool.googleSearch()` with an SSRF-hardened `https://` `WebConnector` (blocking private, loopback, link-local, and non-HTTPS targets) and DuckDuckGo / Wikipedia public lookups, surfacing clickable verified source links under assistant messages.
+  - Combines Firebase AI Logic `Tool.googleSearch()` with an SSRF-hardened `https://` `WebConnector` and DuckDuckGo / Wikipedia public lookups.
 - **AI Brain & Neural Functions**:
-  - Dedicated `NeuralBrainScreen` running 4 cognitive modes (**Reasoner**, **Memory Consolidator**, **Strategic Planner**, **Cognitive Diagnostics**) using strict Firebase AI Logic `Schema.obj(...)` structured JSON output.
-  - Persists cognitive snapshots to Cloud Firestore (`brain_runs`) and supports one-tap committing extracted triples to the Shared Knowledge Graph.
-- **Plugin Plug Hub**:
-  - Cloud-synced extensible capability slots (`/users/{userId}/plugins/{pluginId}`) for toggling built-in local tools (`calculator`, `utc_clock`, `unit_converter`, `json_inspector`) and plugging custom declarative directive modules—complete with an on-device Plugin Sandbox evaluator (zero Dynamic Code Loading).
+  - Dedicated `NeuralBrainScreen` running 4 cognitive modes (**Reasoner**, **Memory Consolidator**, **Strategic Planner**, **Cognitive Diagnostics**) using strict Firebase AI Logic `Schema.obj(...)` structured JSON output and Knowledge Graph triple extraction.
+- **Plugin Plug Hub & Deterministic Local Engines**:
+  - Cloud-synced extensible capability slots (`/users/{userId}/plugins/{pluginId}`) for `calculator`, `utc_clock`, `unit_converter` (`km/mi`, `m/ft`, `cm/in`, `kg/lb`, `c/f`, `kb/mb/gb/tb`, `ms/s/min/hr`), `json_inspector`, `crypto_hash_uuid` (SHA-256, Base64, UUID v4), `color_text_metrics` (Hex/RGB, word/token stats), and `web_grounding`.
 - **Camera Eyes (Multimodal Vision)**:
-  - Live photo capture via `ActivityResultContracts.TakePicture` + `FileProvider` and zero-permission Android Photo Picker (`PickVisualMedia.ImageOnly`), off-UI-thread downscaling (`<= 1280px`), 4 vision inspection modes (**Scene & Object Scan**, **OCR & Document Extract**, **UI / Code Debug**, **Compare & Safety Check**), and automatic saving of results to the active chat thread.
-- **Code Copilot & Media Studio**:
-  - Interactive streaming **Code Copilot** workbench supporting Kotlin, Python, TypeScript, SQL, and Bash across Generate, Debug, Refactor, Unit Tests, and Security Audit modes.
-  - Live Gemini-powered **Image & Video Studio** art direction & storyboard generator.
-- **Collaboration Nexus & Knowledge Base**:
-  - Concurrent Multi-Agent runner executing 1–4 specialists in parallel via Kotlin Coroutines (`async` / `awaitAll`), per-agent failure isolation, configured Gemini model fallback, and Lead Coordinator synthesis, plus Cloud Firestore Notes (`memories`) and Knowledge Graph (`knowledge_facts`).
+  - Live photo capture via `ActivityResultContracts.TakePicture` + `FileProvider` and zero-permission Android Photo Picker (`PickVisualMedia.ImageOnly`), 4 vision inspection modes, chat thread sync, and one-tap **Save to RAG Memory**.
+- **Image Studio (`gemini-nano-banana-2.1`) & Code Copilot**:
+  - Runtime AI text-to-image generation and Photo Picker image-to-image editing (`1:1`, `16:9`, `9:16`) with MediaStore gallery export, paired with Creative Storyboard Briefs.
+  - Interactive streaming **Code Copilot** workbench supporting Kotlin, Python, TypeScript, SQL, and Bash.
+- **Collaboration Nexus & Hybrid RAG Knowledge Base**:
+  - Concurrent Multi-Agent runner executing 1–4 specialists in parallel via Kotlin Coroutines (`async` / `awaitAll`) with Lead Coordinator synthesis, plus Hybrid BM25 + Bigram + Graph RAG retrieval.
 
 ## Architecture
 
@@ -32,32 +30,3 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
 - **Authentication & Cloud Data**: Firebase Auth (Google Sign-In via `CredentialManager`), Cloud Firestore (`users/{userId}` profiles, `chat_sessions`, `messages`, `plugins`, `brain_runs`, `memories`, and `knowledge_facts` subcollections) backed by zero-trust `firestore.rules`.
 - **AI & Security**: `com.google.firebase:firebase-ai` + `FirebaseAppCheck` (`DebugAppCheckProviderFactory` in debug builds, `RecaptchaAppCheckProviderFactory` in release builds).
 - **Local Preferences**: Jetpack DataStore Preferences for client-only UI theme, accent, motion, cognitive tuning, and Internet grounding settings.
-
-## Quick start
-
-1. Install JDK 21 and Android SDK Platform 36.
-2. Configure your Firebase project and place its generated `google-services.json` at `app/google-services.json` (never commit it).
-3. Build and test:
-
-Linux/macOS:
-```bash
-./gradlew :app:assembleDebug
-./gradlew :app:testDebugUnitTest
-```
-
-Windows PowerShell:
-```powershell
-.\gradlew.bat :app:assembleDebug
-.\gradlew.bat :app:testDebugUnitTest
-```
-
-See [Android setup](docs/ANDROID_SETUP.md) for Firebase, sign-in, App Check, and installation details. The Windows wrapper supports building the Android APK; a native Windows assistant client is not yet implemented.
-
-## Project handbook
-
-- [Version-controlled Wiki](docs/wiki/Home.md)
-- [JARVIS execution and safety model](docs/JARVIS_EXECUTION_MODEL.md)
-- [Android setup](docs/ANDROID_SETUP.md)
-- [Gemini / Firebase setup](docs/GEMINI_SETUP.md)
-- [Current project status](docs/PROJECT_STATUS.md)
-- [Specialist agent profiles](.github/agents/)
