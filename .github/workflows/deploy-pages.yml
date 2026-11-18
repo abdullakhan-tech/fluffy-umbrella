@@ -6,12 +6,16 @@ on:
     paths:
       - 'website/**'
       - 'CNAME'
+      - 'robots.txt'
+      - 'sitemap.xml'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
   pull_request:
     paths:
       - 'website/**'
       - 'CNAME'
+      - 'robots.txt'
+      - 'sitemap.xml'
       - '.github/workflows/deploy-pages.yml'
 
 permissions:
@@ -33,7 +37,15 @@ jobs:
           test -s website/styles.css
           test -s website/script.js
           test "$(cat CNAME)" = "zaytharai.com"
+          test -s robots.txt
+          test -s sitemap.xml
           grep -q 'https://zaytharai.com/' website/index.html
+      - name: Prepare Pages artifact
+        if: github.event_name != 'pull_request'
+        run: |
+          cp CNAME website/CNAME
+          cp robots.txt website/robots.txt
+          cp sitemap.xml website/sitemap.xml
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
