@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import android.app.ActivityManager
+import android.content.Context
+import android.os.Debug
+import android.os.Environment
+import android.os.StatFs
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -24,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,8 +50,13 @@ import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.TelemetryBar
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.SpaceGroteskFontFamily
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
@@ -56,7 +67,28 @@ fun ProfileScreen(
     onSignOut: () -> Unit
 ) {
     val cyber = LocalCyberColors.current
+    val context = LocalContext.current.applicationContext
     var nameField by remember(operatorName) { mutableStateOf(operatorName) }
+    var resourceSnapshot by remember(context) {
+        mutableStateOf(readSystemResourceSnapshot(context))
+    }
+
+    LaunchedEffect(context) {
+        while (true) {
+            delay(5_000L)
+            resourceSnapshot = withContext(Dispatchers.IO) {
+                readSystemResourceSnapshot(context)
+            }
+        }
+    }
+
+    val ramUsedBytes = (resourceSnapshot.totalRamBytes - resourceSnapshot.availableRamBytes).coerceAtLeast(0L)
+    val storageUsedBytes = (resourceSnapshot.totalStorageBytes - resourceSnapshot.availableStorageBytes).coerceAtLeast(0L)
+    val ramUsedProgress = resourceRatio(resourceSnapshot.totalRamBytes, resourceSnapshot.availableRamBytes)
+    val appMemoryProgress = if (resourceSnapshot.totalRamBytes > 0L) {
+        (resourceSnapshot.appPssBytes.toFloat() / resourceSnapshot.totalRamBytes.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+    val storageUsedProgress = resourceRatio(resourceSnapshot.totalStorageBytes, resourceSnapshot.availableStorageBytes)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -148,7 +180,11 @@ fun ProfileScreen(
 
         item {
             CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(title = "PLATFORM CAPABILITIES")
+                CyberCardHeader(
+                    title = "SUBSCRIPTION & ACCESS",
+                    badge = "NO BILLING ENABLED",
+                    badgeColor = cyber.accentSoft
+                )
 
                 PlanInfoCard(
                     tier = "CLOUD NEXUS SYNC",
@@ -166,6 +202,43 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = "No paid subscription or billing entitlement is activated by this interface. Plan cards are informational.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth()) {
+                CyberCardHeader(
+                    title = "SYSTEM RESOURCE ALLOCATION",
+                    badge = "LIVE DEVICE METRICS",
+                    badgeColor = cyber.cyberGreen
+                )
+                TelemetryBar(
+                    label = "Device RAM in use",
+                    statusText = if (resourceSnapshot.totalRamBytes > 0L) {
+                        "${(ramUsedProgress * 100).toInt()}% · ${formatResourceBytes(ramUsedBytes)} / ${formatResourceBytes(resourceSnapshot.totalRamBytes)}"
+                    } else "Unavailable",
+                    progress = ramUsedProgress
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                TelemetryBar(
+                    label = "Zaythar app memory (PSS)",
+                    statusText = formatResourceBytes(resourceSnapshot.appPssBytes),
+                    progress = appMemoryProgress
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                TelemetryBar(
+                    label = "Internal storage used",
+                    statusText = if (resourceSnapshot.totalStorageBytes > 0L) {
+                        "${(storageUsedProgress * 100).toInt()}% · ${formatResourceBytes(storageUsedBytes)} / ${formatResourceBytes(resourceSnapshot.totalStorageBytes)}"
+                    } else "Unavailable",
+                    progress = storageUsedProgress
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Android OS memory and storage readings · refreshes every 5 seconds. Network estimates are available in Network Intelligence; CPU load is not shown as a fabricated percentage.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -315,4 +388,53 @@ private fun SecurityStatusRow(
             )
         }
     }
+}
+
+
+private data class SystemResourceSnapshot(
+    val totalRamBytes: Long = 0L,
+    val availableRamBytes: Long = 0L,
+    val appPssBytes: Long = 0L,
+    val totalStorageBytes: Long = 0L,
+    val availableStorageBytes: Long = 0L
+)
+
+private fun readSystemResourceSnapshot(context: Context): SystemResourceSnapshot = runCatching {
+    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        ?: return@runCatching SystemResourceSnapshot()
+    val memoryInfo = ActivityManager.MemoryInfo()
+    activityManager.getMemoryInfo(memoryInfo)
+
+    val appMemoryInfo = Debug.MemoryInfo()
+    Debug.getMemoryInfo(appMemoryInfo)
+
+    val storage = StatFs(Environment.getDataDirectory().absolutePath)
+    val totalStorage = storage.totalBytes.coerceAtLeast(0L)
+    val availableStorage = storage.availableBytes.coerceIn(0L, totalStorage)
+    val totalRam = memoryInfo.totalMem.coerceAtLeast(0L)
+    val availableRam = memoryInfo.availMem.coerceIn(0L, totalRam)
+
+    SystemResourceSnapshot(
+        totalRamBytes = totalRam,
+        availableRamBytes = availableRam,
+        appPssBytes = appMemoryInfo.totalPss.toLong().coerceAtLeast(0L) * 1024L,
+        totalStorageBytes = totalStorage,
+        availableStorageBytes = availableStorage
+    )
+}.getOrElse { SystemResourceSnapshot() }
+
+private fun resourceRatio(totalBytes: Long, availableBytes: Long): Float =
+    if (totalBytes <= 0L) 0f
+    else ((totalBytes - availableBytes).coerceAtLeast(0L).toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+
+private fun formatResourceBytes(bytes: Long): String {
+    if (bytes <= 0L) return "Unavailable"
+    val units = listOf("B", "KB", "MB", "GB", "TB")
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024.0 && unit < units.lastIndex) {
+        value /= 1024.0
+        unit++
+    }
+    return String.format(Locale.US, "%.1f %s", value, units[unit])
 }

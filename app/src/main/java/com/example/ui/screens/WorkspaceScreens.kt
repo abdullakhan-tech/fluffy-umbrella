@@ -1,5 +1,13 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.Bitmap
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +52,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +71,9 @@ import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.CyberSecondaryButton
+import com.example.ui.components.NeuralCoreActivity
+import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.SpaceGroteskFontFamily
 
@@ -105,6 +119,7 @@ fun ModelMatrixScreen(
                                 route = route,
                                 selected = route == currentRoute,
                                 onClick = { onSelectRoute(route) },
+                                motionEnabled = prefs.motion3dEnabled,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -116,6 +131,7 @@ fun ModelMatrixScreen(
                                 route = route,
                                 selected = route == currentRoute,
                                 onClick = { onSelectRoute(route) },
+                                motionEnabled = prefs.motion3dEnabled,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -154,14 +170,10 @@ private fun ModelRouteCard(
     route: ProviderRoute,
     selected: Boolean,
     onClick: () -> Unit,
+    motionEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     val cyber = LocalCyberColors.current
-    val glyph = when (route) {
-        ProviderRoute.FLASH -> "◎"
-        ProviderRoute.HYBRID -> "◉"
-        ProviderRoute.LITE -> "✧"
-    }
     Surface(
         modifier = modifier
             .minimumInteractiveComponentSize()
@@ -179,20 +191,12 @@ private fun ModelRouteCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(84.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(cyber.accent.copy(alpha = 0.35f), cyber.panelGlass)
-                        )
-                    )
-                    .border(1.dp, cyber.accent, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = glyph, fontSize = 36.sp, color = Color.White)
-            }
+            NeuralCoreVisualizer(
+                size = 84.dp,
+                motionEnabled = motionEnabled && selected,
+                coreLabel = route.id.take(1).uppercase(),
+                activity = NeuralCoreActivity.READY
+            )
             Text(
                 text = route.title,
                 fontFamily = SpaceGroteskFontFamily,
@@ -218,18 +222,23 @@ private fun ModelRouteCard(
 @Composable
 fun StudioScreen(
     briefState: UiState<String>,
-    onGenerateBrief: (String, String, String) -> Unit
+    imageState: UiState<Bitmap>,
+    onGenerateBrief: (String, String, String) -> Unit,
+    onGenerateImage: (String, String) -> Unit,
+    onSaveToKnowledge: (String) -> Unit,
+    onToast: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
+    val context = LocalContext.current
     var prompt by remember { mutableStateOf("") }
-    val outputs = listOf("Image concept", "Video storyboard", "Visual asset brief")
+    val outputs = listOf("Image generation", "Video storyboard", "Visual asset brief")
     val styles = listOf("Cinematic sci-fi", "Photorealistic", "Cyberpunk", "3D render")
     var selectedOutput by remember { mutableStateOf(outputs.first()) }
     var selectedStyle by remember { mutableStateOf(styles.first()) }
     var outputExpanded by remember { mutableStateOf(false) }
     var styleExpanded by remember { mutableStateOf(false) }
-
-    val isLoading = briefState is UiState.Loading
+    val imageMode = selectedOutput == "Image generation"
+    val isLoading = if (imageMode) imageState is UiState.Loading else briefState is UiState.Loading
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -243,7 +252,7 @@ fun StudioScreen(
                 titleAccent = "Studio",
                 trailing = {
                     Text(
-                        text = "GEMINI CREATIVE CORE",
+                        text = if (imageMode) "NANO BANANA 2.1" else "GEMINI CREATIVE CORE",
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.cyberGreen
                     )
@@ -252,7 +261,7 @@ fun StudioScreen(
         }
 
         item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
+            CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = imageMode) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -277,12 +286,12 @@ fun StudioScreen(
                     ) {
                         Text(text = "✧", fontSize = 42.sp, color = cyber.accentSoft)
                         Text(
-                            text = "YOUR CREATIVE CANVAS",
+                            text = if (imageMode) "IMAGE GENERATION CORE" else "CINEMATIC STORYBOARD CORE",
                             style = MaterialTheme.typography.titleMedium,
                             color = Color.White
                         )
                         Text(
-                            text = "Generate live AI art direction & shot-by-shot storyboards",
+                            text = "Create a visual asset or a production-ready shot-by-shot plan",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.8f)
                         )
@@ -292,10 +301,11 @@ fun StudioScreen(
                 Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
                     value = prompt,
-                    onValueChange = { prompt = it },
+                    onValueChange = { if (it.length <= 4000) prompt = it },
                     label = { Text("CREATIVE PROMPT") },
-                    placeholder = { Text("Describe a cinematic scene, visual concept, or video idea…") },
+                    placeholder = { Text("Describe the scene, subject, lighting, camera angle, mood, and details…") },
                     minLines = 3,
+                    maxLines = 6,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("studio_prompt_input")
@@ -359,9 +369,17 @@ fun StudioScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
                 CyberActionButton(
-                    text = if (isLoading) "DIRECTING CONCEPT…" else "GENERATE CREATIVE CONCEPT",
-                    onClick = { onGenerateBrief(prompt, selectedOutput, selectedStyle) },
-                    enabled = !isLoading,
+                    text = when {
+                        isLoading -> "PROCESSING CREATIVE REQUEST…"
+                        imageMode -> "GENERATE AI IMAGE"
+                        selectedOutput == "Video storyboard" -> "GENERATE VIDEO STORYBOARD"
+                        else -> "GENERATE VISUAL ASSET BRIEF"
+                    },
+                    onClick = {
+                        if (imageMode) onGenerateImage(prompt, selectedStyle)
+                        else onGenerateBrief(prompt, selectedOutput, selectedStyle)
+                    },
+                    enabled = !isLoading && prompt.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "make_brief_button"
                 )
@@ -369,23 +387,135 @@ fun StudioScreen(
                 if (isLoading) {
                     Spacer(modifier = Modifier.height(12.dp))
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = cyber.accent)
-                } else if (briefState is UiState.Error) {
-                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = briefState.message,
+                        text = if (imageMode) "Nano Banana is rendering your image…" else "Gemini is building your creative brief…",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                } else if (briefState is UiState.Success && briefState.data.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = briefState.data,
-                        style = MaterialTheme.typography.bodyMedium,
                         color = cyber.cyberGreen
                     )
                 }
+
+                if (imageMode) {
+                    when (imageState) {
+                        is UiState.Error -> {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = imageState.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        is UiState.Success -> {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            CyberCardHeader(title = "GENERATED IMAGE", badge = "PNG · 16:9")
+                            Image(
+                                bitmap = imageState.data.asImageBitmap(),
+                                contentDescription = "Generated Zaythar AI studio image",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 420.dp)
+                                    .testTag("studio_generated_image")
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            CyberActionButton(
+                                text = "SAVE IMAGE TO GALLERY",
+                                onClick = {
+                                    val saved = saveStudioImageToGallery(context, imageState.data)
+                                    onToast(
+                                        if (saved) "Image saved to Pictures/Zaythar AI."
+                                        else "Could not save image. Gallery export requires Android 10 or newer."
+                                    )
+                                },
+                                enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q,
+                                modifier = Modifier.fillMaxWidth(),
+                                testTag = "save_studio_image_button"
+                            )
+                        }
+                        else -> Unit
+                    }
+                } else {
+                    when (briefState) {
+                        is UiState.Error -> {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = briefState.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        is UiState.Success -> {
+                            if (briefState.data.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = briefState.data,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = cyber.cyberGreen
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    CyberSecondaryButton(
+                                        text = "COPY BRIEF",
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Zaythar Studio brief", briefState.data))
+                                            onToast("Creative brief copied.")
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        testTag = "copy_studio_brief_button"
+                                    )
+                                    CyberActionButton(
+                                        text = "SAVE TO KNOWLEDGE",
+                                        onClick = {
+                                            onSaveToKnowledge(
+                                                "Zaythar Studio · $selectedOutput · $selectedStyle\n\n${briefState.data}"
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        testTag = "save_studio_brief_button"
+                                    )
+                                }
+                            }
+                        }
+                        else -> Unit
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Image mode creates a real PNG. Video mode creates a shot-by-shot storyboard; video-file rendering is not available through the current Firebase AI Logic integration.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+    }
+}
+
+private fun saveStudioImageToGallery(context: Context, bitmap: Bitmap): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+
+    val resolver = context.contentResolver
+    val values = ContentValues().apply {
+        put(MediaStore.Images.Media.DISPLAY_NAME, "zaythar_${System.currentTimeMillis()}.png")
+        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+        put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Zaythar AI")
+        put(MediaStore.Images.Media.IS_PENDING, 1)
+    }
+    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+
+    return try {
+        val written = resolver.openOutputStream(uri)?.use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        } ?: false
+        if (!written) throw IllegalStateException("Image stream could not be written.")
+        val ready = ContentValues().apply {
+            put(MediaStore.Images.Media.IS_PENDING, 0)
+        }
+        resolver.update(uri, ready, null, null)
+        true
+    } catch (_: Exception) {
+        resolver.delete(uri, null, null)
+        false
     }
 }
 
