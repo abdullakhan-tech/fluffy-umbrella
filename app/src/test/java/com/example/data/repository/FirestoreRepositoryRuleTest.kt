@@ -232,6 +232,8 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         assertFailsWithType<SecurityException> { bobStore.observeSessionMessages(aliceUid, "alice-session") }
         assertFailsWithType<SecurityException> { bobStore.observePlugins(aliceUid) }
         assertFailsWithType<SecurityException> { bobStore.observeBrainRuns(aliceUid) }
+        // JUnit 4 requires every @Test method to return Unit/void; the assertion helper returns T.
+        Unit
     }
 
     @Test
@@ -250,6 +252,8 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         assertFailsWithType<IllegalStateException> { store.observeSessionMessages(aliceUid, "session") }
         assertFailsWithType<IllegalStateException> { store.observePlugins(aliceUid) }
         assertFailsWithType<IllegalStateException> { store.observeBrainRuns(aliceUid) }
+        // Keep the JUnit test method's JVM return type void rather than the helper's exception type.
+        Unit
     }
 
     private companion object {
