@@ -31,6 +31,7 @@ These controls still require correct Firebase Console configuration and deployme
 - Review and deploy firestore.rules to the intended project.
 - Do not ship debug App Check tokens, debug signing keys, service-account files, or server credentials.
 - Use HTTPS for any future backend and redact credentials and personal data from logs.
+- Public web fetches reject embedded URL credentials, non-standard HTTPS ports, local/private/reserved IP literals, and hostnames that resolve to non-public addresses. Redirects are not followed automatically.
 - Test authorization boundaries with multiple accounts before release.
 
 ## Safe development
