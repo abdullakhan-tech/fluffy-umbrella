@@ -21,17 +21,16 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
 
     private val auth get() = Firebase.auth
 
-    private fun requireUserId(): String {
-        return auth.currentUser?.uid
-            ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
-    }
+    private fun requireUserId(requestedUserId: String? = null): String =
+        requireAuthenticatedOwner(requestedUserId, auth.currentUser?.uid)
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
     // --- CHAT SESSIONS & SESSION MESSAGES ---
 
     fun observeChatSessions(userId: String): Flow<List<FirestoreChatSession>> {
-        val colRef = userDoc(userId).collection("chat_sessions")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("chat_sessions")
         return colRef
             .orderBy("updatedAt", Query.Direction.DESCENDING)
             .limit(40)
@@ -135,7 +134,8 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
     }
 
     fun observeSessionMessages(userId: String, sessionId: String): Flow<List<FirestoreSessionMessage>> {
-        val colRef = userDoc(userId).collection("chat_sessions").document(sessionId).collection("messages")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("chat_sessions").document(sessionId).collection("messages")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limitToLast(80)
@@ -256,7 +256,8 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
     // --- PLUGINS ---
 
     fun observePlugins(userId: String): Flow<List<FirestorePluginConfig>> {
-        val colRef = userDoc(userId).collection("plugins")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("plugins")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limit(60)
@@ -387,7 +388,8 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
     // --- AI BRAIN RUNS ---
 
     fun observeBrainRuns(userId: String): Flow<List<FirestoreBrainRun>> {
-        val colRef = userDoc(userId).collection("brain_runs")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("brain_runs")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(40)
