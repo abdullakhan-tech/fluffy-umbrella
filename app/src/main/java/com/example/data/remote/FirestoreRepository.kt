@@ -27,10 +27,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     private val auth get() = Firebase.auth
 
-    private fun requireUserId(): String {
-        return auth.currentUser?.uid
-            ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
-    }
+    private fun requireUserId(requestedUserId: String? = null): String =
+        requireAuthenticatedOwner(requestedUserId, auth.currentUser?.uid)
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
@@ -51,7 +49,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- USER PROFILE ---
 
     fun observeUserProfile(userId: String): Flow<UserProfileDoc?> {
-        val docRef = userDoc(userId)
+        val uid = requireUserId(userId)
+        val docRef = userDoc(uid)
         return docRef.snapshots()
             .map { snapshot ->
                 if (snapshot.exists()) {
@@ -129,7 +128,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- CHAT MESSAGES ---
 
     fun observeChatMessages(userId: String): Flow<List<FirestoreChatMessage>> {
-        val colRef = userDoc(userId).collection("messages")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("messages")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limitToLast(60)
@@ -244,7 +244,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- MEMORY NOTES ---
 
     fun observeMemoryNotes(userId: String): Flow<List<FirestoreMemoryNote>> {
-        val colRef = userDoc(userId).collection("memories")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("memories")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(100)
@@ -342,7 +343,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- KNOWLEDGE FACTS ---
 
     fun observeKnowledgeFacts(userId: String): Flow<List<FirestoreKnowledgeFact>> {
-        val colRef = userDoc(userId).collection("knowledge_facts")
+        val uid = requireUserId(userId)
+        val colRef = userDoc(uid).collection("knowledge_facts")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(200)

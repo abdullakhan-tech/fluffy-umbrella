@@ -22,6 +22,13 @@ Do not publish exploitable vulnerabilities, credentials, access tokens, private 
 
 These controls still require correct Firebase Console configuration and deployment. Source files alone do not prove that production App Check attestation or Firestore rules are active.
 
+## Client-side defense in depth and backend limits
+
+- Firestore observer APIs that accept a user ID now require it to match the active Firebase Authentication UID before constructing a listener. This is an early client-side guard only; Firestore Security Rules remain the authoritative access-control boundary.
+- The current Android app talks directly to Firebase Firestore and Firebase AI Logic. There is no trusted Cloud Functions or Cloud Run API in this repository, so a client-side request counter would be bypassable and must not be described as a security rate limit.
+- Before offering public, abuse-sensitive AI or memory operations, add a trusted backend that verifies Firebase ID tokens and App Check tokens, derives the owner UID from the verified token, validates request sizes, applies per-user and IP-aware quotas, and keeps privileged provider credentials in managed server secrets.
+- Application-level end-to-end encryption for stored memory is not implemented. Do not describe Firebase-managed storage protections as end-to-end encryption; review the data classification and retention requirements before production use.
+
 ## Release checklist
 
 - Verify the Firebase project and Android package registration.

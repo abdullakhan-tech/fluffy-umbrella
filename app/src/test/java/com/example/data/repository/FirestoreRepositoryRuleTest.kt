@@ -5,7 +5,6 @@ import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
-import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -210,7 +209,7 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     @Test
-    fun observeSubcollections_crossUserAccess_failsWithPermissionDenied() = runBlocking {
+    fun observeSubcollections_crossUserAccess_isRejectedBeforeListenerCreation() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         val aliceRepo = FirestoreRepository(firestore)
         val aliceStore = FirestoreSessionAndBrainStore(firestore)
@@ -223,39 +222,38 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val bobRepo = FirestoreRepository(firestore)
         val bobStore = FirestoreSessionAndBrainStore(firestore)
 
-        val memEx = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                bobRepo.observeMemoryNotes(aliceUid).first()
-            }
-        }
-        val memFirestoreEx = checkNotNull(memEx.unwrapFirestoreException())
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, memFirestoreEx.code)
-
-        val sessionEx = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                bobStore.observeChatSessions(aliceUid).first()
-            }
-        }
-        val sessionFirestoreEx = checkNotNull(sessionEx.unwrapFirestoreException())
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, sessionFirestoreEx.code)
+        // Client-side guards reject a mismatched requested UID before creating a listener.
+        // Firestore Security Rules remain the authoritative server-side boundary.
+        assertFailsWithType<SecurityException> { bobRepo.observeUserProfile(aliceUid) }
+        assertFailsWithType<SecurityException> { bobRepo.observeChatMessages(aliceUid) }
+        assertFailsWithType<SecurityException> { bobRepo.observeMemoryNotes(aliceUid) }
+        assertFailsWithType<SecurityException> { bobRepo.observeKnowledgeFacts(aliceUid) }
+        assertFailsWithType<SecurityException> { bobStore.observeChatSessions(aliceUid) }
+        assertFailsWithType<SecurityException> { bobStore.observeSessionMessages(aliceUid, "alice-session") }
+        assertFailsWithType<SecurityException> { bobStore.observePlugins(aliceUid) }
+        assertFailsWithType<SecurityException> { bobStore.observeBrainRuns(aliceUid) }
+        // JUnit 4 requires every @Test method to return Unit/void; the assertion helper returns T.
+        Unit
     }
 
     @Test
-    fun observeCollections_unauthenticatedUser_failsWithPermissionDenied() = runBlocking {
+    fun allObservers_unauthenticatedUser_areRejectedBeforeListenerCreation() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         auth.signOut()
         Firebase.auth.signOut()
         val repository = FirestoreRepository(firestore)
+        val store = FirestoreSessionAndBrainStore(firestore)
 
-        val exception = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                repository.observeChatMessages(aliceUid).first()
-            }
-        }
-        val firestoreException = checkNotNull(exception.unwrapFirestoreException()) {
-            "Expected nested FirebaseFirestoreException, got $exception"
-        }
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, firestoreException.code)
+        assertFailsWithType<IllegalStateException> { repository.observeUserProfile(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeChatMessages(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeMemoryNotes(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeKnowledgeFacts(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeChatSessions(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeSessionMessages(aliceUid, "session") }
+        assertFailsWithType<IllegalStateException> { store.observePlugins(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeBrainRuns(aliceUid) }
+        // Keep the JUnit test method's JVM return type void rather than the helper's exception type.
+        Unit
     }
 
     private companion object {

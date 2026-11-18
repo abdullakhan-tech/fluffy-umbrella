@@ -238,6 +238,24 @@ class ToolRegistryTest {
         assertTrue(failure.message.contains("time limit"))
     }
 
+    @Test
+    fun rejectsUnregisteredAndDangerousToolIds() = runBlocking {
+        val registry = ToolRegistry()
+        val forbiddenIds = listOf("shell", "filesystem", "http_request", "dynamic_code", "*")
+
+        forbiddenIds.forEachIndexed { index, toolId ->
+            val result = registry.execute(
+                ToolCall("request_forbidden_$index", toolId),
+                context()
+            )
+
+            assertEquals(
+                ToolRejectionCode.UNKNOWN_TOOL,
+                (result as ToolExecutionResult.Rejected).code
+            )
+        }
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun duplicateToolIdsCannotReplaceAnExistingAdapter() {
         val registry = ToolRegistry()
