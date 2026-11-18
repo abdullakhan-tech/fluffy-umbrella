@@ -235,16 +235,21 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     @Test
-    fun observeCollections_unauthenticatedUser_isRejectedBeforeListenerCreation() = runBlocking {
+    fun allObservers_unauthenticatedUser_areRejectedBeforeListenerCreation() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         auth.signOut()
         Firebase.auth.signOut()
         val repository = FirestoreRepository(firestore)
+        val store = FirestoreSessionAndBrainStore(firestore)
 
-        val exception = assertFailsWithType<IllegalStateException> {
-            repository.observeChatMessages(aliceUid)
-        }
-        assertTrue(exception.message.orEmpty().contains("signed in"))
+        assertFailsWithType<IllegalStateException> { repository.observeUserProfile(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeChatMessages(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeMemoryNotes(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeKnowledgeFacts(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeChatSessions(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeSessionMessages(aliceUid, "session") }
+        assertFailsWithType<IllegalStateException> { store.observePlugins(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeBrainRuns(aliceUid) }
     }
 
     private companion object {
