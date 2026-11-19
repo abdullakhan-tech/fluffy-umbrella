@@ -60,7 +60,8 @@ jobs:
           for UI_FILE in \
             app/src/main/java/com/example/ui/NexusWorkspaceViewModel.kt \
             app/src/main/java/com/example/ui/ZaytharViewModel.kt \
-            app/src/main/java/com/example/ui/ChatSessionController.kt; do
+            app/src/main/java/com/example/ui/ChatSessionController.kt \
+            app/src/main/java/com/example/ui/screens/PluginHubScreen.kt; do
             if grep -nE 'localizedMessage|rootError\.message|root\.message' "$UI_FILE"; then
               echo "Raw exception text must not be displayed by $UI_FILE"
               exit 1
