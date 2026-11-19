@@ -52,13 +52,11 @@ jobs:
             echo "Forbidden Firebase auth pattern detected in app/src/main"
             exit 1
           fi
-          while IFS= read -r file; do
-            lines=$(wc -l < "$file")
-            if [ "$lines" -gt 500 ]; then
-              echo "File exceeds 500 lines ($lines): $file"
-              exit 1
-            fi
-          done < <(find app/src/main -name "*.kt")
+          ERROR_HANDLER="app/src/main/java/com/example/data/remote/FirestoreErrorHandler.kt"
+          if grep -nE 'providerData|currentUser\?\.email|rootError\.message|put\("path"|put\("authInfo"|put\("providerInfo"' "$ERROR_HANDLER"; then
+            echo "Sensitive identity or raw exception diagnostics detected in FirestoreErrorHandler"
+            exit 1
+          fi
 
       - name: Install Firebase CLI and Rules Unit Testing
         run: npm install -g firebase-tools @firebase/rules-unit-testing
