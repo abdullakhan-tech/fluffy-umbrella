@@ -1,13 +1,13 @@
 package com.example.data.remote
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.robolectric.RobolectricTestRunner
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class FirestoreErrorHandlerTest {
 
