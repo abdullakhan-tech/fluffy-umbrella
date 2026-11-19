@@ -234,6 +234,7 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val noteId = repository.addMemoryNote("Valid synthetic note").getOrThrow()
         assertTrue(repository.updateMemoryNote(noteId, "   ").isFailure)
         assertTrue(repository.updateMemoryNote("../another-user", "Rejected").isFailure)
+        assertTrue(repository.deleteMemoryNote("../another-user").isFailure)
 
         val factId = repository.addKnowledgeFact("Zaythar AI", "stores", "synthetic facts").getOrThrow()
         assertTrue(repository.updateKnowledgeFact(factId, " ", "stores", "synthetic facts").isFailure)
@@ -246,6 +247,7 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
                 source = "s".repeat(41)
             ).isFailure
         )
+        assertTrue(repository.deleteKnowledgeFact("../another-user").isFailure)
 
         assertTrue(repository.deleteMemoryNote(noteId).isSuccess)
         assertTrue(repository.deleteKnowledgeFact(factId).isSuccess)
