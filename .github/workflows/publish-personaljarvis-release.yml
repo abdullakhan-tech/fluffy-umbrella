@@ -32,7 +32,7 @@ jobs:
       - name: Publish ZIP as GitHub Release asset
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ inputs.tag || 'personaljarvis-source-v1' }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
