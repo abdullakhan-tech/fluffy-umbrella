@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      android-and-kotlin:
+        patterns:
+          - "com.android.*"
+          - "org.jetbrains.kotlin*"
+          - "androidx.*"
+          - "com.google.firebase*"
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      firebase-test-tooling:
+        patterns:
+          - "firebase"
+          - "@firebase/*"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
