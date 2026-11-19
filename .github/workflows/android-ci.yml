@@ -41,6 +41,32 @@ jobs:
             base64 -d debug.keystore.base64 > debug.keystore
           fi
 
+      # Compile-only Firebase configuration; never a real project credential.
+      - name: Create temporary Firebase compile configuration
+        run: |
+          mkdir -p app
+          cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "zaythar-ci-placeholder",
+              "storage_bucket": "zaythar-ci-placeholder.appspot.com"
+            },
+            "client": [{
+              "client_info": {
+                "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                "android_client_info": { "package_name": "com.aistudio.zaythar.zxtmkr" }
+              },
+              "api_key": [{ "current_key": "CI_ONLY_NOT_A_REAL_API_KEY" }],
+              "oauth_client": [{
+                "client_id": "000000000000-ci-placeholder.apps.googleusercontent.com",
+                "client_type": 3
+              }]
+            }],
+            "configuration_version": "1"
+          }
+          JSON
+
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
