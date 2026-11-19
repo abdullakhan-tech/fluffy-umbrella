@@ -83,13 +83,15 @@ fun NeuralCoreVisualizer(
     size: Dp = 250.dp,
     motionEnabled: Boolean = true,
     coreLabel: String = "Z",
-    activityLevel: Float = 0.65f
+    activityLevel: Float = 0.65f,
+    styleId: String = "hologram"
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
-    val accent = cyber.accent
-    val accentSoft = cyber.accentSoft
-    val synapseGreen = cyber.cyberGreen
+    val visualStyle = remember(styleId) { AnimationStyle.fromId(styleId) }
+    val accent = visualStyle.accent
+    val accentSoft = visualStyle.accent.copy(alpha = 0.82f)
+    val synapseGreen = visualStyle.secondary
 
     val systemReduceMotion = remember {
         val scale = runCatching {
