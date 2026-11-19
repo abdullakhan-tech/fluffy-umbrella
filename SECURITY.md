@@ -25,6 +25,7 @@ These controls still require correct Firebase Console configuration and deployme
 ## Client-side defense in depth and backend limits
 
 - Firestore observer APIs that accept a user ID now require it to match the active Firebase Authentication UID before constructing a listener. This is an early client-side guard only; Firestore Security Rules remain the authoritative access-control boundary.
+- Memory-note and knowledge-fact create/update/delete operations derive the document owner from the currently authenticated Firebase UID; callers cannot supply an owner UID. Write payloads are trimmed and bounded before submission, while Firestore Security Rules independently enforce owner and field constraints.
 - Firestore diagnostics now log only a fixed operation label and a bounded Firebase status code. Diagnostic payloads omit raw exception text, Firestore paths, UIDs, email addresses, provider metadata, and memory content; callers should still map failures to safe UI messages rather than display exception details.
 - Firestore-backed chat/memory UI states and Google sign-in error surfaces now use generic messages; authentication logs record only exception class names, not provider messages or stack traces. This is a presentation/logging safeguard, not a replacement for server-side authorization.
 - The current Android app talks directly to Firebase Firestore and Firebase AI Logic. There is no trusted Cloud Functions or Cloud Run API in this repository, so a client-side request counter would be bypassable and must not be described as a security rate limit.
