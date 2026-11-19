@@ -83,13 +83,15 @@ fun NeuralCoreVisualizer(
     size: Dp = 250.dp,
     motionEnabled: Boolean = true,
     coreLabel: String = "Z",
-    activityLevel: Float = 0.65f
+    activityLevel: Float = 0.65f,
+    styleId: String = "hologram"
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
-    val accent = cyber.accent
-    val accentSoft = cyber.accentSoft
-    val synapseGreen = cyber.cyberGreen
+    val visualStyle = remember(styleId) { AnimationStyle.fromId(styleId) }
+    val accent = visualStyle.accent
+    val accentSoft = visualStyle.accent.copy(alpha = 0.82f)
+    val synapseGreen = visualStyle.secondary
 
     val systemReduceMotion = remember {
         val scale = runCatching {
@@ -178,7 +180,7 @@ fun NeuralCoreVisualizer(
         initialValue = 0.95f,
         targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
+            animation = tween(visualStyle.pulseDurationMillis, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
@@ -237,7 +239,7 @@ fun NeuralCoreVisualizer(
             val cy = h / 2f
             val radiusScale = (minOf(w, h) * 0.41f).coerceAtLeast(1f)
             val nowSec = elapsedMillis * 0.001f
-            val spin = elapsedMillis * (0.00018f * clampedActivity) + tiltY
+            val spin = elapsedMillis * (0.00018f * clampedActivity * visualStyle.rotationSpeed) + tiltY
             val cosSpin = cos(spin)
             val sinSpin = sin(spin)
             val cosTilt = cos(tiltX)
@@ -293,13 +295,13 @@ fun NeuralCoreVisualizer(
                     strokeWidth = 1.25f
                 )
                 if (animate) {
-                    val t = (nowSec * edge.speed * clampedActivity + edge.offset) % 1f
+                    val t = (nowSec * edge.speed * clampedActivity * visualStyle.packetSpeed + edge.offset) % 1f
                     val px = a.x + (b.x - a.x) * t
                     val py = a.y + (b.y - a.y) * t
                     val packetAlpha = (sin(t * PI.toFloat()) * minOf(a.alpha, b.alpha)).coerceIn(0f, 1f)
                     drawCircle(
                         color = synapseGreen.copy(alpha = packetAlpha),
-                        radius = 2.6f,
+                        radius = 2.6f * visualStyle.nodeScale,
                         center = Offset(px, py)
                     )
                 }
@@ -311,7 +313,7 @@ fun NeuralCoreVisualizer(
                 val nodeColor = if (p.layer == 1) synapseGreen else accentSoft
                 drawCircle(
                     color = nodeColor.copy(alpha = (p.alpha * pulse).coerceIn(0f, 1f)),
-                    radius = p.radius * pulse * 1.35f,
+                    radius = p.radius * pulse * 1.35f * visualStyle.nodeScale,
                     center = Offset(p.x, p.y)
                 )
             }
@@ -341,12 +343,12 @@ fun NeuralCoreVisualizer(
             }
 
             // Tilted orbital ellipses
-            val orbitRatios = listOf(0.84f, 1.03f, 1.19f)
+            val orbitRatios = visualStyle.orbitRatios
             orbitRatios.forEachIndexed { k, r ->
                 val deg = ((spin * 180f / PI.toFloat()) * 0.35f) + k * 52f - 28f
                 rotate(degrees = deg) {
                     val ow = radiusScale * r * 2f
-                    val oh = radiusScale * (0.24f + k * 0.03f) * 2f
+                    val oh = radiusScale * (0.2f + k * 0.035f) * 2f
                     drawOval(
                         color = (if (k == 1) synapseGreen else accentSoft).copy(alpha = 0.34f),
                         topLeft = Offset(cx - ow / 2f, cy - oh / 2f),
