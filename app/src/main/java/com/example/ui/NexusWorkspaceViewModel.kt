@@ -32,6 +32,9 @@ import com.example.domain.SmartEngineRouter
 import com.example.domain.StudioAspectRatio
 import com.example.domain.SuggestedTriple
 import com.example.domain.UiState
+import com.example.domain.tools.BuiltInToolRuntime
+import com.example.domain.tools.ToolDescriptor
+import com.example.domain.tools.ToolExecutionResult
 import com.example.domain.VisionMode
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -57,6 +60,7 @@ class NexusWorkspaceViewModel(
 ) : ViewModel() {
 
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
+    private val builtInToolRuntime = BuiltInToolRuntime()
 
     val memoryNotesState: StateFlow<UiState<List<FirestoreMemoryNote>>> = (
         guestStore?.memoryNotes ?: firestoreRepo.observeMemoryNotes(currentUserId)
@@ -93,6 +97,32 @@ class NexusWorkspaceViewModel(
             emit(UiState.Error(root.message ?: "Failed to load AI Brain runs"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
+
+    fun localToolDescriptors(): List<ToolDescriptor> = builtInToolRuntime.descriptors()
+
+    suspend fun runLocalTool(command: String, sessionId: String): String {
+        val enabledPluginKeys = (pluginsState.value as? UiState.Success)
+            ?.data
+            ?.filter { it.enabled }
+            ?.map { it.pluginKey }
+            ?.toSet()
+            .orEmpty()
+
+        return when (
+            val result = builtInToolRuntime.executeLocalCommand(
+                message = command,
+                authenticatedUid = currentUserId,
+                sessionId = sessionId,
+                enabledPluginKeys = enabledPluginKeys
+            )
+        ) {
+            is ToolExecutionResult.Completed ->
+                result.payload.content.ifBlank { result.payload.summary }
+            is ToolExecutionResult.ApprovalRequired -> result.explanation
+            is ToolExecutionResult.Rejected -> result.message
+            is ToolExecutionResult.Failed -> result.message
+        }
+    }
 
     private val _agentRunState = MutableStateFlow<UiState<MultiAgentRunResult>>(UiState.Idle)
     val agentRunState: StateFlow<UiState<MultiAgentRunResult>> = _agentRunState.asStateFlow()
