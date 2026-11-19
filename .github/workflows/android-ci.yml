@@ -108,12 +108,14 @@ jobs:
         run: rm -f app/google-services.json
 
       - name: Run Android Lint and assemble Debug & Release APKs
-        if: steps.firebase_config.outputs.available == 'true'
         run: gradle :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon
 
-      - name: Explain why APK packaging was skipped
+      - name: Explain CI Firebase configuration status
         if: steps.firebase_config.outputs.available == 'false'
-        run: echo "::warning::APK packaging skipped because the real Firebase app/google-services.json is not present in the repository or CI secrets."
+        run: |
+          echo "::warning::APK build used a temporary CI-only Firebase config. These APKs are compile/test artifacts only and must not be distributed or used against production Firebase."
+          echo "### Firebase configuration" >> "$GITHUB_STEP_SUMMARY"
+          echo "The real app/google-services.json is not configured. APKs are CI-only and not suitable for production." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Lint & Test Reports
         if: always()
@@ -129,7 +131,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: zaythar-ai-apks
+          name: zaythar-ai-ci-apks
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
