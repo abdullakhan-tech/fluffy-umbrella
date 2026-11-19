@@ -53,7 +53,6 @@ import com.example.domain.UiState
 import com.example.ui.components.AnimationStyle
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberSecondaryButton
-import com.example.ui.components.NeuralCoreActivity
 import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.ThemeMode
@@ -246,11 +245,11 @@ fun AssistantScreen(
                                 motionEnabled = prefs.motion3dEnabled,
                                 coreLabel = activeAgent.shortCode,
                                 styleId = selectedAnimationStyle,
-                                activity = when {
-                                    isListening -> NeuralCoreActivity.LISTENING
-                                    isBusy -> NeuralCoreActivity.THINKING
-                                     isSpeaking -> NeuralCoreActivity.SPEAKING
-                                    else -> NeuralCoreActivity.READY
+                                activityLevel = when {
+                                    isListening -> 1.15f
+                                    isBusy -> 0.95f
+                                    isSpeaking -> 0.8f
+                                    else -> 0.45f
                                 }
                             )
                             Column(modifier = Modifier.weight(1f)) {
@@ -394,11 +393,11 @@ private fun AssistantOrbCard(
                 motionEnabled = motionEnabled,
                 coreLabel = activeAgent.shortCode,
                 styleId = styleId,
-                activity = when {
-                    isListening -> NeuralCoreActivity.LISTENING
-                    isBusy -> NeuralCoreActivity.THINKING
-                                     isSpeaking -> NeuralCoreActivity.SPEAKING
-                    else -> NeuralCoreActivity.READY
+                activityLevel = when {
+                    isListening -> 1.15f
+                    isBusy -> 0.95f
+                    isSpeaking -> 0.8f
+                    else -> 0.45f
                 }
             )
             Text(
