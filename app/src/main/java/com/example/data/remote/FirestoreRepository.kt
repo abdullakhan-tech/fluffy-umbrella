@@ -271,7 +271,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+                .limit(limit.coerceIn(1L, 100L))
                 .get()
                 .await()
                 .toObjectsSafe()
@@ -333,7 +333,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         var path: String? = null
         return try {
             val uid = requireUserId()
-            require(memoryId.isNotBlank()) { "Memory ID must not be blank" }
+            requireValidDocumentId(memoryId, "Memory ID")
             val docRef = userDoc(uid).collection("memories").document(memoryId)
             path = docRef.path
             docRef.delete().await()
@@ -373,7 +373,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+                .limit(limit.coerceIn(1L, 200L))
                 .get()
                 .await()
                 .toObjectsSafe()
@@ -475,7 +475,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         var path: String? = null
         return try {
             val uid = requireUserId()
-            require(factId.isNotBlank()) { "Fact ID must not be blank" }
+            requireValidDocumentId(factId, "Knowledge fact ID")
             val docRef = userDoc(uid).collection("knowledge_facts").document(factId)
             path = docRef.path
             docRef.delete().await()
