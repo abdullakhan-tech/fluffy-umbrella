@@ -57,13 +57,12 @@ class ZaytharViewModel(
     private val workspaceStore: FirestoreSessionAndBrainStore,
     private val prefsRepo: PreferencesRepository,
     private val ttsSpeaker: TtsSpeaker,
-
-    val isSpeaking: StateFlow<Boolean> = ttsSpeaker.isSpeaking
-
     private val currentUserId: String,
     firebaseInitialized: Boolean,
     private val guestStore: GuestWorkspaceStore? = null
 ) : ViewModel() {
+
+    val isSpeaking: StateFlow<Boolean> = ttsSpeaker.isSpeaking
 
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
     private val _isRestoringSession = MutableStateFlow(true)
