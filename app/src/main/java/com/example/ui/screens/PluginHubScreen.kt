@@ -178,7 +178,7 @@ fun PluginHubScreen(
                                 } catch (cancelled: CancellationException) {
                                     throw cancelled
                                 } catch (error: Exception) {
-                                    sandboxOutput = "Tool runtime error: ${error.localizedMessage ?: "request failed"}"
+                                    sandboxOutput = "Tool could not complete safely. Check the command and try again."
                                 } finally {
                                     sandboxRunning = false
                                 }
