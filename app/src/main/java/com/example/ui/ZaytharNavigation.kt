@@ -111,6 +111,7 @@ internal fun ZaytharNavHost(
     val activeAgent by viewModel.activeAgent.collectAsStateWithLifecycle()
     val composerInput by viewModel.composerInput.collectAsStateWithLifecycle()
     val chatUiState by viewModel.chatUiState.collectAsStateWithLifecycle()
+    val isSpeaking by viewModel.isSpeaking.collectAsStateWithLifecycle()
 
     val memoryNotesState by workspaceViewModel.memoryNotesState.collectAsStateWithLifecycle()
     val knowledgeFactsState by workspaceViewModel.knowledgeFactsState.collectAsStateWithLifecycle()
@@ -179,6 +180,7 @@ internal fun ZaytharNavHost(
                 activePluginCount = enabledPluginsCount,
                 messagesState = sessionMessagesState,
                 chatUiState = chatUiState,
+                isSpeaking = isSpeaking,
                 onComposerChange = viewModel::updateComposerInput,
                 onSend = viewModel::sendChatMessage,
                 onClearChat = viewModel::clearChatAndStartNewSession,
@@ -251,6 +253,10 @@ internal fun ZaytharNavHost(
         composable(ZaytharRoutes.PLUGINS) {
             PluginHubScreen(
                 pluginsState = pluginsState,
+                runtimeTools = workspaceViewModel.localToolDescriptors(),
+                onRunTool = { command ->
+                    workspaceViewModel.runLocalTool(command, activeSessionId)
+                },
                 onTogglePlugin = { id, enabled ->
                     workspaceViewModel.togglePlugin(id, enabled, viewModel::emitToast)
                 },
