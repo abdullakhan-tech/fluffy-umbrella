@@ -32,6 +32,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,6 +50,7 @@ import com.example.data.remote.FirestoreSessionMessage
 import com.example.domain.AgentRole
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
+import com.example.ui.components.AnimationStyle
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.NeuralCoreActivity
@@ -92,6 +94,7 @@ fun AssistantScreen(
     var langMenuExpanded by remember { mutableStateOf(false) }
     var agentMenuExpanded by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
+    var selectedAnimationStyle by rememberSaveable { mutableStateOf(AnimationStyle.HOLOGRAM.id) }
 
     val isBusy = chatUiState is UiState.Loading || chatUiState is UiState.Streaming
     val messages = (messagesState as? UiState.Success)?.data ?: emptyList()
@@ -179,6 +182,7 @@ fun AssistantScreen(
                     isBusy = isBusy,
                     isListening = isListening,
                     isSpeaking = isSpeaking,
+                    styleId = selectedAnimationStyle,
                     onSuggestionClick = { onSend(it) }
                 )
                 AssistantChatCard(
@@ -191,6 +195,8 @@ fun AssistantScreen(
                     composerText = composerText,
                     activeAgent = activeAgent,
                     prefs = prefs,
+                    styleId = selectedAnimationStyle,
+                    onStyleSelected = { selectedAnimationStyle = it },
                     isBusy = isBusy,
                     isListening = isListening,
                     langMenuExpanded = langMenuExpanded,
@@ -239,6 +245,7 @@ fun AssistantScreen(
                                 size = 58.dp,
                                 motionEnabled = prefs.motion3dEnabled,
                                 coreLabel = activeAgent.shortCode,
+                                styleId = selectedAnimationStyle,
                                 activity = when {
                                     isListening -> NeuralCoreActivity.LISTENING
                                     isBusy -> NeuralCoreActivity.THINKING
@@ -362,6 +369,7 @@ private fun AssistantOrbCard(
     isBusy: Boolean,
     isListening: Boolean,
     isSpeaking: Boolean,
+    styleId: String,
     onSuggestionClick: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
@@ -385,6 +393,7 @@ private fun AssistantOrbCard(
                 size = 170.dp,
                 motionEnabled = motionEnabled,
                 coreLabel = activeAgent.shortCode,
+                styleId = styleId,
                 activity = when {
                     isListening -> NeuralCoreActivity.LISTENING
                     isBusy -> NeuralCoreActivity.THINKING
