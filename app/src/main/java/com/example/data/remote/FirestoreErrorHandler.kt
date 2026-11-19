@@ -79,7 +79,9 @@ fun handleFirestoreError(
     val errorCode = firestoreError?.code?.name
     val safePayload = safeFirestoreErrorPayload(operationType, errorCode)
 
-    if (exception !is CancellationException) {
+    val isCancellation = generateSequence(exception) { it.cause }
+        .any { it is CancellationException }
+    if (!isCancellation) {
         Log.e(
             "FirestoreError",
             "Firestore operation failed (operation=${operationType.value}, code=${errorCode ?: "UNKNOWN"})."
