@@ -64,6 +64,37 @@ jobs:
       - name: Install Firebase CLI and Rules Unit Testing
         run: npm install -g firebase-tools @firebase/rules-unit-testing
 
+      - name: Prepare CI-only Firebase config for emulator tests
+        id: firebase_config
+        shell: bash
+        run: |
+          if [ -f app/google-services.json ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "real_config=true" >> "$GITHUB_ENV"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "123456789000",
+              "project_id": "zaythar-ci-demo",
+              "storage_bucket": "zaythar-ci-demo.appspot.com"
+            },
+            "client": [{
+              "client_info": {
+                "mobilesdk_app_id": "1:123456789000:android:0000000000000000",
+                "android_client_info": {
+                  "package_name": "com.aistudio.zaythar.zxtmkr"
+                }
+              },
+              "api_key": [{"current_key": "CI_ONLY_NOT_A_REAL_API_KEY"}]
+            }],
+            "configuration_version": "1"
+          }
+          JSON
+            echo "::warning::Using a temporary CI-only Firebase config; APK packaging requires the real app/google-services.json."
+          fi
+
       - name: Run Firestore rules & Android Robolectric tests under Firebase emulators
         run: |
           NODE_GLOBAL_ROOT="$(npm root -g)"
@@ -72,8 +103,17 @@ jobs:
             --only auth,firestore \
             "NODE_PATH=${NODE_GLOBAL_ROOT} FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 node --test firestore.test.js && FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 gradle :app:testDebugUnitTest --no-daemon"
 
+      - name: Remove temporary Firebase config
+        if: steps.firebase_config.outputs.available == 'false'
+        run: rm -f app/google-services.json
+
       - name: Run Android Lint and assemble Debug & Release APKs
+        if: steps.firebase_config.outputs.available == 'true'
         run: gradle :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon
+
+      - name: Explain why APK packaging was skipped
+        if: steps.firebase_config.outputs.available == 'false'
+        run: echo "::warning::APK packaging skipped because the real Firebase app/google-services.json is not present in the repository or CI secrets."
 
       - name: Upload Lint & Test Reports
         if: always()
