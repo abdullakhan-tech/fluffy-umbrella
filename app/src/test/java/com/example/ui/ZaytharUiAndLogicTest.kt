@@ -22,6 +22,8 @@ import com.example.domain.NeuralBrainAnalysis
 import com.example.domain.NeuralBrainMode
 import com.example.domain.SuggestedTriple
 import com.example.domain.UiState
+import com.example.domain.tools.BuiltInToolRuntime
+import com.example.domain.tools.ToolExecutionResult
 import com.example.ui.auth.AuthScreen
 import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
@@ -153,10 +155,28 @@ class ZaytharUiAndLogicTest {
             enabled = true,
             isBuiltIn = true
         )
+        val toolRuntime = BuiltInToolRuntime()
         composeRule.setContent {
             ZaytharTheme {
                 PluginHubScreen(
                     pluginsState = UiState.Success(listOf(enabledUnitPlugin)),
+                    runtimeTools = toolRuntime.descriptors(),
+                    onRunTool = { message ->
+                        when (
+                            val result = toolRuntime.executeLocalCommand(
+                                message = message,
+                                authenticatedUid = "test-user",
+                                sessionId = "test-session",
+                                enabledPluginKeys = setOf(enabledUnitPlugin.pluginKey)
+                            )
+                        ) {
+                            is ToolExecutionResult.Completed ->
+                                result.payload.content.ifBlank { result.payload.summary }
+                            is ToolExecutionResult.ApprovalRequired -> result.explanation
+                            is ToolExecutionResult.Rejected -> result.message
+                            is ToolExecutionResult.Failed -> result.message
+                        }
+                    },
                     onTogglePlugin = { _, _ -> },
                     onAddCustomPlugin = { _, _, _, _ -> },
                     onDeletePlugin = {}
