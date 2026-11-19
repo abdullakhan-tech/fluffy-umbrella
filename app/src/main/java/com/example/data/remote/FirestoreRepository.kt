@@ -49,13 +49,14 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- USER PROFILE ---
 
     fun observeUserProfile(userId: String): Flow<UserProfileDoc?> {
-        val docRef = userDoc(userId)
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val docRef = userDoc(ownerId)
         return docRef.snapshots()
             .map { snapshot ->
                 if (snapshot.exists()) snapshot.toObjectSafe<UserProfileDoc>() else null
             }
             .catch { error ->
-                logFlowError(error, OperationType.GET, docRef.path, userId)
+                logFlowError(error, OperationType.GET, docRef.path, ownerId)
                 throw error
             }
     }
@@ -127,7 +128,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- CHAT MESSAGES ---
 
     fun observeChatMessages(userId: String): Flow<List<FirestoreChatMessage>> {
-        val colRef = userDoc(userId).collection("messages")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("messages")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limitToLast(60)
@@ -137,7 +139,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                     .sortedBy { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -245,7 +247,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- MEMORY NOTES ---
 
     fun observeMemoryNotes(userId: String): Flow<List<FirestoreMemoryNote>> {
-        val colRef = userDoc(userId).collection("memories")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("memories")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(100)
@@ -255,7 +258,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                     .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -346,7 +349,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- KNOWLEDGE FACTS ---
 
     fun observeKnowledgeFacts(userId: String): Flow<List<FirestoreKnowledgeFact>> {
-        val colRef = userDoc(userId).collection("knowledge_facts")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("knowledge_facts")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(200)
@@ -356,7 +360,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                     .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
