@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.PrecisionManufacturing
 import androidx.compose.material.icons.rounded.PsychologyAlt
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +39,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -48,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.local.ZaytharPreferences
 import com.example.domain.ProviderRoute
+import com.example.ui.components.AnimationStyle
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
@@ -212,6 +220,7 @@ private fun NeuralCoreHeroCard(
     onOpenEngineHub: () -> Unit
 ) {
     val cyber = LocalCyberColors.current
+    var selectedAnimationStyle by rememberSaveable { mutableStateOf(AnimationStyle.HOLOGRAM.id) }
     CyberCard(modifier = modifier) {
         CyberCardHeader(
             title = "NEURAL CORE VISUALIZER",
@@ -247,9 +256,35 @@ private fun NeuralCoreHeroCard(
             NeuralCoreVisualizer(
                 size = 225.dp,
                 motionEnabled = motionEnabled,
-                activityLevel = activityLevel
+                activityLevel = activityLevel,
+                styleId = selectedAnimationStyle
             )
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "ANIMATION STYLE",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AnimationStyle.entries.forEach { style ->
+                FilterChip(
+                    selected = selectedAnimationStyle == style.id,
+                    onClick = { selectedAnimationStyle = style.id },
+                    label = { Text(style.title, maxLines = 1) }
+                )
+            }
+        }
+        Text(
+            text = AnimationStyle.fromId(selectedAnimationStyle).description,
+            style = MaterialTheme.typography.bodySmall,
+            color = cyber.accentSoft
+        )
 
         Spacer(modifier = Modifier.height(14.dp))
         Row(
