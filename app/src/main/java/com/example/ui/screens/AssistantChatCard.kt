@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,12 +43,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.example.data.local.ZaytharPreferences
 import com.example.data.remote.FirestoreSessionMessage
 import com.example.domain.AgentRole
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.domain.toChatMessage
+import com.example.ui.components.AnimationStyle
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.theme.LocalCyberColors
@@ -65,6 +68,8 @@ internal fun AssistantChatCard(
     composerText: String,
     activeAgent: AgentRole,
     prefs: ZaytharPreferences,
+    styleId: String,
+    onStyleSelected: (String) -> Unit,
     isBusy: Boolean,
     isListening: Boolean,
     langMenuExpanded: Boolean,
@@ -365,6 +370,26 @@ internal fun AssistantChatCard(
                         )
                     }
                 }
+            }
+        }
+
+        Text(
+            text = "VISUAL MODE · ${AnimationStyle.fromId(styleId).title.uppercase()}",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFFFF4655),
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        ) {
+            AnimationStyle.entries.forEach { style ->
+                FilterChip(
+                    selected = styleId == style.id,
+                    onClick = { onStyleSelected(style.id) },
+                    label = { Text(style.title, maxLines = 1) }
+                )
             }
         }
 
