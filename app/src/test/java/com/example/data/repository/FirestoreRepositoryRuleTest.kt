@@ -215,6 +215,43 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     }
 
     @Test
+    fun memoryAndKnowledgeWrites_rejectBlankOversizedAndInvalidIdentifiers() = runBlocking {
+        signInTestUser(ALICE_EMAIL)
+        val repository = FirestoreRepository(firestore)
+
+        assertTrue(repository.addMemoryNote("   ").isFailure)
+        assertTrue(repository.addMemoryNote("x".repeat(2001)).isFailure)
+        assertTrue(repository.addKnowledgeFact("", "uses", "Firestore").isFailure)
+        assertTrue(
+            repository.addKnowledgeFact(
+                "Zaythar AI",
+                "uses",
+                "Firestore",
+                source = "s".repeat(41)
+            ).isFailure
+        )
+
+        val noteId = repository.addMemoryNote("Valid synthetic note").getOrThrow()
+        assertTrue(repository.updateMemoryNote(noteId, "   ").isFailure)
+        assertTrue(repository.updateMemoryNote("../another-user", "Rejected").isFailure)
+
+        val factId = repository.addKnowledgeFact("Zaythar AI", "stores", "synthetic facts").getOrThrow()
+        assertTrue(repository.updateKnowledgeFact(factId, " ", "stores", "synthetic facts").isFailure)
+        assertTrue(
+            repository.updateKnowledgeFact(
+                factId,
+                "Zaythar AI",
+                "stores",
+                "synthetic facts",
+                source = "s".repeat(41)
+            ).isFailure
+        )
+
+        assertTrue(repository.deleteMemoryNote(noteId).isSuccess)
+        assertTrue(repository.deleteKnowledgeFact(factId).isSuccess)
+    }
+
+    @Test
     fun observeSubcollections_crossUserAccess_isRejectedBeforeListenerCreation() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         val aliceRepo = FirestoreRepository(firestore)
