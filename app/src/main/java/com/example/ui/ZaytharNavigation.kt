@@ -19,13 +19,18 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.domain.ProviderRoute
+import com.example.domain.tools.BuiltInToolRuntime
+import com.example.domain.tools.ToolExecutionResult
 import com.example.domain.UiState
 import com.example.ui.components.ZaytharNavDestination
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.example.ui.screens.AssistantScreen
 import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
@@ -129,6 +134,13 @@ internal fun ZaytharNavHost(
         ?.takeIf { it.isNotBlank() }
         ?: prefs.operatorName
     val enabledPluginsCount = activePlugins.count { it.enabled }
+    val localToolRuntime = remember { BuiltInToolRuntime() }
+    val localToolDescriptors = remember { localToolRuntime.descriptors() }
+    val localToolKeys = if (activePlugins.isEmpty()) {
+        setOf("calculator", "utc_clock", "unit_converter", "json_inspector", "crypto_hash_uuid", "color_text_metrics")
+    } else {
+        activePlugins.filter { it.enabled }.map { it.pluginKey }.toSet()
+    }
 
     NavHost(
         navController = navController,
@@ -251,6 +263,21 @@ internal fun ZaytharNavHost(
         composable(ZaytharRoutes.PLUGINS) {
             PluginHubScreen(
                 pluginsState = pluginsState,
+                runtimeTools = localToolDescriptors,
+                onRunTool = { message ->
+                    val result = localToolRuntime.executeLocalCommand(
+                        message = message,
+                        authenticatedUid = if (isGuest) "guest-local" else Firebase.auth.currentUser?.uid.orEmpty(),
+                        sessionId = activeSessionId.ifBlank { "local-sandbox" },
+                        enabledPluginKeys = localToolKeys
+                    )
+                    when (result) {
+                        is ToolExecutionResult.Completed -> result.payload.content.ifBlank { result.payload.summary }
+                        is ToolExecutionResult.ApprovalRequired -> result.explanation
+                        is ToolExecutionResult.Rejected -> result.message
+                        is ToolExecutionResult.Failed -> result.message
+                    }
+                },
                 onTogglePlugin = { id, enabled ->
                     workspaceViewModel.togglePlugin(id, enabled, viewModel::emitToast)
                 },
