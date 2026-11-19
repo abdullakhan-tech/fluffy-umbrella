@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -44,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.example.data.local.ZaytharPreferences
 import com.example.domain.AgentRole
 import com.example.domain.ChatMessage
@@ -104,7 +106,8 @@ internal fun ChatMessageBubble(
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
     val isUser = msg.isFromUser
-    val stripeColor = if (isUser) cyber.accent else cyber.cyberGreen
+    val stripeColor = if (isUser) Color(0xFFFF2638) else Color(0xFFB8C0CC)
+    val bubbleColor = if (isUser) Color(0xFF350B12) else Color(0xFF191C22)
     val timeLabel = msg.formattedTime()
 
     Row(
@@ -115,9 +118,17 @@ internal fun ChatMessageBubble(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(0.92f),
-            shape = MaterialTheme.shapes.small,
-            color = cyber.panelElevated,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            shape = RoundedCornerShape(
+                topStart = 22.dp,
+                topEnd = 22.dp,
+                bottomEnd = if (isUser) 6.dp else 22.dp,
+                bottomStart = if (isUser) 22.dp else 6.dp
+            ),
+            color = bubbleColor,
+            border = BorderStroke(
+                1.dp,
+                if (isUser) Color(0xFF9E1D2B).copy(alpha = 0.8f) else Color(0xFF69717D).copy(alpha = 0.55f)
+            )
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 Box(
