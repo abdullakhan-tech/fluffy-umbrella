@@ -99,8 +99,8 @@ class ZaytharViewModel(
     ).map<UserProfileDoc?, UiState<UserProfileDoc?>> { UiState.Success(it) }
         .catch { error ->
             val rootError = unwrapFirestoreErrorOrRethrow(error)
-            Log.w(TAG, "Error observing user profile", rootError)
-            emit(UiState.Error(rootError.message ?: "Failed to load user profile"))
+            Log.w(TAG, "Error observing user profile (${rootError.javaClass.simpleName}).")
+            emit(UiState.Error("User profile is temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -113,8 +113,8 @@ class ZaytharViewModel(
         UiState.Success(sessions)
     }.catch { error ->
         val rootError = unwrapFirestoreErrorOrRethrow(error)
-        Log.w(TAG, "Error observing chat sessions", rootError)
-        emit(UiState.Error(rootError.message ?: "Failed to load chat threads"))
+        Log.w(TAG, "Error observing chat sessions (${rootError.javaClass.simpleName}).")
+        emit(UiState.Error("Chat threads are temporarily unavailable."))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val sessionMessagesState: StateFlow<UiState<List<FirestoreSessionMessage>>> = _activeSessionId
@@ -127,8 +127,8 @@ class ZaytharViewModel(
                 flow.map<List<FirestoreSessionMessage>, UiState<List<FirestoreSessionMessage>>> { UiState.Success(it) }
                     .catch { error ->
                         val rootError = unwrapFirestoreErrorOrRethrow(error)
-                        Log.w(TAG, "Error observing session messages", rootError)
-                        emit(UiState.Error(rootError.message ?: "Failed to load session history"))
+                        Log.w(TAG, "Error observing session messages (${rootError.javaClass.simpleName}).")
+                        emit(UiState.Error("Session history is temporarily unavailable."))
                     }
             }
         }
@@ -173,7 +173,7 @@ class ZaytharViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Deferred startup sync error", e)
+                Log.w(TAG, "Deferred startup sync failed (${e.javaClass.simpleName}).")
                 _isRestoringSession.value = false
             }
         }
@@ -287,7 +287,7 @@ class ZaytharViewModel(
                 val result = firestoreRepo.updateOperatorName(cleaned)
                 emitToast(
                     if (result.isSuccess) "Operator profile synced to Cloud Firestore."
-                    else "Could not sync profile to cloud: ${result.exceptionOrNull()?.localizedMessage ?: "error"}"
+                    else "Could not sync profile to cloud. Please try again."
                 )
             }
         }
@@ -384,7 +384,7 @@ class ZaytharViewModel(
                 sessionId = sessionId, role = "user", text = text, agent = agent.id, autoTitleFromFirstPrompt = autoTitle
             )
             if (userMsgRes.isFailure) {
-                val msg = userMsgRes.exceptionOrNull()?.localizedMessage ?: "Failed to save message."
+                val msg = "Failed to save message. Please try again."
                 _chatUiState.value = UiState.Error(msg)
                 emitToast(msg)
                 return@launch
@@ -433,15 +433,15 @@ class ZaytharViewModel(
                     if (currentPrefs.speakReplies) ttsSpeaker.speak(finalReply, currentPrefs.languageCode)
                 }
             } catch (e: TimeoutCancellationException) {
-                Log.e(TAG, "Chat timed out", e)
+                Log.w(TAG, "Chat timed out.")
                 val msg = "Generation timed out after 60 seconds. Check network connectivity and try again."
                 _chatUiState.value = UiState.Error(msg)
                 emitToast(msg)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Chat generation failed", e)
-                val msg = e.localizedMessage ?: "AI service failed to respond. Check Firebase AI Logic & App Check."
+                Log.e(TAG, "Chat generation failed (${e.javaClass.simpleName}).")
+                val msg = "AI service failed to respond. Check Firebase AI Logic & App Check."
                 _chatUiState.value = UiState.Error(msg)
                 emitToast(msg)
             }
