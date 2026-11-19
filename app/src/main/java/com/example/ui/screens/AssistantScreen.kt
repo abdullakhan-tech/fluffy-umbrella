@@ -51,7 +51,6 @@ import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberSecondaryButton
-import com.example.ui.components.NeuralCoreActivity
 import com.example.ui.components.NeuralCoreVisualizer
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.ThemeMode
@@ -67,7 +66,7 @@ fun AssistantScreen(
     activePluginCount: Int,
     messagesState: UiState<List<FirestoreSessionMessage>>,
     chatUiState: UiState<String>,
-    isSpeaking: Boolean,
+    isSpeaking: Boolean = false,
     onComposerChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onClearChat: () -> Unit,
@@ -239,11 +238,11 @@ fun AssistantScreen(
                                 size = 58.dp,
                                 motionEnabled = prefs.motion3dEnabled,
                                 coreLabel = activeAgent.shortCode,
-                                activity = when {
-                                    isListening -> NeuralCoreActivity.LISTENING
-                                    isBusy -> NeuralCoreActivity.THINKING
-                                     isSpeaking -> NeuralCoreActivity.SPEAKING
-                                    else -> NeuralCoreActivity.READY
+                                activityLevel = when {
+                                    isListening -> 1.15f
+                                    isBusy -> 1.25f
+                                    isSpeaking -> 0.95f
+                                    else -> 0.65f
                                 }
                             )
                             Column(modifier = Modifier.weight(1f)) {
@@ -385,11 +384,11 @@ private fun AssistantOrbCard(
                 size = 170.dp,
                 motionEnabled = motionEnabled,
                 coreLabel = activeAgent.shortCode,
-                activity = when {
-                    isListening -> NeuralCoreActivity.LISTENING
-                    isBusy -> NeuralCoreActivity.THINKING
-                                     isSpeaking -> NeuralCoreActivity.SPEAKING
-                    else -> NeuralCoreActivity.READY
+                activityLevel = when {
+                    isListening -> 1.15f
+                    isBusy -> 1.25f
+                    isSpeaking -> 0.95f
+                    else -> 0.65f
                 }
             )
             Text(
