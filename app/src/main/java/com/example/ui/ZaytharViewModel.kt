@@ -25,7 +25,9 @@ import com.example.domain.ProviderRoute
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.domain.toChatMessage
+import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -62,6 +64,13 @@ class ZaytharViewModel(
     private val guestStore: GuestWorkspaceStore? = null
 ) : ViewModel() {
 
+    // ViewModel construction must remain safe while the auth screen is active or a token is
+    // being restored. Firestore observer APIs intentionally fail fast for unauthenticated or
+    // cross-user access, so only construct those observers for the current authenticated owner.
+    private val hasAuthenticatedOwner = runCatching {
+        Firebase.auth.currentUser?.uid == currentUserId
+    }.getOrDefault(false)
+
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
     private val _isRestoringSession = MutableStateFlow(true)
     private val _activeSessionId = MutableStateFlow("")
@@ -95,7 +104,11 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), ZaytharPreferences())
 
     val userProfileState: StateFlow<UiState<UserProfileDoc?>> = (
-        guestStore?.userProfile ?: firestoreRepo.observeUserProfile(currentUserId)
+        when {
+            guestStore != null -> guestStore.userProfile
+            hasAuthenticatedOwner -> firestoreRepo.observeUserProfile(currentUserId)
+            else -> flowOf(null)
+        }
     ).map<UserProfileDoc?, UiState<UserProfileDoc?>> { UiState.Success(it) }
         .catch { error ->
             val rootError = unwrapFirestoreErrorOrRethrow(error)
@@ -105,7 +118,11 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val chatSessionsState: StateFlow<UiState<List<FirestoreChatSession>>> = (
-        guestStore?.chatSessions ?: workspaceStore.observeChatSessions(currentUserId)
+        when {
+            guestStore != null -> guestStore.chatSessions
+            hasAuthenticatedOwner -> workspaceStore.observeChatSessions(currentUserId)
+            else -> flowOf(emptyList())
+        }
     ).map<List<FirestoreChatSession>, UiState<List<FirestoreChatSession>>> { sessions ->
         if (!_isRestoringSession.value && sessions.isNotEmpty() && _activeSessionId.value.isBlank()) {
             _activeSessionId.value = sessions.first().id
@@ -122,8 +139,11 @@ class ZaytharViewModel(
             if (sessionId.isBlank()) {
                 flowOf<UiState<List<FirestoreSessionMessage>>>(UiState.Loading)
             } else {
-                val flow = guestStore?.observeSessionMessages(sessionId)
-                    ?: workspaceStore.observeSessionMessages(currentUserId, sessionId)
+                val flow = when {
+                    guestStore != null -> guestStore.observeSessionMessages(sessionId)
+                    hasAuthenticatedOwner -> workspaceStore.observeSessionMessages(currentUserId, sessionId)
+                    else -> flowOf(emptyList())
+                }
                 flow.map<List<FirestoreSessionMessage>, UiState<List<FirestoreSessionMessage>>> { UiState.Success(it) }
                     .catch { error ->
                         val rootError = unwrapFirestoreErrorOrRethrow(error)
@@ -135,7 +155,11 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val activePluginsFlow: StateFlow<List<FirestorePluginConfig>> = (
-        guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
+        when {
+            guestStore != null -> guestStore.plugins
+            hasAuthenticatedOwner -> workspaceStore.observePlugins(currentUserId)
+            else -> flowOf(emptyList())
+        }
     ).catch { error ->
         unwrapFirestoreErrorOrRethrow(error)
         emit(emptyList())
