@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -35,6 +36,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.example.domain.ChatMessage
 import com.example.domain.GroundedWebSource
 import com.example.ui.components.CyberActionButton
@@ -138,8 +140,8 @@ fun ColumnScope.GeminiChatView(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f))
+            .border(1.dp, Color(0xFF7D858F).copy(alpha = 0.55f), RoundedCornerShape(24.dp))
+            .background(Color(0xFF101216), RoundedCornerShape(24.dp))
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -164,9 +166,13 @@ fun ColumnScope.GeminiChatView(
                     }
                 }
             ),
+            shape = RoundedCornerShape(18.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = cyber.accent,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                focusedBorderColor = Color(0xFFFF2638),
+                unfocusedBorderColor = Color(0xFF555B65),
+                focusedContainerColor = Color(0xFF191C22),
+                unfocusedContainerColor = Color(0xFF191C22),
+                cursorColor = Color(0xFFFF2638)
             )
         )
 
