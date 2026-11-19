@@ -1,0 +1,42 @@
+name: Publish PersonalJarvis ZIP Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag for the PersonalJarvis source bundle
+        required: false
+        default: personaljarvis-source-v1
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download and verify upstream source ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/tbckdev/PersonalJarvis/archive/refs/heads/main.zip \
+            -o PersonalJarvis-main.zip
+          unzip -tq PersonalJarvis-main.zip
+          sha256sum PersonalJarvis-main.zip | tee SHA256SUMS.txt
+
+      - name: Publish ZIP as GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$REPO" \
+              --title "PersonalJarvis source bundle" \
+              --notes "Upstream source archive from tbckdev/PersonalJarvis main. SHA-256 is included as SHA256SUMS.txt. This is a source bundle, not an Android APK."
+          gh release upload "$TAG" PersonalJarvis-main.zip SHA256SUMS.txt \
+            --repo "$REPO" --clobber
