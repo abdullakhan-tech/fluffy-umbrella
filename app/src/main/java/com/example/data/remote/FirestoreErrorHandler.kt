@@ -29,7 +29,27 @@ internal inline fun <reified T> com.google.firebase.firestore.DocumentSnapshot.t
         toObject(T::class.java, com.google.firebase.firestore.DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
     }.getOrNull()
 
-private val SAFE_ERROR_CODE = Regex("^[A-Z][A-Z0-9_]{0,39}$")
+private val SAFE_ERROR_CODES = setOf(
+    "ABORTED",
+    "ALREADY_EXISTS",
+    "CANCELLED",
+    "DEADLINE_EXCEEDED",
+    "FAILED_PRECONDITION",
+    "INTERNAL",
+    "INVALID_ARGUMENT",
+    "NOT_FOUND",
+    "OUT_OF_RANGE",
+    "PERMISSION_DENIED",
+    "RESOURCE_EXHAUSTED",
+    "UNAUTHENTICATED",
+    "UNAVAILABLE",
+    "UNKNOWN",
+    "UNIMPLEMENTED",
+    "DATA_LOSS"
+)
+
+private fun normalizedFirestoreErrorCode(errorCode: String?): String =
+    errorCode?.takeIf { it in SAFE_ERROR_CODES } ?: "UNKNOWN"
 
 /**
  * Builds a user-safe diagnostic payload. It intentionally accepts only an allow-listed
@@ -40,9 +60,7 @@ internal fun safeFirestoreErrorPayload(
     operationType: OperationType,
     errorCode: String?
 ): String {
-    val safeCode = errorCode
-        ?.takeIf(SAFE_ERROR_CODE::matches)
-        ?: "UNKNOWN"
+    val safeCode = normalizedFirestoreErrorCode(errorCode)
     val safeMessage = when (safeCode) {
         "UNAUTHENTICATED" -> "Please sign in to continue."
         "PERMISSION_DENIED" -> "You do not have permission to complete this operation."
@@ -77,14 +95,15 @@ fun handleFirestoreError(
         .filterIsInstance<FirebaseFirestoreException>()
         .firstOrNull()
     val errorCode = firestoreError?.code?.name
-    val safePayload = safeFirestoreErrorPayload(operationType, errorCode)
+    val safeCode = normalizedFirestoreErrorCode(errorCode)
+    val safePayload = safeFirestoreErrorPayload(operationType, safeCode)
 
     val isCancellation = generateSequence(exception) { it.cause }
         .any { it is CancellationException }
     if (!isCancellation) {
         Log.e(
             "FirestoreError",
-            "Firestore operation failed (operation=${operationType.value}, code=${errorCode ?: "UNKNOWN"})."
+            "Firestore operation failed (operation=${operationType.value}, code=$safeCode)."
         )
     }
     return safePayload
