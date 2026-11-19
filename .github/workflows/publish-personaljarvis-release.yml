@@ -1,6 +1,9 @@
 name: Publish PersonalJarvis ZIP Release
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-personaljarvis-release.yml]
   workflow_dispatch:
     inputs:
       tag:
