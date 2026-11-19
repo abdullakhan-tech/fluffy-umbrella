@@ -62,8 +62,8 @@ class NexusWorkspaceViewModel(
         guestStore?.memoryNotes ?: firestoreRepo.observeMemoryNotes(currentUserId)
     ).map<List<FirestoreMemoryNote>, UiState<List<FirestoreMemoryNote>>> { UiState.Success(it) }
         .catch { error ->
-            val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load memory notes"))
+            unwrapFirestoreErrorOrRethrow(error)
+            emit(UiState.Error("Memory notes are temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -71,8 +71,8 @@ class NexusWorkspaceViewModel(
         guestStore?.knowledgeFacts ?: firestoreRepo.observeKnowledgeFacts(currentUserId)
     ).map<List<FirestoreKnowledgeFact>, UiState<List<FirestoreKnowledgeFact>>> { UiState.Success(it) }
         .catch { error ->
-            val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load knowledge graph"))
+            unwrapFirestoreErrorOrRethrow(error)
+            emit(UiState.Error("Knowledge graph is temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -80,8 +80,8 @@ class NexusWorkspaceViewModel(
         guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
     ).map<List<FirestorePluginConfig>, UiState<List<FirestorePluginConfig>>> { UiState.Success(it) }
         .catch { error ->
-            val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load plugins"))
+            unwrapFirestoreErrorOrRethrow(error)
+            emit(UiState.Error("Plugin settings are temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -89,8 +89,8 @@ class NexusWorkspaceViewModel(
         guestStore?.brainRuns ?: workspaceStore.observeBrainRuns(currentUserId)
     ).map<List<FirestoreBrainRun>, UiState<List<FirestoreBrainRun>>> { UiState.Success(it) }
         .catch { error ->
-            val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load AI Brain runs"))
+            unwrapFirestoreErrorOrRethrow(error)
+            emit(UiState.Error("AI Brain history is temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -141,7 +141,7 @@ class NexusWorkspaceViewModel(
         }
         viewModelScope.launch {
             val res = firestoreRepo.addMemoryNote(cleaned)
-            onToast(if (res.isSuccess) "Note synced to Zaythar cloud memory." else "Could not save note: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
+            onToast(if (res.isSuccess) "Note synced to Zaythar cloud memory." else "Could not save memory note. Please try again.")
         }
     }
 
@@ -170,7 +170,7 @@ class NexusWorkspaceViewModel(
         }
         if (guestStore != null) {
             val res = guestStore.addKnowledgeFact(subject, predicate, obj, source)
-            onToast(if (res.isSuccess) "Knowledge fact added to guest RAG graph." else res.exceptionOrNull()?.localizedMessage ?: "error")
+            onToast(if (res.isSuccess) "Knowledge fact added to guest RAG graph." else "Could not add knowledge fact. Please try again.")
             return
         }
         viewModelScope.launch {
@@ -181,7 +181,7 @@ class NexusWorkspaceViewModel(
             val res = firestoreRepo.addKnowledgeFact(subject, predicate, obj, source)
             onToast(
                 if (res.isSuccess) "Knowledge fact synced to Cloud Firestore."
-                else "Failed to save fact: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
+                else "Failed to save knowledge fact. Please try again."
             )
         }
     }
@@ -227,7 +227,7 @@ class NexusWorkspaceViewModel(
         }
         viewModelScope.launch {
             val res = workspaceStore.addCustomPlugin(name, description, category, systemInstruction)
-            onToast(if (res.isSuccess) "Custom plugin plugged into Zaythar Core." else "Could not add plugin: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
+            onToast(if (res.isSuccess) "Custom plugin plugged into Zaythar Core." else "Could not add plugin. Please try again.")
         }
     }
 
@@ -268,8 +268,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "AI Brain analysis failed", e)
-                val msg = e.localizedMessage ?: "AI Brain synthesis failed."
+                Log.e(TAG, "AI Brain analysis failed (${e.javaClass.simpleName}).")
+                val msg = "AI Brain synthesis failed. Please try again."
                 _brainAnalysisState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -322,8 +322,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Camera Eyes failed", e)
-                val msg = e.localizedMessage ?: "Vision inference failed."
+                Log.e(TAG, "Camera Eyes failed (${e.javaClass.simpleName}).")
+                val msg = "Vision inference failed. Please try again."
                 _visionState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -375,8 +375,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Code Copilot failed", e)
-                val msg = e.localizedMessage ?: "Code Copilot generation failed."
+                Log.e(TAG, "Code Copilot failed (${e.javaClass.simpleName}).")
+                val msg = "Code Copilot could not complete the request. Please try again."
                 _codeCopilotState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -408,7 +408,7 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.localizedMessage ?: "Studio generation failed."
+                val msg = "Studio generation failed. Please try again."
                 _studioBriefState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -438,8 +438,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Image generation failed", e)
-                val msg = e.localizedMessage ?: "Image generation failed."
+                Log.e(TAG, "Image generation failed (${e.javaClass.simpleName}).")
+                val msg = "Image generation failed. Please try again."
                 _studioImageState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -470,7 +470,7 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.localizedMessage ?: "Engine diagnostic run failed."
+                val msg = "Engine diagnostic run failed. Please try again."
                 _engineDiagnosticsState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -517,8 +517,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Multi-agent orchestration failed", e)
-                val msg = e.localizedMessage ?: "Agent team could not complete the task."
+                Log.e(TAG, "Multi-agent orchestration failed (${e.javaClass.simpleName}).")
+                val msg = "Agent team could not complete the task. Please try again."
                 _agentRunState.value = UiState.Error(msg)
                 onToast(msg)
             }
