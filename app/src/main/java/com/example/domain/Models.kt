@@ -118,7 +118,9 @@ enum class ProviderRoute(
 
     val candidateModels: List<String>
         get() = when (this) {
+            AUTO -> listOf(modelName)
             HYBRID -> listOf(modelName, FLASH.modelName, LITE.modelName)
+            ARGON -> listOf(modelName, FLASH.modelName)
             FLASH, LITE -> listOf(modelName)
         }
 
