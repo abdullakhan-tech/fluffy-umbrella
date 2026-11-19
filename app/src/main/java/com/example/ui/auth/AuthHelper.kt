@@ -47,7 +47,6 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
-import com.example.R
 import com.example.ui.components.BrandMarkBox
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberGridBackground
@@ -74,6 +73,18 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 private const val TAG = "Auth"
+
+private fun defaultWebClientId(context: Context): String? {
+    val resourceId = context.resources.getIdentifier(
+        "default_web_client_id",
+        "string",
+        context.packageName
+    )
+    if (resourceId == 0) return null
+    return runCatching { context.getString(resourceId) }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+}
 
 internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
     val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
@@ -104,13 +115,7 @@ fun attemptAutoSignIn(
         onUnauthenticated()
         return
     }
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (_: Exception) {
-        onUnauthenticated()
-        return
-    }
-    if (clientId.isBlank()) {
+    val clientId = defaultWebClientId(context) ?: run {
         onUnauthenticated()
         return
     }
@@ -166,9 +171,7 @@ fun onGoogleSignInClicked(
         onAuthError("Google Credential Manager is unavailable on this device. You can continue as Guest.")
         return
     }
-    val clientId = try {
-        context.getString(R.string.default_web_client_id)
-    } catch (_: Exception) {
+    val clientId = defaultWebClientId(context) ?: run {
         onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
         return
     }
