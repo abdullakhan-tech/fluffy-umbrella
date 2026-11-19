@@ -1,7 +1,7 @@
 package com.example.ui.components
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AnimationStyleTest {
@@ -16,11 +16,11 @@ class AnimationStyleTest {
     @Test
     fun everyStyleHasAValidMotionProfile() {
         AnimationStyle.entries.forEach { style ->
-            assertNotEquals(0f, style.rotationSpeed)
-            assertNotEquals(0, style.pulseDurationMillis)
-            assertNotEquals(0f, style.packetSpeed)
-            assertNotEquals(0f, style.nodeScale)
-            assertEquals(true, style.orbitRatios.isNotEmpty())
+            assertTrue(style.rotationSpeed > 0f)
+            assertTrue(style.pulseDurationMillis > 0)
+            assertTrue(style.packetSpeed > 0f)
+            assertTrue(style.nodeScale > 0f)
+            assertTrue(style.orbitRatios.isNotEmpty())
         }
 
         assertEquals(
