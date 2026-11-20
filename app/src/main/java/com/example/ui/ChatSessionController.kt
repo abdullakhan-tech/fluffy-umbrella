@@ -93,7 +93,7 @@ internal class ChatSessionController(
                 onToast("Guest session saved locally.")
             }
         }.onFailure { err ->
-            onToast("Could not save session: ${err.localizedMessage ?: "error"}")
+            onToast("Could not save session. Please try again.")
         }
     }
 
@@ -122,7 +122,7 @@ internal class ChatSessionController(
             if (guestStore == null) prefsRepo.setLastActiveSession(currentUserId, newId)
             onToast("New conversation thread created.")
         }.onFailure { err ->
-            onToast("Could not create thread: ${err.localizedMessage ?: "error"}")
+            onToast("Could not create thread. Please try again.")
         }
     }
 
@@ -135,7 +135,7 @@ internal class ChatSessionController(
             workspaceStore.renameChatSession(sessionId, cleaned)
         }
         if (res.isSuccess) onToast("Thread renamed.")
-        else onToast("Rename failed: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
+        else onToast("Rename failed. Please try again.")
     }
 
     suspend fun deleteSession(sessionId: String) {
@@ -156,7 +156,7 @@ internal class ChatSessionController(
             }
             onToast(if (guestStore != null) "Guest thread deleted." else "Thread deleted from Cloud Firestore.")
         } else {
-            onToast("Delete failed: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
+            onToast("Delete failed. Please try again.")
         }
     }
 
@@ -186,7 +186,7 @@ internal class ChatSessionController(
                 onToast("Guest history cleared. New session started.")
             }
         }.onFailure { err ->
-            onToast("Failed to clear chat session: ${err.localizedMessage ?: "error"}")
+            onToast("Failed to clear chat session. Please try again.")
         }
         return res
     }
