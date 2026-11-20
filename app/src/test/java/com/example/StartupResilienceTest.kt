@@ -9,12 +9,14 @@ import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.example.ui.TtsSpeaker
 import com.example.ui.ZaytharViewModel
+import com.example.domain.UiState
 import com.example.ui.auth.attemptAutoSignIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,6 +66,9 @@ class StartupResilienceTest : FirestoreEmulatorTestBase() {
             delay(40)
         }
         assertTrue(vm.firebaseReady.value)
+        assertTrue(vm.userProfileState.first { it is UiState.Success } is UiState.Success)
+        assertTrue(vm.chatSessionsState.first { it is UiState.Success } is UiState.Success)
+        assertTrue(vm.activePluginsFlow.first().isEmpty())
     }
 
     @Test
