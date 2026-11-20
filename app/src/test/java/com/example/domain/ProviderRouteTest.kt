@@ -7,6 +7,7 @@ import org.junit.Test
 class ProviderRouteTest {
     private val firebaseAiLogicSupportedModels = setOf(
         "gemini-4-hydrogen",
+        "gemini-4-argon",
         "gemini-3.8-flash",
         "gemini-3.5-flash-lite"
     )
