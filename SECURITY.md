@@ -9,7 +9,7 @@ Do not publish exploitable vulnerabilities, credentials, access tokens, private 
 - Never commit standalone Gemini API keys, OAuth client secrets, service-account private keys, signing keys, or user credentials.
 - The current Android Firebase AI Logic integration does not require a standalone Gemini API key in the app. Firebase manages Gemini Developer API authorization.
 - Add the Firebase-generated google-services.json to the Android app module only after confirming the Firebase project, package registration, and App Check protections. Treat it as Firebase app configuration, not as a Gemini API key or service-account credential.
-- Keep local .env files and signing materials out of source control.
+- Keep local .env files and signing materials out of source control. `.gitignore` also excludes local Firebase app configuration, service-account JSON, private-key containers, and environment variants; CI-generated Firebase placeholders must remain untracked.
 - Rotate any credential that is accidentally exposed.
 
 ## Current safeguards
