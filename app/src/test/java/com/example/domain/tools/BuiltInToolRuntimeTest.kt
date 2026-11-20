@@ -39,6 +39,22 @@ class BuiltInToolRuntimeTest {
     }
 
     @Test
+    fun untrustedPluginKeysCannotEnableShellOrWildcardTools() = runBlocking {
+        val runtime = BuiltInToolRuntime()
+
+        val result = runtime.executeLocalCommand(
+            message = "shell whoami",
+            authenticatedUid = "firebase-user",
+            sessionId = "session-1",
+            enabledPluginKeys = setOf("shell", "filesystem", "http_request", "dynamic_code", "*")
+        )
+
+        val payload = (result as ToolExecutionResult.Completed).payload
+        assertEquals(LocalCommandToolAdapter.NO_MATCH, payload.summary)
+        assertTrue(payload.content.isEmpty())
+    }
+
+    @Test
     fun unrecognizedCommandsFallThroughWithoutRunningAnyTool() = runBlocking {
         val runtime = BuiltInToolRuntime()
 
