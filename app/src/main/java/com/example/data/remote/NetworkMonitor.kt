@@ -1,6 +1,7 @@
 package com.example.data.remote
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -81,6 +82,9 @@ class NetworkMonitor(context: Context) {
 
     fun refresh(): NetworkSnapshot = readSnapshot()
 
+    // Telephony access below is guarded by hasPhoneStatePermission(); the catch also
+    // handles permission revocation between the check and the platform call.
+    @SuppressLint("MissingPermission")
     private fun readSnapshot(capabilitiesOverride: NetworkCapabilities? = null): NetworkSnapshot {
         val caps = capabilitiesOverride ?: connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
         val connected = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
