@@ -9,6 +9,8 @@ import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.example.ui.TtsSpeaker
 import com.example.ui.NexusWorkspaceViewModel
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.example.ui.ZaytharViewModel
 import com.example.domain.UiState
 import com.example.ui.auth.attemptAutoSignIn
@@ -75,6 +77,7 @@ class StartupResilienceTest : FirestoreEmulatorTestBase() {
     @Test
     fun workspaceViewModel_whenAuthSignedOut_doesNotCreatePrivateObservers() = runBlocking {
         auth.signOut()
+        Firebase.auth.signOut()
         val vm = NexusWorkspaceViewModel(
             firestoreRepo = FirestoreRepository(firestore),
             workspaceStore = FirestoreSessionAndBrainStore(firestore),
