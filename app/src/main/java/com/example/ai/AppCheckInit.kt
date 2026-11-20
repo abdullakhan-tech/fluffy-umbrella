@@ -47,6 +47,6 @@ fun configureAppCheck(context: Context, intent: Intent?) {
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(providerFactory)
         Log.d(TAG, "App Check provider installed.")
     } catch (t: Throwable) {
-        Log.e(TAG, "Failed to initialize Firebase App Check", t)
+        Log.e(TAG, "Failed to initialize Firebase App Check (${t.javaClass.simpleName}).")
     }
 }
