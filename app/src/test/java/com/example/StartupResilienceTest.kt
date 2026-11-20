@@ -8,6 +8,7 @@ import com.example.data.local.PreferencesRepository
 import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.example.ui.TtsSpeaker
+import com.example.ui.NexusWorkspaceViewModel
 import com.example.ui.ZaytharViewModel
 import com.example.domain.UiState
 import com.example.ui.auth.attemptAutoSignIn
@@ -69,6 +70,21 @@ class StartupResilienceTest : FirestoreEmulatorTestBase() {
         assertTrue(vm.userProfileState.first { it is UiState.Success } is UiState.Success)
         assertTrue(vm.chatSessionsState.first { it is UiState.Success } is UiState.Success)
         assertTrue(vm.activePluginsFlow.first().isEmpty())
+    }
+
+    @Test
+    fun workspaceViewModel_whenAuthSignedOut_doesNotCreatePrivateObservers() = runBlocking {
+        auth.signOut()
+        val vm = NexusWorkspaceViewModel(
+            firestoreRepo = FirestoreRepository(firestore),
+            workspaceStore = FirestoreSessionAndBrainStore(firestore),
+            currentUserId = "signed_out_workspace"
+        )
+
+        assertTrue(vm.memoryNotesState.first { it is UiState.Success } is UiState.Success)
+        assertTrue(vm.knowledgeFactsState.first { it is UiState.Success } is UiState.Success)
+        assertTrue(vm.pluginsState.first { it is UiState.Success } is UiState.Success)
+        assertTrue(vm.brainRunsState.first { it is UiState.Success } is UiState.Success)
     }
 
     @Test
