@@ -64,6 +64,8 @@ class ZaytharViewModel(
     private val guestStore: GuestWorkspaceStore? = null
 ) : ViewModel() {
 
+    val isSpeaking: StateFlow<Boolean> = ttsSpeaker.isSpeaking
+
     // ViewModel construction must remain safe while the auth screen is active or a token is
     // being restored. Firestore observer APIs intentionally fail fast for unauthenticated or
     // cross-user access, so only construct those observers for the current authenticated owner.
