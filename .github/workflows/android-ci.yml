@@ -103,10 +103,6 @@ jobs:
             --only auth,firestore \
             "NODE_PATH=${NODE_GLOBAL_ROOT} FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 node --test firestore.test.js && FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 gradle :app:testDebugUnitTest --no-daemon"
 
-      - name: Remove temporary Firebase config
-        if: steps.firebase_config.outputs.available == 'false'
-        run: rm -f app/google-services.json
-
       - name: Run Android Lint and assemble Debug & Release APKs
         run: gradle :app:lintDebug :app:assembleDebug :app:assembleRelease --no-daemon
 
@@ -116,6 +112,10 @@ jobs:
           echo "::warning::APK build used a temporary CI-only Firebase config. These APKs are compile/test artifacts only and must not be distributed or used against production Firebase."
           echo "### Firebase configuration" >> "$GITHUB_STEP_SUMMARY"
           echo "The real app/google-services.json is not configured. APKs are CI-only and not suitable for production." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove temporary Firebase config
+        if: always() && steps.firebase_config.outputs.available == 'false'
+        run: rm -f app/google-services.json
 
       - name: Upload Lint & Test Reports
         if: always()
