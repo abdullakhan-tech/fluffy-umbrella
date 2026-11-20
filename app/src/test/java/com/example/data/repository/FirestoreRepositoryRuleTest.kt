@@ -301,6 +301,17 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         Unit
     }
 
+    @Test
+    fun observeSessionMessages_rejectsMalformedClientSessionIds() = runBlocking {
+        val uid = signInTestUser(ALICE_EMAIL)
+        val store = FirestoreSessionAndBrainStore(firestore)
+
+        assertFailsWithType<IllegalArgumentException> {
+            store.observeSessionMessages(uid, "../another-user")
+        }
+        Unit
+    }
+
     private companion object {
         const val ALICE_EMAIL = "alice@test.com"
         const val BOB_EMAIL = "bob@test.com"
