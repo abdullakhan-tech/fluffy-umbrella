@@ -1,6 +1,7 @@
 package com.example.data.remote
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -123,7 +124,7 @@ class NetworkMonitor(context: Context) {
      * The SecurityException fallback also covers permission revocation between the check
      * and the platform call; no phone-state permission is requested automatically.
      */
-    @Suppress("MissingPermission")
+    @SuppressLint("MissingPermission")
     private fun readCellularGeneration(): String {
         val permissionGranted = ContextCompat.checkSelfPermission(
             appContext,
