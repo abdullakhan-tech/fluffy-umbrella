@@ -24,3 +24,16 @@ local.properties
 # Firebase CLI / emulator logs
 *-debug.log
 .firebase/
+
+# Firebase app configuration and local service credentials
+**/google-services.json
+**/GoogleService-Info.plist
+service-account*.json
+*-service-account*.json
+firebase-adminsdk-*.json
+*.pem
+*.p12
+
+# Environment variants (keep only documented templates)
+.env.*
+!.env.example
