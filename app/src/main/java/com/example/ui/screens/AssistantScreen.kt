@@ -66,7 +66,8 @@ fun AssistantScreen(
     activePluginCount: Int,
     messagesState: UiState<List<FirestoreSessionMessage>>,
     chatUiState: UiState<String>,
-    isSpeaking: Boolean,
+    isSpeaking: Boolean = false,
+    onStopSpeaking: () -> Unit = {},
     onComposerChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onClearChat: () -> Unit,
@@ -77,7 +78,9 @@ fun AssistantScreen(
     onDeleteSession: (String) -> Unit,
     onOpenPlugins: () -> Unit,
     onOpenCameraEyes: () -> Unit,
+    onOpenVoiceAudio: () -> Unit = {},
     onToggleWebConnect: (Boolean) -> Unit,
+    onToggleMapsGrounding: (Boolean) -> Unit = {},
     onSelectAgent: (AgentRole) -> Unit,
     onSelectLanguage: (SupportedLanguage) -> Unit,
     onToggleSpeakReplies: (Boolean) -> Unit,
@@ -175,9 +178,6 @@ fun AssistantScreen(
                     modifier = Modifier.weight(0.75f),
                     motionEnabled = prefs.motion3dEnabled,
                     activeAgent = activeAgent,
-                    isBusy = isBusy,
-                    isListening = isListening,
-                    isSpeaking = isSpeaking,
                     onSuggestionClick = { onSend(it) }
                 )
                 AssistantChatCard(
@@ -204,7 +204,11 @@ fun AssistantScreen(
                     onNewSession = { onCreateSession("New Nexus Thread") },
                     onOpenPlugins = onOpenPlugins,
                     onOpenCameraEyes = onOpenCameraEyes,
+                    onOpenVoiceAudio = onOpenVoiceAudio,
                     onToggleWebConnect = onToggleWebConnect,
+                    onToggleMapsGrounding = onToggleMapsGrounding,
+                    isSpeaking = isSpeaking,
+                    onStopSpeaking = onStopSpeaking,
                     onSelectAgent = onSelectAgent,
                     onSelectLanguage = onSelectLanguage,
                     onToggleSpeakReplies = onToggleSpeakReplies,
@@ -237,22 +241,11 @@ fun AssistantScreen(
                             NeuralCoreVisualizer(
                                 size = 58.dp,
                                 motionEnabled = prefs.motion3dEnabled,
-                                coreLabel = activeAgent.shortCode,
-                                activityLevel = when {
-                                    isListening -> 1.15f
-                                    isBusy -> 0.95f
-                                    isSpeaking -> 0.8f
-                                    else -> 0.45f
-                                }
+                                coreLabel = activeAgent.shortCode
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = when {
-                    isListening -> "PERSONAL INTELLIGENCE / LISTENING"
-                    isBusy -> "PERSONAL INTELLIGENCE / THINKING"
-                     isSpeaking -> "PERSONAL INTELLIGENCE / SPEAKING"
-                    else -> "PERSONAL INTELLIGENCE / READY"
-                },
+                                    text = "PERSONAL INTELLIGENCE / READY",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = cyber.cyberGreen
                                 )
@@ -322,7 +315,11 @@ fun AssistantScreen(
                     onNewSession = { onCreateSession("New Nexus Thread") },
                     onOpenPlugins = onOpenPlugins,
                     onOpenCameraEyes = onOpenCameraEyes,
+                    onOpenVoiceAudio = onOpenVoiceAudio,
                     onToggleWebConnect = onToggleWebConnect,
+                    onToggleMapsGrounding = onToggleMapsGrounding,
+                    isSpeaking = isSpeaking,
+                    onStopSpeaking = onStopSpeaking,
                     onSelectAgent = onSelectAgent,
                     onSelectLanguage = onSelectLanguage,
                     onToggleSpeakReplies = onToggleSpeakReplies,
@@ -358,9 +355,6 @@ private fun AssistantOrbCard(
     modifier: Modifier = Modifier,
     motionEnabled: Boolean,
     activeAgent: AgentRole,
-    isBusy: Boolean,
-    isListening: Boolean,
-    isSpeaking: Boolean,
     onSuggestionClick: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
@@ -371,25 +365,14 @@ private fun AssistantOrbCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = when {
-                    isListening -> "PERSONAL INTELLIGENCE / LISTENING"
-                    isBusy -> "PERSONAL INTELLIGENCE / THINKING"
-                     isSpeaking -> "PERSONAL INTELLIGENCE / SPEAKING"
-                    else -> "PERSONAL INTELLIGENCE / READY"
-                },
+                text = "PERSONAL INTELLIGENCE / READY",
                 style = MaterialTheme.typography.labelSmall,
                 color = cyber.cyberGreen
             )
             NeuralCoreVisualizer(
                 size = 170.dp,
                 motionEnabled = motionEnabled,
-                coreLabel = activeAgent.shortCode,
-                activityLevel = when {
-                    isListening -> 1.15f
-                    isBusy -> 0.95f
-                    isSpeaking -> 0.8f
-                    else -> 0.45f
-                }
+                coreLabel = activeAgent.shortCode
             )
             Text(
                 text = buildAnnotatedString {

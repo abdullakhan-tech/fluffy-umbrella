@@ -19,6 +19,15 @@ android {
         versionName = "2.0.0"
     }
 
+    signingConfigs {
+        create("debugConfig") {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -26,6 +35,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("debugConfig")
         }
     }
 
@@ -49,6 +61,10 @@ android {
 tasks.withType<Test> {
     failFast = true
     timeout.set(Duration.ofMinutes(2))
+    systemProperty(
+        "skipFirebaseTests",
+        System.getProperty("skipFirebaseTests") ?: System.getenv("SKIP_FIREBASE_TESTS") ?: "false"
+    )
     testLogging {
         events("passed", "failed", "skipped")
     }
@@ -80,7 +96,7 @@ dependencies {
     implementation(libs.firebase.ai)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
-    implementation(libs.firebase.appcheck.playintegrity)
+    implementation(libs.firebase.appcheck.recaptcha)
     implementation(libs.firebase.appcheck.debug)
 
     implementation(libs.androidx.credentials)

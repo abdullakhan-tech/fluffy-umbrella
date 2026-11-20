@@ -80,6 +80,8 @@ fun EngineHubScreen(
     val samplePrompts = remember {
         listOf(
             "Math Tool" to "calculate (24 * 15) + 42",
+            "Live Voice" to "Start live voice conversation or transcribe audio note",
+            "Maps Grounding" to "Find top coffee shop nearby using Google Maps",
             "Image Art" to "Generate image of a holographic cyber command bridge at night",
             "Kotlin Code" to "Refactor Kotlin StateFlow repository with unit tests and security audit",
             "Brain Audit" to "Synthesize first-principles architecture roadmap and extract knowledge triples"

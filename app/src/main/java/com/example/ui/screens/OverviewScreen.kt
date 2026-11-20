@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.PrecisionManufacturing
@@ -81,7 +82,8 @@ fun OverviewScreen(
 
     val deckModules = listOf(
         CommandDeckModule("engine_hub", "AI Engine Nexus", "Smart Router & live suite runner", Icons.Rounded.PrecisionManufacturing, "deck_engines"),
-        CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, RAG & web", Icons.Rounded.ChatBubbleOutline, "deck_assistant"),
+        CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, Search & Maps", Icons.Rounded.ChatBubbleOutline, "deck_assistant"),
+        CommandDeckModule("voice_audio", "Voice & Audio", "Gemini 3.8 Live & Transcribe", Icons.Rounded.GraphicEq, "deck_voice_audio"),
         CommandDeckModule("brain", "AI Brain", "RAG-grounded neural reasoning", Icons.Rounded.PsychologyAlt, "deck_brain"),
         CommandDeckModule("camera_eyes", "Camera Eyes", "Live multimodal photo vision", Icons.Rounded.CameraAlt, "deck_camera_eyes"),
         CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Rounded.Extension, "deck_plugins"),

@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.fail
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -33,6 +34,14 @@ abstract class FirestoreEmulatorTestBase {
 
     @Before
     open fun setUpFirebase() {
+        val skipFirebaseTests =
+            System.getenv("SKIP_FIREBASE_TESTS")?.equals("true", ignoreCase = true) == true ||
+                System.getProperty("skipFirebaseTests")?.equals("true", ignoreCase = true) == true
+        assumeFalse(
+            "Skipping Firebase-dependent emulator test because SKIP_FIREBASE_TESTS=true",
+            skipFirebaseTests
+        )
+
         val context = ApplicationProvider.getApplicationContext<Context>()
         val resId = context.resources.getIdentifier("firestore_database_id", "string", context.packageName)
         databaseId = if (resId != 0) context.getString(resId) else "demo-database"
@@ -65,7 +74,9 @@ abstract class FirestoreEmulatorTestBase {
 
     @After
     open fun tearDownFirebase() {
-        auth.signOut()
+        if (::auth.isInitialized) {
+            auth.signOut()
+        }
     }
 
     protected suspend fun signInTestUser(email: String): String = withContext(Dispatchers.IO) {

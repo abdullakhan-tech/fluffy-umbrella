@@ -10,6 +10,7 @@ import com.example.data.remote.FirestoreSessionMessage
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Content
+import com.google.firebase.ai.type.PublicPreviewAPI
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
@@ -59,17 +60,41 @@ class AiRepository(
         )
     }
 
+    private val voiceAudioRecorder by lazy { AudioNoteRecorderAndTranscriber { ai } }
+
+    fun createLiveVoiceManager(): LiveVoiceSessionManager = LiveVoiceSessionManager { ai }
+
+    fun startAudioNoteRecording(context: android.content.Context): Result<Unit> =
+        voiceAudioRecorder.startRecording(context)
+
+    suspend fun stopAudioNoteAndTranscribe(languageName: String): AudioTranscriptionResult {
+        val bytes = voiceAudioRecorder.stopAndReadAudioBytes().getOrThrow()
+        return voiceAudioRecorder.transcribeAudio(audioBytes = bytes, languageName = languageName)
+    }
+
+    fun releaseAudioRecorder() = voiceAudioRecorder.release()
+
+    @OptIn(PublicPreviewAPI::class)
+    private fun buildGroundingTools(
+        enableGoogleSearch: Boolean,
+        enableGoogleMaps: Boolean
+    ): List<Tool>? = buildList {
+        if (enableGoogleSearch) add(Tool.googleSearch())
+        if (enableGoogleMaps) add(Tool.googleMaps())
+    }.takeIf { it.isNotEmpty() }
+
     private fun buildModel(
         modelName: String,
         systemPrompt: String,
         temperature: Float,
-        enableGoogleSearch: Boolean = false
+        enableGoogleSearch: Boolean = false,
+        enableGoogleMaps: Boolean = false
     ) = ai.generativeModel(
         modelName = modelName,
         generationConfig = generationConfig {
             this.temperature = temperature
         },
-        tools = if (enableGoogleSearch) listOf(Tool.googleSearch()) else null,
+        tools = buildGroundingTools(enableGoogleSearch, enableGoogleMaps),
         systemInstruction = content { text(systemPrompt) }
     )
 
@@ -95,7 +120,8 @@ class AiRepository(
         prefs: ZaytharPreferences,
         recentHistory: List<FirestoreSessionMessage>,
         activePlugins: List<FirestorePluginConfig> = emptyList(),
-        webConnectEnabled: Boolean = true
+        webConnectEnabled: Boolean = true,
+        mapsGroundingEnabled: Boolean = prefs.mapsGroundingEnabled
     ): Flow<ChatStreamEvent> = flow {
         val enabledKeys = if (activePlugins.isEmpty()) {
             setOf(
@@ -165,6 +191,12 @@ class AiRepository(
                         "use Google Search so your response reflects verified, up-to-date facts."
                 )
             }
+            if (mapsGroundingEnabled) {
+                append(
+                    "\nGoogle Maps grounding is ACTIVE. When answering location, venue, dining, directions, " +
+                        "or local place queries, ground recommendations using Google Maps data and place details."
+                )
+            }
             if (pluginDirectives.isNotBlank()) {
                 append("\nActive Plugin Directives:\n$pluginDirectives")
             }
@@ -196,14 +228,23 @@ class AiRepository(
             ProviderRoute.FLASH -> listOf("gemini-3.8-flash")
             ProviderRoute.ARGON -> listOf("gemini-4-argon", "gemini-3.8-flash")
             ProviderRoute.LITE -> listOf("gemini-3.5-flash-lite")
+            ProviderRoute.HYDROGEN -> listOf("gemini-4-hydrogen", "gemini-3.8-flash")
+            ProviderRoute.CARBON -> listOf("gemini-4-carbon", "gemini-4-argon", "gemini-3.8-flash")
+            ProviderRoute.NEON -> listOf("gemini-4-neon", "gemini-3.8-flash")
+            ProviderRoute.FLASH_LITE_31 -> listOf("gemini-3.1-flash-lite", "gemini-3.5-flash-lite")
         }
 
         val temperature = (0.35f + (prefs.creativityBias / 100f) * 0.65f).coerceIn(0.2f, 1.0f)
         var lastError: Exception? = null
 
         for (modelName in candidateModels) {
-            val useSearchSteps = if (webEnabled) listOf(true, false) else listOf(false)
-            for (useGoogleSearch in useSearchSteps) {
+            val groundingAttempts = when {
+                webEnabled && mapsGroundingEnabled -> listOf(true to true, true to false, false to false)
+                webEnabled -> listOf(true to false, false to false)
+                mapsGroundingEnabled -> listOf(false to true, false to false)
+                else -> listOf(false to false)
+            }
+            for ((useGoogleSearch, useGoogleMaps) in groundingAttempts) {
                 val accumulated = StringBuilder()
                 val collectedSources = linkedMapOf<String, GroundedWebSource>()
                 explicitSnippets.forEach { snippet ->
@@ -230,7 +271,8 @@ class AiRepository(
                             modelName = modelName,
                             systemPrompt = effectiveSystemPrompt,
                             temperature = temperature,
-                            enableGoogleSearch = useGoogleSearch
+                            enableGoogleSearch = useGoogleSearch,
+                            enableGoogleMaps = useGoogleMaps
                         )
                         val chat = model.startChat(history = historyContents)
                         chat.sendMessageStream(message).collect { chunk ->
@@ -252,6 +294,21 @@ class AiRepository(
                                         )
                                     }
                                 }
+                                val maps = gChunk.maps
+                                val mapPlaceId = maps?.placeId?.trim().orEmpty()
+                                val rawMapUri = maps?.uri?.trim().orEmpty()
+                                val mapUri = when {
+                                    rawMapUri.startsWith("https://") || rawMapUri.startsWith("http://") -> rawMapUri
+                                    mapPlaceId.isNotBlank() -> "https://www.google.com/maps/search/?api=1&query_place_id=$mapPlaceId"
+                                    else -> ""
+                                }
+                                if (mapUri.isNotBlank() && (collectedSources.size < 10 || collectedSources.containsKey(mapUri))) {
+                                    val mapTitle = maps?.title?.trim().orEmpty().ifBlank { "Google Maps Place" }
+                                    collectedSources[mapUri] = GroundedWebSource(
+                                        title = "Maps: $mapTitle",
+                                        url = mapUri
+                                    )
+                                }
                             }
                             val rendered = metadata?.searchEntryPoint?.renderedContent?.trim().orEmpty()
                             if (rendered.isNotBlank()) {
@@ -263,6 +320,8 @@ class AiRepository(
                             }
                             if (chunkText.isNotEmpty() || collectedQueries.isNotEmpty() || collectedSources.isNotEmpty()) {
                                 val liveLabel = when {
+                                    useGoogleMaps && useGoogleSearch -> "$modelName+search+maps"
+                                    useGoogleMaps -> "$modelName+maps"
                                     useGoogleSearch -> "$modelName+search"
                                     collectedSources.isNotEmpty() -> "$modelName+web"
                                     else -> modelName
@@ -284,6 +343,8 @@ class AiRepository(
                     }
                     val finalSources = collectedSources.values.toList().take(10)
                     val finalLabel = when {
+                        useGoogleMaps && useGoogleSearch -> "$modelName+search+maps"
+                        useGoogleMaps -> "$modelName+maps"
                         useGoogleSearch && (collectedQueries.isNotEmpty() || finalSources.isNotEmpty() || searchEntryPointHtml.isNotBlank()) ->
                             "$modelName+search"
                         finalSources.isNotEmpty() -> "$modelName+web"
