@@ -66,7 +66,7 @@ fun AssistantScreen(
     activePluginCount: Int,
     messagesState: UiState<List<FirestoreSessionMessage>>,
     chatUiState: UiState<String>,
-    isSpeaking: Boolean,
+    isSpeaking: Boolean = false,
     onComposerChange: (String) -> Unit,
     onSend: (String) -> Unit,
     onClearChat: () -> Unit,
