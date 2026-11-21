@@ -350,7 +350,7 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
             path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+                .limit(boundedFirestoreQueryLimit(limit, maximum = 80L))
                 .get()
                 .await()
                 .toObjectsSafe<FirestoreSessionMessage>()
