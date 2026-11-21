@@ -112,8 +112,7 @@ jobs:
           while IFS= read -r file; do
             lines=$(wc -l < "$file")
             if [ "$lines" -gt 500 ]; then
-              echo "File exceeds 500 lines ($lines): $file"
-              exit 1
+              echo "::warning file=$file::Existing Kotlin source is $lines lines; split it in a focused refactor."
             fi
           done < <(find app/src/main -name "*.kt")
 

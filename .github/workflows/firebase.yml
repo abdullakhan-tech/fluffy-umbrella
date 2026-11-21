@@ -1,0 +1,80 @@
+name: Firebase
+
+on:
+  pull_request:
+    paths:
+      - "firestore.rules"
+      - "firestore.test.js"
+      - "firebase.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/firebase.yml"
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - "firestore.test.js"
+      - "firebase.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/firebase.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firestore-rules-tests:
+    name: Firestore rules emulator tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Firestore security rules tests
+        run: npx --yes firebase-tools emulators:exec --only firestore --project demo-zaythar "npm run test:firestore"
+
+  deploy-firestore-rules:
+    name: Deploy Firestore rules (manual)
+    if: github.event_name == 'workflow_dispatch'
+    needs: firestore-rules-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required Firebase secrets
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          test -n "$FIREBASE_PROJECT_ID" || { echo "::error::Add the FIREBASE_PROJECT_ID repository secret."; exit 1; }
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || { echo "::error::Add the FIREBASE_SERVICE_ACCOUNT repository secret (service-account JSON)."; exit 1; }
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Deploy Firestore rules
+        run: npx --yes firebase-tools deploy --only firestore:rules --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
