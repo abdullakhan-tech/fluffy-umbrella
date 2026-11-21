@@ -263,17 +263,10 @@ class ZaytharViewModel(
         }
     }
 
-    fun updateAccent(hex: Long) {
-        viewModelScope.launch {
-            prefsRepo.update { it.copy(accentHex = hex) }
-        }
-    }
+    fun updateAccent(hex: Long) = viewModelScope.launch { prefsRepo.update { it.copy(accentHex = hex) } }
 
-    fun updatePreferences(transform: (ZaytharPreferences) -> ZaytharPreferences) {
-        viewModelScope.launch {
-            prefsRepo.update(transform)
-        }
-    }
+    fun updatePreferences(transform: (ZaytharPreferences) -> ZaytharPreferences) =
+        viewModelScope.launch { prefsRepo.update(transform) }
 
     fun selectProviderRoute(route: ProviderRoute) {
         viewModelScope.launch {
@@ -282,11 +275,8 @@ class ZaytharViewModel(
         }
     }
 
-    fun selectLanguage(lang: SupportedLanguage) {
-        viewModelScope.launch {
-            prefsRepo.update { it.copy(languageCode = lang.code) }
-        }
-    }
+    fun selectLanguage(lang: SupportedLanguage) =
+        viewModelScope.launch { prefsRepo.update { it.copy(languageCode = lang.code) } }
 
     fun toggleSpeakReplies(enabled: Boolean) {
         viewModelScope.launch {
@@ -295,10 +285,19 @@ class ZaytharViewModel(
         }
     }
 
+    fun stopSpeaking() = ttsSpeaker.stop()
+
     fun toggleWebConnect(enabled: Boolean) {
         viewModelScope.launch {
             prefsRepo.update { it.copy(webConnectEnabled = enabled) }
             emitToast(if (enabled) "Google Search Grounding CONNECTED." else "Offline Gemini mode active.")
+        }
+    }
+
+    fun toggleMapsGrounding(enabled: Boolean) {
+        viewModelScope.launch {
+            prefsRepo.update { it.copy(mapsGroundingEnabled = enabled) }
+            emitToast(if (enabled) "Google Maps Grounding ACTIVE." else "Google Maps Grounding OFF.")
         }
     }
 
@@ -321,19 +320,15 @@ class ZaytharViewModel(
 
     // --- MULTI-SESSION CHAT HISTORY ---
 
-    fun loadSavedChatSessions() {
-        viewModelScope.launch { sessionController.loadSavedSessions() }
-    }
+    fun loadSavedChatSessions() { viewModelScope.launch { sessionController.loadSavedSessions() } }
 
     fun saveCurrentChatSession(titleOverride: String? = null) {
         viewModelScope.launch {
             val sessionId = _activeSessionId.value.ifBlank { null }
             val sessions = (chatSessionsState.value as? UiState.Success)?.data.orEmpty()
             val title = titleOverride?.trim()?.takeIf { it.isNotEmpty() }
-                ?: sessions.find { it.id == sessionId }?.title
-                ?: "Primary Nexus"
-            val messages = ((sessionMessagesState.value as? UiState.Success)?.data ?: emptyList())
-                .map { it.toChatMessage() }
+                ?: sessions.find { it.id == sessionId }?.title ?: "Primary Nexus"
+            val messages = ((sessionMessagesState.value as? UiState.Success)?.data ?: emptyList()).map { it.toChatMessage() }
             sessionController.saveSession(sessionId, title, _activeAgent.value, messages)
         }
     }
@@ -343,9 +338,7 @@ class ZaytharViewModel(
         agent: AgentRole = _activeAgent.value,
         messages: List<ChatMessage> = emptyList(),
         sessionId: String? = null
-    ) {
-        viewModelScope.launch { sessionController.saveSession(sessionId, title, agent, messages) }
-    }
+    ) { viewModelScope.launch { sessionController.saveSession(sessionId, title, agent, messages) } }
 
     fun selectChatSession(sessionId: String) {
         val sessions = (chatSessionsState.value as? UiState.Success)?.data.orEmpty()
@@ -430,7 +423,8 @@ class ZaytharViewModel(
                     prefs = currentPrefs,
                     recentHistory = historySnapshot,
                     activePlugins = activePluginsFlow.value,
-                    webConnectEnabled = currentPrefs.webConnectEnabled
+                    webConnectEnabled = currentPrefs.webConnectEnabled,
+                    mapsGroundingEnabled = currentPrefs.mapsGroundingEnabled
                 ).collect { event ->
                     when (event) {
                         is ChatStreamEvent.Chunk -> _chatUiState.value = UiState.Streaming(
@@ -506,17 +500,11 @@ class ZaytharViewModel(
             guestStore: GuestWorkspaceStore? = null
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val databaseId = application.getString(R.string.firestore_database_id)
-                val db = FirebaseFirestore.getInstance(databaseId)
+                val db = FirebaseFirestore.getInstance(application.getString(R.string.firestore_database_id))
                 val firebaseReady = runCatching { FirebaseApp.getApps(application).isNotEmpty() }.getOrDefault(false)
                 ZaytharViewModel(
-                    firestoreRepo = FirestoreRepository(db),
-                    workspaceStore = FirestoreSessionAndBrainStore(db),
-                    prefsRepo = prefsRepo,
-                    ttsSpeaker = AndroidTtsSpeaker(application),
-                    currentUserId = currentUserId,
-                    firebaseInitialized = firebaseReady,
-                    guestStore = guestStore
+                    FirestoreRepository(db), FirestoreSessionAndBrainStore(db), prefsRepo,
+                    AndroidTtsSpeaker(application), currentUserId, firebaseReady, guestStore
                 )
             }
         }

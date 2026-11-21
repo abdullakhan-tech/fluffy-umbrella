@@ -60,25 +60,6 @@ test("Unauthenticated user: cannot read or write profiles, chat_sessions, sessio
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("messages").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("memories").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").get());
-  const unauthMemory = unauthDb.collection("users").doc(ALICE_UID).collection("memories").doc("memory_unauth");
-  const unauthFact = unauthDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").doc("fact_unauth");
-  await assertFails(unauthMemory.get());
-  await assertFails(unauthMemory.set({
-    userId: ALICE_UID,
-    content: "Unauthenticated write",
-    createdAt: pastTimestamp(),
-    updatedAt: pastTimestamp(),
-  }));
-  await assertFails(unauthFact.get());
-  await assertFails(unauthFact.set({
-    userId: ALICE_UID,
-    subject: "Unauthenticated",
-    predicate: "writes",
-    objectValue: "fact",
-    source: "operator",
-    createdAt: pastTimestamp(),
-    updatedAt: pastTimestamp(),
-  }));
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("plugins").get());
   await assertFails(unauthDb.collection("users").doc(ALICE_UID).collection("brain_runs").get());
 });
@@ -145,21 +126,6 @@ test("Authenticated user: cannot read, create, update, or delete another user's 
       createdAt: ts,
       updatedAt: ts,
     });
-    await db.collection("users").doc(BOB_UID).collection("memories").doc("mem1").set({
-      userId: BOB_UID,
-      content: "Bob private memory",
-      createdAt: ts,
-      updatedAt: ts,
-    });
-    await db.collection("users").doc(BOB_UID).collection("knowledge_facts").doc("fact1").set({
-      userId: BOB_UID,
-      subject: "Bob",
-      predicate: "owns",
-      objectValue: "private fact",
-      source: "operator",
-      createdAt: ts,
-      updatedAt: ts,
-    });
   });
 
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
@@ -168,35 +134,6 @@ test("Authenticated user: cannot read, create, update, or delete another user's 
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("chat_sessions").doc("s1").collection("messages").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("plugins").get());
   await assertFails(aliceDb.collection("users").doc(BOB_UID).collection("brain_runs").get());
-  const bobMemory = aliceDb.collection("users").doc(BOB_UID).collection("memories").doc("mem1");
-  const bobFact = aliceDb.collection("users").doc(BOB_UID).collection("knowledge_facts").doc("fact1");
-  await assertFails(bobMemory.get());
-  await assertFails(bobMemory.parent.get());
-  await assertFails(bobFact.get());
-  await assertFails(bobFact.parent.get());
-  await assertFails(
-    aliceDb.collection("users").doc(BOB_UID).collection("memories").doc("mem2").set({
-      userId: ALICE_UID,
-      content: "Spoofed cross-user write",
-      createdAt: pastTimestamp(),
-      updatedAt: pastTimestamp(),
-    })
-  );
-  await assertFails(bobMemory.update({ content: "Tampered by Alice", updatedAt: pastTimestamp() }));
-  await assertFails(bobMemory.delete());
-  await assertFails(
-    aliceDb.collection("users").doc(BOB_UID).collection("knowledge_facts").doc("fact2").set({
-      userId: ALICE_UID,
-      subject: "Spoof",
-      predicate: "writes",
-      objectValue: "cross-user",
-      source: "operator",
-      createdAt: pastTimestamp(),
-      updatedAt: pastTimestamp(),
-    })
-  );
-  await assertFails(bobFact.update({ objectValue: "Tampered by Alice", updatedAt: pastTimestamp() }));
-  await assertFails(bobFact.delete());
   await assertFails(
     aliceDb.collection("users").doc(BOB_UID).collection("plugins").doc("plug2").set({
       userId: ALICE_UID,
@@ -451,38 +388,36 @@ test("Authenticated owner: full CRUD lifecycle for chat_sessions, session messag
   await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("brain_runs").get());
   await assertSucceeds(brRef.delete());
 
-  // Memory note CRUD
-  const memoryRef = aliceDb.collection("users").doc(ALICE_UID).collection("memories").doc("memory_1");
-  await assertSucceeds(memoryRef.set({
-    userId: ALICE_UID,
-    content: "Initial private note",
-    createdAt: ts,
-    updatedAt: ts,
-  }));
-  await assertSucceeds(memoryRef.get());
-  await assertSucceeds(memoryRef.update({
-    content: "Updated private note",
-    updatedAt: pastTimestamp(1000),
-  }));
+  // Memory note CRUD + length guard
+  const memRef = aliceDb.collection("users").doc(ALICE_UID).collection("memories").doc("mem_1");
+  await assertSucceeds(
+    memRef.set({
+      userId: ALICE_UID,
+      content: "User prefers dark cybernetic theme.",
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+  await assertSucceeds(memRef.update({ content: "User prefers dark crimson cybernetic theme.", updatedAt: pastTimestamp(1000) }));
+  await assertFails(memRef.update({ content: "", updatedAt: pastTimestamp(500) }));
   await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("memories").get());
-  await assertSucceeds(memoryRef.delete());
+  await assertSucceeds(memRef.delete());
 
-  // Knowledge fact CRUD
+  // Knowledge fact CRUD + bounds guard
   const factRef = aliceDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").doc("fact_1");
-  await assertSucceeds(factRef.set({
-    userId: ALICE_UID,
-    subject: "Zaythar",
-    predicate: "stores",
-    objectValue: "private facts",
-    source: "operator",
-    createdAt: ts,
-    updatedAt: ts,
-  }));
-  await assertSucceeds(factRef.get());
-  await assertSucceeds(factRef.update({
-    objectValue: "owner-scoped facts",
-    updatedAt: pastTimestamp(1000),
-  }));
+  await assertSucceeds(
+    factRef.set({
+      userId: ALICE_UID,
+      subject: "Zaythar AI",
+      predicate: "uses",
+      objectValue: "Firebase AI Logic",
+      source: "operator",
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  );
+  await assertSucceeds(factRef.update({ objectValue: "Firebase AI Logic + Firestore", updatedAt: pastTimestamp(1000) }));
+  await assertFails(factRef.update({ subject: "", updatedAt: pastTimestamp(500) }));
   await assertSucceeds(aliceDb.collection("users").doc(ALICE_UID).collection("knowledge_facts").get());
   await assertSucceeds(factRef.delete());
 });

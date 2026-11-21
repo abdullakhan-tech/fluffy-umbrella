@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,7 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.data.remote.FirestorePluginConfig
-import com.example.domain.tools.ToolDescriptor
+import com.example.domain.LocalToolRouter
 import com.example.domain.UiState
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
@@ -48,27 +47,21 @@ import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
 import com.example.ui.components.ZaytharIcons
 import com.example.ui.theme.LocalCyberColors
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
 
 @Composable
 fun PluginHubScreen(
     pluginsState: UiState<List<FirestorePluginConfig>>,
-    runtimeTools: List<ToolDescriptor>,
-    onRunTool: suspend (String) -> String,
     onTogglePlugin: (String, Boolean) -> Unit,
     onAddCustomPlugin: (String, String, String, String) -> Unit,
     onDeletePlugin: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
-    val scope = rememberCoroutineScope()
     val plugins = (pluginsState as? UiState.Success)?.data ?: emptyList()
     val enabledCount = plugins.count { it.enabled }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var sandboxInput by remember { mutableStateOf("") }
     var sandboxOutput by remember { mutableStateOf("") }
-    var sandboxRunning by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -111,47 +104,6 @@ fun PluginHubScreen(
             }
         }
 
-        item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(title = "SAFE TOOL RUNTIME", badge = "ALLOWLISTED")
-                Text(
-                    text = "Only first-party Kotlin adapters registered by the app can execute. Local tools are read-only, session-context checked, argument validated, and time limited. Custom plugins remain declarative instructions, not executable code.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                runtimeTools.forEach { tool ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(tool.displayName, style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                tool.riskLevel.name.replace('_', ' '),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = cyber.cyberGreen
-                            )
-                        }
-                        Text(
-                            tool.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                if (runtimeTools.isEmpty()) {
-                    Text("No first-party tools are registered.", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-
         // Local Plugin Sandbox Tester
         item {
             CyberCard(modifier = Modifier.fillMaxWidth()) {
@@ -168,21 +120,14 @@ fun PluginHubScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 CyberSecondaryButton(
-                    text = if (sandboxRunning) "RUNNING SAFE TOOL..." else "RUN AGAINST ENABLED PLUGINS",
+                    text = "RUN AGAINST ENABLED PLUGINS",
                     onClick = {
-                        if (!sandboxRunning) {
-                            sandboxRunning = true
-                            scope.launch {
-                                try {
-                                    sandboxOutput = onRunTool(sandboxInput)
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (error: Exception) {
-                                    sandboxOutput = "Tool could not complete safely. Check the command and try again."
-                                } finally {
-                                    sandboxRunning = false
-                                }
-                            }
+                        val enabledKeys = plugins.filter { it.enabled }.map { it.pluginKey }.toSet()
+                        val res = LocalToolRouter.routeTool(sandboxInput, enabledKeys)
+                        sandboxOutput = if (res != null) {
+                            "[${res.tool.uppercase()}]\n${res.result}"
+                        } else {
+                            "No local tool matched (or required plugin is toggled OFF)."
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

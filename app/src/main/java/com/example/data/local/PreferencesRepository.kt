@@ -49,6 +49,7 @@ data class ZaytharPreferences(
     val languageCode: String = "en-US",
     val speakReplies: Boolean = false,
     val webConnectEnabled: Boolean = true,
+    val mapsGroundingEnabled: Boolean = false,
     val operatorName: String = "OPERATOR 01",
     val lastActiveSessionUid: String = "",
     val lastActiveSessionId: String = ""
@@ -79,6 +80,7 @@ class PreferencesRepository(private val context: Context) {
         val LANGUAGE_CODE = stringPreferencesKey("language_code")
         val SPEAK_REPLIES = booleanPreferencesKey("speak_replies")
         val WEB_CONNECT = booleanPreferencesKey("web_connect")
+        val MAPS_GROUNDING = booleanPreferencesKey("maps_grounding")
         val OPERATOR_NAME = stringPreferencesKey("operator_name")
         val LAST_ACTIVE_SESSION_UID = stringPreferencesKey("last_active_session_uid")
         val LAST_ACTIVE_SESSION_ID = stringPreferencesKey("last_active_session_id")
@@ -114,6 +116,7 @@ class PreferencesRepository(private val context: Context) {
             languageCode = prefs[Keys.LANGUAGE_CODE] ?: "en-US",
             speakReplies = prefs[Keys.SPEAK_REPLIES] ?: false,
             webConnectEnabled = prefs[Keys.WEB_CONNECT] ?: true,
+            mapsGroundingEnabled = prefs[Keys.MAPS_GROUNDING] ?: false,
             operatorName = prefs[Keys.OPERATOR_NAME] ?: "OPERATOR 01",
             lastActiveSessionUid = prefs[Keys.LAST_ACTIVE_SESSION_UID] ?: "",
             lastActiveSessionId = prefs[Keys.LAST_ACTIVE_SESSION_ID] ?: ""
@@ -168,6 +171,7 @@ class PreferencesRepository(private val context: Context) {
                 prefs[Keys.LANGUAGE_CODE] = next.languageCode
                 prefs[Keys.SPEAK_REPLIES] = next.speakReplies
                 prefs[Keys.WEB_CONNECT] = next.webConnectEnabled
+                prefs[Keys.MAPS_GROUNDING] = next.mapsGroundingEnabled
                 prefs[Keys.OPERATOR_NAME] = next.operatorName
                 prefs[Keys.LAST_ACTIVE_SESSION_UID] = next.lastActiveSessionUid
                 prefs[Keys.LAST_ACTIVE_SESSION_ID] = next.lastActiveSessionId

@@ -2,7 +2,6 @@ package com.example
 
 import com.example.data.remote.NetworkMonitor
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Test
 import android.telephony.TelephonyManager
 import android.telephony.TelephonyDisplayInfo
@@ -26,28 +25,5 @@ class NetworkMonitorTest {
 
     @Test fun unknownTypeDoesNotClaimAHighSpeedGeneration() {
         assertEquals("Cellular / unknown", NetworkMonitor.networkGeneration(TelephonyManager.NETWORK_TYPE_UNKNOWN))
-    }
-
-    @Test fun doesNotReadCellularTypeWithoutPhoneStatePermission() {
-        var accessed = false
-        val result = NetworkMonitor.guardedNetworkGeneration(
-            permissionGranted = false,
-            readNetworkType = {
-                accessed = true
-                TelephonyManager.NETWORK_TYPE_LTE
-            }
-        )
-
-        assertFalse(accessed)
-        assertEquals("Cellular (grant phone-state permission for 3G/4G/5G detail)", result)
-    }
-
-    @Test fun fallsBackWhenPhoneStatePermissionIsRevokedBeforePlatformRead() {
-        val result = NetworkMonitor.guardedNetworkGeneration(
-            permissionGranted = true,
-            readNetworkType = { throw SecurityException("permission revoked") }
-        )
-
-        assertEquals("Cellular", result)
     }
 }

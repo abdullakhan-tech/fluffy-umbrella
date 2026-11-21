@@ -5,6 +5,7 @@ import com.example.data.remote.FirestoreRepository
 import com.example.data.remote.FirestoreSessionAndBrainStore
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -183,11 +184,9 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val noteId = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.addMemoryNote("Persistent memory item").getOrThrow()
         }
-        assertTrue(
-            withTimeout(DEFAULT_TIMEOUT_MS) {
-                repository.updateMemoryNote(noteId, "Updated private memory item")
-            }.isSuccess
-        )
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.updateMemoryNote(noteId, "Updated private memory item")
+        }.isSuccess)
         val notes = withTimeout(FLOW_TIMEOUT_MS) {
             repository.observeMemoryNotes(uid).first { list ->
                 list.any { it.id == noteId && it.content == "Updated private memory item" }
@@ -198,11 +197,9 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val factId = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.addKnowledgeFact("Zaythar AI", "uses", "Firestore").getOrThrow()
         }
-        assertTrue(
-            withTimeout(DEFAULT_TIMEOUT_MS) {
-                repository.updateKnowledgeFact(factId, "Zaythar AI", "secures", "per-user memory")
-            }.isSuccess
-        )
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.updateKnowledgeFact(factId, "Zaythar AI", "secures", "per-user memory")
+        }.isSuccess)
         val facts = withTimeout(FLOW_TIMEOUT_MS) {
             repository.observeKnowledgeFacts(uid).first { list ->
                 list.any { it.id == factId && it.predicate == "secures" }
@@ -218,37 +215,18 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     fun memoryAndKnowledgeWrites_rejectBlankOversizedAndInvalidIdentifiers() = runBlocking {
         signInTestUser(ALICE_EMAIL)
         val repository = FirestoreRepository(firestore)
-
         assertTrue(repository.addMemoryNote("   ").isFailure)
         assertTrue(repository.addMemoryNote("x".repeat(2001)).isFailure)
         assertTrue(repository.addKnowledgeFact("", "uses", "Firestore").isFailure)
-        assertTrue(
-            repository.addKnowledgeFact(
-                "Zaythar AI",
-                "uses",
-                "Firestore",
-                source = "s".repeat(41)
-            ).isFailure
-        )
-
+        assertTrue(repository.addKnowledgeFact("Zaythar AI", "uses", "Firestore", source = "s".repeat(41)).isFailure)
         val noteId = repository.addMemoryNote("Valid synthetic note").getOrThrow()
         assertTrue(repository.updateMemoryNote(noteId, "   ").isFailure)
         assertTrue(repository.updateMemoryNote("../another-user", "Rejected").isFailure)
         assertTrue(repository.deleteMemoryNote("../another-user").isFailure)
-
         val factId = repository.addKnowledgeFact("Zaythar AI", "stores", "synthetic facts").getOrThrow()
         assertTrue(repository.updateKnowledgeFact(factId, " ", "stores", "synthetic facts").isFailure)
-        assertTrue(
-            repository.updateKnowledgeFact(
-                factId,
-                "Zaythar AI",
-                "stores",
-                "synthetic facts",
-                source = "s".repeat(41)
-            ).isFailure
-        )
+        assertTrue(repository.updateKnowledgeFact(factId, "Zaythar AI", "stores", "synthetic facts", source = "s".repeat(41)).isFailure)
         assertTrue(repository.deleteKnowledgeFact("../another-user").isFailure)
-
         assertTrue(repository.deleteMemoryNote(noteId).isSuccess)
         assertTrue(repository.deleteKnowledgeFact(factId).isSuccess)
     }
@@ -262,13 +240,9 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
             aliceRepo.addMemoryNote("Alice private note").getOrThrow()
             aliceStore.createChatSession("Alice private session", "general").getOrThrow()
         }
-
         signInTestUser(BOB_EMAIL)
         val bobRepo = FirestoreRepository(firestore)
         val bobStore = FirestoreSessionAndBrainStore(firestore)
-
-        // Client-side guards reject a mismatched requested UID before creating a listener.
-        // Firestore Security Rules remain the authoritative server-side boundary.
         assertFailsWithType<SecurityException> { bobRepo.observeUserProfile(aliceUid) }
         assertFailsWithType<SecurityException> { bobRepo.observeChatMessages(aliceUid) }
         assertFailsWithType<SecurityException> { bobRepo.observeMemoryNotes(aliceUid) }
@@ -277,7 +251,6 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         assertFailsWithType<SecurityException> { bobStore.observeSessionMessages(aliceUid, "alice-session") }
         assertFailsWithType<SecurityException> { bobStore.observePlugins(aliceUid) }
         assertFailsWithType<SecurityException> { bobStore.observeBrainRuns(aliceUid) }
-        // JUnit 4 requires every @Test method to return Unit/void; the assertion helper returns T.
         Unit
     }
 
@@ -288,7 +261,6 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         Firebase.auth.signOut()
         val repository = FirestoreRepository(firestore)
         val store = FirestoreSessionAndBrainStore(firestore)
-
         assertFailsWithType<IllegalStateException> { repository.observeUserProfile(aliceUid) }
         assertFailsWithType<IllegalStateException> { repository.observeChatMessages(aliceUid) }
         assertFailsWithType<IllegalStateException> { repository.observeMemoryNotes(aliceUid) }
@@ -297,7 +269,6 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         assertFailsWithType<IllegalStateException> { store.observeSessionMessages(aliceUid, "session") }
         assertFailsWithType<IllegalStateException> { store.observePlugins(aliceUid) }
         assertFailsWithType<IllegalStateException> { store.observeBrainRuns(aliceUid) }
-        // Keep the JUnit test method's JVM return type void rather than the helper's exception type.
         Unit
     }
 
@@ -305,7 +276,6 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
     fun observeSessionMessages_rejectsMalformedClientSessionIds() = runBlocking {
         val uid = signInTestUser(ALICE_EMAIL)
         val store = FirestoreSessionAndBrainStore(firestore)
-
         assertFailsWithType<IllegalArgumentException> {
             store.observeSessionMessages(uid, "../another-user")
         }

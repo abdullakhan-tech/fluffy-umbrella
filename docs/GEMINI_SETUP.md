@@ -13,12 +13,6 @@ For Firebase AI Logic using the Gemini Developer API, current Firebase documenta
 
 This is safer than embedding a Gemini key in an Android APK: APK contents can be inspected and extracted.
 
-## Model routing
-
-As of 17 November 2026, the app's default Hybrid route uses the Firebase AI Logic-supported `gemini-4-hydrogen` model first, then falls back in order to `gemini-3.8-flash` and `gemini-3.5-flash-lite`. The explicit Flash and Flash-Lite routes stay pinned to their corresponding single model. The same selected primary model is used by the Neural Brain and Camera Eyes paths; chat and specialist-agent runs use the bounded fallback list.
-
-Model availability can vary by Firebase AI provider, project configuration, SDK release, and model lifecycle. Re-check the [official Firebase AI Logic supported-model list](https://firebase.google.com/docs/ai-logic/models) before release. The offline unit tests validate routing and fallback order; they do not claim that a user's Firebase project has enabled live inference. Fallback is bounded to the listed candidates for each request; there is no unbounded retry loop.
-
 ## Enable Gemini
 
 1. Open the Firebase console and select the Firebase project for this app.

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Person
@@ -42,6 +43,7 @@ import com.example.ui.screens.PromptNexusScreen
 import com.example.ui.screens.SecurityScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StudioScreen
+import com.example.ui.screens.VoiceAndAudioScreen
 
 object ZaytharRoutes {
     const val OVERVIEW = "overview"
@@ -60,12 +62,14 @@ object ZaytharRoutes {
     const val KNOWLEDGE = "knowledge"
     const val PROFILE = "profile"
     const val SECURITY = "security"
+    const val VOICE_AUDIO = "voice_audio"
 }
 
 internal val allZaytharDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.OVERVIEW, "Overview", "COMMAND", Icons.Rounded.Dashboard, "SYSTEM", "OVERVIEW"),
     ZaytharNavDestination(ZaytharRoutes.ENGINES, "AI Engine Hub", "COMMAND", Icons.Rounded.PrecisionManufacturing, "AI ENGINE", "NEXUS"),
     ZaytharNavDestination(ZaytharRoutes.ASSISTANT, "AI Assistant", "COMMAND", Icons.Rounded.ChatBubble, "AI", "ASSISTANT"),
+    ZaytharNavDestination(ZaytharRoutes.VOICE_AUDIO, "Voice & Audio", "COMMAND", Icons.Rounded.GraphicEq, "VOICE &", "AUDIO"),
     ZaytharNavDestination(ZaytharRoutes.BRAIN, "AI Brain", "COMMAND", Icons.Rounded.PsychologyAlt, "NEURAL", "BRAIN"),
     ZaytharNavDestination(ZaytharRoutes.PERSONA, "Persona Builder", "COMMAND", Icons.Rounded.Psychology, "PERSONA", "BUILDER"),
     ZaytharNavDestination(ZaytharRoutes.SETTINGS, "AI Settings", "COMMAND", Icons.Rounded.Settings, "AI CORE", "SETTINGS"),
@@ -124,6 +128,12 @@ internal fun ZaytharNavHost(
     val studioImageState by workspaceViewModel.studioImageState.collectAsStateWithLifecycle()
     val engineDiagnosticsState by workspaceViewModel.engineDiagnosticsState.collectAsStateWithLifecycle()
     val agentRunState by workspaceViewModel.agentRunState.collectAsStateWithLifecycle()
+    val liveVoiceStatus by workspaceViewModel.voiceAudio.liveVoiceStatus.collectAsStateWithLifecycle()
+    val liveTranscripts by workspaceViewModel.voiceAudio.liveTranscripts.collectAsStateWithLifecycle()
+    val liveVoiceError by workspaceViewModel.voiceAudio.liveVoiceError.collectAsStateWithLifecycle()
+    val isRecordingAudio by workspaceViewModel.voiceAudio.isRecordingAudio.collectAsStateWithLifecycle()
+    val recordingSeconds by workspaceViewModel.voiceAudio.recordingSeconds.collectAsStateWithLifecycle()
+    val transcribeState by workspaceViewModel.voiceAudio.transcribeState.collectAsStateWithLifecycle()
 
     val syncedOperatorName = (userProfileState as? UiState.Success)
         ?.data?.operatorName
@@ -181,6 +191,7 @@ internal fun ZaytharNavHost(
                 messagesState = sessionMessagesState,
                 chatUiState = chatUiState,
                 isSpeaking = isSpeaking,
+                onStopSpeaking = viewModel::stopSpeaking,
                 onComposerChange = viewModel::updateComposerInput,
                 onSend = viewModel::sendChatMessage,
                 onClearChat = viewModel::clearChatAndStartNewSession,
@@ -191,11 +202,35 @@ internal fun ZaytharNavHost(
                 onDeleteSession = viewModel::deleteChatSession,
                 onOpenPlugins = { onNavigate(ZaytharRoutes.PLUGINS) },
                 onOpenCameraEyes = { onNavigate(ZaytharRoutes.CAMERA_EYES) },
+                onOpenVoiceAudio = { onNavigate(ZaytharRoutes.VOICE_AUDIO) },
                 onToggleWebConnect = viewModel::toggleWebConnect,
+                onToggleMapsGrounding = viewModel::toggleMapsGrounding,
                 onSelectAgent = viewModel::selectAgent,
                 onSelectLanguage = viewModel::selectLanguage,
                 onToggleSpeakReplies = viewModel::toggleSpeakReplies,
                 onSelectThemeMode = viewModel::setThemeMode,
+                onToast = viewModel::emitToast
+            )
+        }
+        composable(ZaytharRoutes.VOICE_AUDIO) {
+            VoiceAndAudioScreen(
+                liveStatus = liveVoiceStatus,
+                liveTranscripts = liveTranscripts,
+                liveError = liveVoiceError,
+                isRecordingAudio = isRecordingAudio,
+                recordingSeconds = recordingSeconds,
+                transcribeState = transcribeState,
+                onStartLiveVoice = { voice -> workspaceViewModel.voiceAudio.startLiveVoice(voice, prefs, viewModel::emitToast) },
+                onStopLiveVoice = workspaceViewModel.voiceAudio::stopLiveVoice,
+                onSendLiveText = { txt -> workspaceViewModel.voiceAudio.sendLiveTextTurn(txt, viewModel::emitToast) },
+                onClearLiveTranscripts = workspaceViewModel.voiceAudio::clearLiveTranscripts,
+                onStartRecording = { ctx -> workspaceViewModel.voiceAudio.startAudioRecording(ctx, viewModel::emitToast) },
+                onStopRecordingAndTranscribe = { workspaceViewModel.voiceAudio.stopAndTranscribeAudio(prefs, viewModel::emitToast) },
+                onSendTranscriptToChat = { text ->
+                    viewModel.applyPromptTemplate(text)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onSaveTranscriptToRag = { note -> workspaceViewModel.addMemoryNote(note, viewModel::emitToast) },
                 onToast = viewModel::emitToast
             )
         }
@@ -253,10 +288,6 @@ internal fun ZaytharNavHost(
         composable(ZaytharRoutes.PLUGINS) {
             PluginHubScreen(
                 pluginsState = pluginsState,
-                runtimeTools = workspaceViewModel.localToolDescriptors(),
-                onRunTool = { command ->
-                    workspaceViewModel.runLocalTool(command, activeSessionId)
-                },
                 onTogglePlugin = { id, enabled ->
                     workspaceViewModel.togglePlugin(id, enabled, viewModel::emitToast)
                 },

@@ -82,6 +82,9 @@ class NetworkMonitor(context: Context) {
 
     fun refresh(): NetworkSnapshot = readSnapshot()
 
+    // Telephony access below is guarded by hasPhoneStatePermission(); the catch also
+    // handles permission revocation between the check and the platform call.
+    @SuppressLint("MissingPermission")
     private fun readSnapshot(capabilitiesOverride: NetworkCapabilities? = null): NetworkSnapshot {
         val caps = capabilitiesOverride ?: connectivity.activeNetwork?.let(connectivity::getNetworkCapabilities)
         val connected = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -94,13 +97,13 @@ class NetworkMonitor(context: Context) {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
             else -> "Other"
         }
-        val generation = if (transport == "Mobile network") {
-            readCellularGeneration()
-        } else if (connected) "Not applicable" else "Unavailable"
         val hasPhonePermission = hasPhoneStatePermission()
-        val roaming = if (hasPhonePermission) {
-            runCatching { telephony.isNetworkRoaming }.getOrDefault(false)
-        } else false
+        val generation = if (transport == "Mobile network" && hasPhonePermission) {
+            runCatching { networkGeneration(telephony.dataNetworkType, displayOverrideType) }.getOrDefault("Cellular")
+        } else if (transport == "Mobile network") {
+            "Cellular (grant phone-state permission for 3G/4G/5G detail)"
+        } else if (connected) "Not applicable" else "Unavailable"
+        val roaming = if (hasPhonePermission) runCatching { telephony.isNetworkRoaming }.getOrDefault(false) else false
         val metered = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false
         return NetworkSnapshot(
             connected = connected,
@@ -119,40 +122,11 @@ class NetworkMonitor(context: Context) {
         )
     }
 
-    /**
-     * Checks the revocable permission immediately before accessing TelephonyManager.
-     * The SecurityException fallback also covers permission revocation between the check
-     * and the platform call; no phone-state permission is requested automatically.
-     */
-    @SuppressLint("MissingPermission")
-    private fun readCellularGeneration(): String {
-        val permissionGranted = ContextCompat.checkSelfPermission(
-            appContext,
-            Manifest.permission.READ_PHONE_STATE
-        ) == PackageManager.PERMISSION_GRANTED
-        return guardedNetworkGeneration(permissionGranted, { telephony.dataNetworkType }, displayOverrideType)
-    }
-
     private fun hasPhoneStatePermission(): Boolean = ContextCompat.checkSelfPermission(
         appContext, Manifest.permission.READ_PHONE_STATE
     ) == PackageManager.PERMISSION_GRANTED
 
     companion object {
-        internal fun guardedNetworkGeneration(
-            permissionGranted: Boolean,
-            readNetworkType: () -> Int,
-            overrideType: Int = TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
-        ): String {
-            if (!permissionGranted) {
-                return "Cellular (grant phone-state permission for 3G/4G/5G detail)"
-            }
-            return try {
-                networkGeneration(readNetworkType(), overrideType)
-            } catch (_: SecurityException) {
-                "Cellular"
-            }
-        }
-
         fun networkGeneration(
             type: Int,
             overrideType: Int = TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
