@@ -92,7 +92,7 @@ jobs:
           --project demo-no-project
           --only auth,firestore
           --non-interactive
-          "npm run test:firestore && ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug"
+          "npm run test:firestore && bash ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug"
 
       - name: Upload debug APK
         if: success()
