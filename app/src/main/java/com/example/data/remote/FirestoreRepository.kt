@@ -33,16 +33,30 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
+    private fun cleanRequiredInput(value: String, maxLength: Int, label: String): String {
+        val cleaned = value.trim()
+        require(cleaned.isNotEmpty()) { "$label must not be blank." }
+        require(cleaned.length <= maxLength) { "$label exceeds the $maxLength character limit." }
+        return cleaned
+    }
+
+    private fun requireValidDocumentId(value: String, label: String) {
+        require(value.matches(Regex("^[a-zA-Z0-9_-]{1,128}$"))) {
+            "$label is invalid."
+        }
+    }
+
     // --- USER PROFILE ---
 
     fun observeUserProfile(userId: String): Flow<UserProfileDoc?> {
-        val docRef = userDoc(userId)
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val docRef = userDoc(ownerId)
         return docRef.snapshots()
             .map { snapshot ->
                 if (snapshot.exists()) snapshot.toObjectSafe<UserProfileDoc>() else null
             }
             .catch { error ->
-                logFlowError(error, OperationType.GET, docRef.path, userId)
+                logFlowError(error, OperationType.GET, docRef.path, ownerId)
                 throw error
             }
     }
@@ -114,7 +128,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- CHAT MESSAGES ---
 
     fun observeChatMessages(userId: String): Flow<List<FirestoreChatMessage>> {
-        val colRef = userDoc(userId).collection("messages")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("messages")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limitToLast(60)
@@ -124,7 +139,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                     .sortedBy { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -232,7 +247,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- MEMORY NOTES ---
 
     fun observeMemoryNotes(userId: String): Flow<List<FirestoreMemoryNote>> {
-        val colRef = userDoc(userId).collection("memories")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("memories")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(100)
@@ -242,7 +258,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                     .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -255,7 +271,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+                .limit(limit.coerceIn(1L, 100L))
                 .get()
                 .await()
                 .toObjectsSafe()
@@ -271,11 +287,12 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         var path: String? = null
         return try {
             val uid = requireUserId()
+            val cleanedContent = cleanRequiredInput(content, 2000, "Memory content")
             val docRef = userDoc(uid).collection("memories").document()
             path = docRef.path
             val payload = mapOf(
                 "userId" to uid,
-                "content" to content.trim().take(2000),
+                "content" to cleanedContent,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
@@ -289,11 +306,34 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         }
     }
 
+    suspend fun updateMemoryNote(memoryId: String, content: String): Result<Unit> {
+        var path: String? = null
+        return try {
+            val uid = requireUserId()
+            requireValidDocumentId(memoryId, "Memory ID")
+            val cleanedContent = cleanRequiredInput(content, 2000, "Memory content")
+            val docRef = userDoc(uid).collection("memories").document(memoryId)
+            path = docRef.path
+            docRef.update(
+                mapOf(
+                    "content" to cleanedContent,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteMemoryNote(memoryId: String): Result<Unit> {
         var path: String? = null
         return try {
             val uid = requireUserId()
-            require(memoryId.isNotBlank()) { "Memory ID must not be blank" }
+            requireValidDocumentId(memoryId, "Memory ID")
             val docRef = userDoc(uid).collection("memories").document(memoryId)
             path = docRef.path
             docRef.delete().await()
@@ -309,7 +349,8 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
     // --- KNOWLEDGE FACTS ---
 
     fun observeKnowledgeFacts(userId: String): Flow<List<FirestoreKnowledgeFact>> {
-        val colRef = userDoc(userId).collection("knowledge_facts")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("knowledge_facts")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(200)
@@ -319,7 +360,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
                     .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -332,7 +373,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+                .limit(limit.coerceIn(1L, 200L))
                 .get()
                 .await()
                 .toObjectsSafe()
@@ -368,14 +409,19 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         var path: String? = null
         return try {
             val uid = requireUserId()
+            val cleanedSubject = cleanRequiredInput(subject, 300, "Knowledge subject")
+            val cleanedPredicate = cleanRequiredInput(predicate, 300, "Knowledge predicate")
+            val cleanedObject = cleanRequiredInput(objectValue, 300, "Knowledge object")
+            val cleanedSource = source.trim().ifBlank { "operator" }
+                .also { require(it.length <= 40) { "Knowledge source exceeds the 40 character limit." } }
             val docRef = userDoc(uid).collection("knowledge_facts").document()
             path = docRef.path
             val payload = mapOf(
                 "userId" to uid,
-                "subject" to subject.trim().take(300),
-                "predicate" to predicate.trim().take(300),
-                "objectValue" to objectValue.trim().take(300),
-                "source" to source.trim().take(40).ifBlank { "operator" },
+                "subject" to cleanedSubject,
+                "predicate" to cleanedPredicate,
+                "objectValue" to cleanedObject,
+                "source" to cleanedSource,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
@@ -389,11 +435,47 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         }
     }
 
+    suspend fun updateKnowledgeFact(
+        factId: String,
+        subject: String,
+        predicate: String,
+        objectValue: String,
+        source: String = "operator"
+    ): Result<Unit> {
+        var path: String? = null
+        return try {
+            val uid = requireUserId()
+            requireValidDocumentId(factId, "Knowledge fact ID")
+            val cleanedSubject = cleanRequiredInput(subject, 300, "Knowledge subject")
+            val cleanedPredicate = cleanRequiredInput(predicate, 300, "Knowledge predicate")
+            val cleanedObject = cleanRequiredInput(objectValue, 300, "Knowledge object")
+            val cleanedSource = source.trim().ifBlank { "operator" }
+                .also { require(it.length <= 40) { "Knowledge source exceeds the 40 character limit." } }
+            val docRef = userDoc(uid).collection("knowledge_facts").document(factId)
+            path = docRef.path
+            docRef.update(
+                mapOf(
+                    "subject" to cleanedSubject,
+                    "predicate" to cleanedPredicate,
+                    "objectValue" to cleanedObject,
+                    "source" to cleanedSource,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            ).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteKnowledgeFact(factId: String): Result<Unit> {
         var path: String? = null
         return try {
             val uid = requireUserId()
-            require(factId.isNotBlank()) { "Fact ID must not be blank" }
+            requireValidDocumentId(factId, "Knowledge fact ID")
             val docRef = userDoc(uid).collection("knowledge_facts").document(factId)
             path = docRef.path
             docRef.delete().await()

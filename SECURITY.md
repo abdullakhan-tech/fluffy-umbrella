@@ -31,6 +31,24 @@ These controls still require correct Firebase Console configuration and deployme
 - Use HTTPS for any future backend and redact credentials and personal data from logs.
 - Test authorization boundaries with multiple accounts before release.
 
+## Memory isolation regression coverage
+
+The Firestore emulator suite checks that an authenticated account cannot read, list, create, update, or delete another account's memory notes or knowledge facts. Owner CRUD success paths remain covered separately. These emulator tests validate the checked-in rules only; they do not prove that the rules have been deployed to the production Firebase project.
+
 ## Safe development
 
 Use synthetic data in tests. Avoid logging prompts, memory, or provider responses by default. Return sanitized errors to clients and keep sensitive diagnostics redacted.
+
+
+## Client-side defense in depth and backend limits
+
+- Firestore observer methods that accept a requested owner UID must compare it with the active Firebase Authentication UID before constructing a listener. This is an early client-side guard only; Firestore Security Rules remain the authoritative server-side boundary.
+- Memory-note and knowledge-fact create, update, and delete operations derive the owner from the authenticated Firebase UID. Callers must not supply an owner UID. Client validation is duplicated by Firestore Security Rules.
+- Diagnostic payloads must not include raw exception messages, Firestore paths, UIDs, email addresses, provider metadata, prompts, or memory content. UI errors should remain generic and actionable.
+- This Android app currently accesses Firestore directly through the Firebase client SDK. No trusted Cloud Functions or Cloud Run memory API is configured in this repository.
+- No server-enforced per-user or IP-aware rate limiter is currently active. Do not substitute client-side counters and describe them as a security control. Add a trusted backend that verifies Firebase ID tokens and App Check tokens, derives the owner from verified claims, validates request sizes, applies transactional quotas, and stores provider secrets in managed server-side secrets before exposing abuse-sensitive HTTP/callable endpoints.
+- Application-level end-to-end encryption for stored memory is not implemented. Do not describe Firebase-managed encryption at rest as end-to-end encryption.
+
+## Current release boundary
+
+Source configuration and emulator tests do not prove that production Firestore rules or App Check enforcement are deployed. Verify the Firebase project, registered Android app, production attestation provider, deployed rules, and multi-account isolation in the Firebase Console before a public release.

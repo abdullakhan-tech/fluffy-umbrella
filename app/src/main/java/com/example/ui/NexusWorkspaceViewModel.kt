@@ -33,6 +33,8 @@ import com.example.domain.StudioAspectRatio
 import com.example.domain.SuggestedTriple
 import com.example.domain.UiState
 import com.example.domain.VisionMode
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -43,6 +45,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -60,39 +63,63 @@ class NexusWorkspaceViewModel(
     private val crudDelegate = NexusWorkspaceCrudDelegate(viewModelScope, firestoreRepo, workspaceStore, guestStore)
     internal val voiceAudio = VoiceAudioController(viewModelScope, aiRepo)
 
+    private val hasAuthenticatedOwner = runCatching {
+        Firebase.auth.currentUser?.uid == currentUserId
+    }.getOrDefault(false)
+
     val memoryNotesState: StateFlow<UiState<List<FirestoreMemoryNote>>> = (
-        guestStore?.memoryNotes ?: firestoreRepo.observeMemoryNotes(currentUserId)
+        when {
+            guestStore != null -> guestStore.memoryNotes
+            hasAuthenticatedOwner -> firestoreRepo.observeMemoryNotes(currentUserId)
+            else -> flowOf(emptyList<FirestoreMemoryNote>())
+        }
     ).map<List<FirestoreMemoryNote>, UiState<List<FirestoreMemoryNote>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load memory notes"))
+            Log.w(TAG, "Memory observer failed (${root.javaClass.simpleName}).")
+            emit(UiState.Error("Memory notes are temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val knowledgeFactsState: StateFlow<UiState<List<FirestoreKnowledgeFact>>> = (
-        guestStore?.knowledgeFacts ?: firestoreRepo.observeKnowledgeFacts(currentUserId)
+        when {
+            guestStore != null -> guestStore.knowledgeFacts
+            hasAuthenticatedOwner -> firestoreRepo.observeKnowledgeFacts(currentUserId)
+            else -> flowOf(emptyList<FirestoreKnowledgeFact>())
+        }
     ).map<List<FirestoreKnowledgeFact>, UiState<List<FirestoreKnowledgeFact>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load knowledge graph"))
+            Log.w(TAG, "Knowledge observer failed (${root.javaClass.simpleName}).")
+            emit(UiState.Error("Knowledge graph is temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val pluginsState: StateFlow<UiState<List<FirestorePluginConfig>>> = (
-        guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
+        when {
+            guestStore != null -> guestStore.plugins
+            hasAuthenticatedOwner -> workspaceStore.observePlugins(currentUserId)
+            else -> flowOf(emptyList<FirestorePluginConfig>())
+        }
     ).map<List<FirestorePluginConfig>, UiState<List<FirestorePluginConfig>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load plugins"))
+            Log.w(TAG, "Plugin observer failed (${root.javaClass.simpleName}).")
+            emit(UiState.Error("Plugin settings are temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val brainRunsState: StateFlow<UiState<List<FirestoreBrainRun>>> = (
-        guestStore?.brainRuns ?: workspaceStore.observeBrainRuns(currentUserId)
+        when {
+            guestStore != null -> guestStore.brainRuns
+            hasAuthenticatedOwner -> workspaceStore.observeBrainRuns(currentUserId)
+            else -> flowOf(emptyList<FirestoreBrainRun>())
+        }
     ).map<List<FirestoreBrainRun>, UiState<List<FirestoreBrainRun>>> { UiState.Success(it) }
         .catch { error ->
             val root = unwrapFirestoreErrorOrRethrow(error)
-            emit(UiState.Error(root.message ?: "Failed to load AI Brain runs"))
+            Log.w(TAG, "Brain history observer failed (${root.javaClass.simpleName}).")
+            emit(UiState.Error("AI Brain history is temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
@@ -187,8 +214,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "AI Brain analysis failed", e)
-                val msg = e.localizedMessage ?: "AI Brain synthesis failed."
+                Log.e(TAG, "AI Brain analysis failed (${e.javaClass.simpleName}).")
+                val msg = "AI Brain synthesis failed. Please try again."
                 _brainAnalysisState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -241,8 +268,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Camera Eyes failed", e)
-                val msg = e.localizedMessage ?: "Vision inference failed."
+                Log.e(TAG, "Camera Eyes failed (${e.javaClass.simpleName}).")
+                val msg = "Vision inference failed. Please try again."
                 _visionState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -294,8 +321,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Code Copilot failed", e)
-                val msg = e.localizedMessage ?: "Code Copilot generation failed."
+                Log.e(TAG, "Code Copilot failed (${e.javaClass.simpleName}).")
+                val msg = "Code Copilot generation failed. Please try again."
                 _codeCopilotState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -327,7 +354,7 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.localizedMessage ?: "Studio generation failed."
+                val msg = "Studio generation failed. Please try again."
                 _studioBriefState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -357,8 +384,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Image generation failed", e)
-                val msg = e.localizedMessage ?: "Image generation failed."
+                Log.e(TAG, "Image generation failed (${e.javaClass.simpleName}).")
+                val msg = "Image generation failed. Please try again."
                 _studioImageState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -389,7 +416,7 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val msg = e.localizedMessage ?: "Engine diagnostic run failed."
+                val msg = "Engine diagnostic run failed. Please try again."
                 _engineDiagnosticsState.value = UiState.Error(msg)
                 onToast(msg)
             }
@@ -436,8 +463,8 @@ class NexusWorkspaceViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Multi-agent orchestration failed", e)
-                val msg = e.localizedMessage ?: "Agent team could not complete the task."
+                Log.e(TAG, "Multi-agent orchestration failed (${e.javaClass.simpleName}).")
+                val msg = "Agent team could not complete the task. Please try again."
                 _agentRunState.value = UiState.Error(msg)
                 onToast(msg)
             }

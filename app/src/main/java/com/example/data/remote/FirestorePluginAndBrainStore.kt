@@ -28,14 +28,15 @@ internal class FirestorePluginAndBrainStore(private val db: FirebaseFirestore) {
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
     fun observePlugins(userId: String): Flow<List<FirestorePluginConfig>> {
-        val colRef = userDoc(userId).collection("plugins")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("plugins")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limit(60)
             .snapshots()
             .map { snapshot -> snapshot.toObjectsSafe<FirestorePluginConfig>() }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -160,7 +161,8 @@ internal class FirestorePluginAndBrainStore(private val db: FirebaseFirestore) {
     }
 
     fun observeBrainRuns(userId: String): Flow<List<FirestoreBrainRun>> {
-        val colRef = userDoc(userId).collection("brain_runs")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("brain_runs")
         return colRef
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(40)
@@ -170,7 +172,7 @@ internal class FirestorePluginAndBrainStore(private val db: FirebaseFirestore) {
                     .sortedByDescending { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                logFlowError(error, OperationType.LIST, colRef.path, userId)
+                logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }

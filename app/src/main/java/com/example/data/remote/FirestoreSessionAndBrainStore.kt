@@ -33,7 +33,8 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
     // --- CHAT SESSIONS & SESSION MESSAGES ---
 
     fun observeChatSessions(userId: String): Flow<List<FirestoreChatSession>> {
-        val colRef = userDoc(userId).collection("chat_sessions")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        val colRef = userDoc(ownerId).collection("chat_sessions")
         return colRef
             .orderBy("updatedAt", Query.Direction.DESCENDING)
             .limit(40)
@@ -43,7 +44,7 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
                     .sortedByDescending { it.updatedAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                pluginAndBrainStore.logFlowError(error, OperationType.LIST, colRef.path, userId)
+                pluginAndBrainStore.logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }
@@ -323,7 +324,9 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
     }
 
     fun observeSessionMessages(userId: String, sessionId: String): Flow<List<FirestoreSessionMessage>> {
-        val colRef = userDoc(userId).collection("chat_sessions").document(sessionId).collection("messages")
+        val ownerId = requireAuthenticatedOwner(userId, auth.currentUser?.uid)
+        require(VALID_ID_REGEX.matches(sessionId)) { "Invalid session ID" }
+        val colRef = userDoc(ownerId).collection("chat_sessions").document(sessionId).collection("messages")
         return colRef
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limitToLast(80)
@@ -333,7 +336,7 @@ class FirestoreSessionAndBrainStore(private val db: FirebaseFirestore) {
                     .sortedBy { it.createdAt ?: Timestamp(0, 0) }
             }
             .catch { error ->
-                pluginAndBrainStore.logFlowError(error, OperationType.LIST, colRef.path, userId)
+                pluginAndBrainStore.logFlowError(error, OperationType.LIST, colRef.path, ownerId)
                 throw error
             }
     }

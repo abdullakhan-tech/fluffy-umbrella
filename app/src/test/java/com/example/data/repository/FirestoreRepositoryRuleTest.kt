@@ -184,25 +184,55 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
         val noteId = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.addMemoryNote("Persistent memory item").getOrThrow()
         }
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.updateMemoryNote(noteId, "Updated private memory item")
+        }.isSuccess)
         val notes = withTimeout(FLOW_TIMEOUT_MS) {
-            repository.observeMemoryNotes(uid).first { list -> list.any { it.id == noteId } }
+            repository.observeMemoryNotes(uid).first { list ->
+                list.any { it.id == noteId && it.content == "Updated private memory item" }
+            }
         }
-        assertTrue(notes.any { it.id == noteId && it.content == "Persistent memory item" })
+        assertTrue(notes.any { it.id == noteId && it.content == "Updated private memory item" })
 
         val factId = withTimeout(DEFAULT_TIMEOUT_MS) {
             repository.addKnowledgeFact("Zaythar AI", "uses", "Firestore").getOrThrow()
         }
+        assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) {
+            repository.updateKnowledgeFact(factId, "Zaythar AI", "secures", "per-user memory")
+        }.isSuccess)
         val facts = withTimeout(FLOW_TIMEOUT_MS) {
-            repository.observeKnowledgeFacts(uid).first { list -> list.any { it.id == factId } }
+            repository.observeKnowledgeFacts(uid).first { list ->
+                list.any { it.id == factId && it.predicate == "secures" }
+            }
         }
-        assertTrue(facts.any { it.id == factId && it.subject == "Zaythar AI" })
+        assertTrue(facts.any { it.id == factId && it.objectValue == "per-user memory" })
 
         assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { repository.deleteMemoryNote(noteId) }.isSuccess)
         assertTrue(withTimeout(DEFAULT_TIMEOUT_MS) { repository.deleteKnowledgeFact(factId) }.isSuccess)
     }
 
     @Test
-    fun observeSubcollections_crossUserAccess_failsWithPermissionDenied() = runBlocking {
+    fun memoryAndKnowledgeWrites_rejectBlankOversizedAndInvalidIdentifiers() = runBlocking {
+        signInTestUser(ALICE_EMAIL)
+        val repository = FirestoreRepository(firestore)
+        assertTrue(repository.addMemoryNote("   ").isFailure)
+        assertTrue(repository.addMemoryNote("x".repeat(2001)).isFailure)
+        assertTrue(repository.addKnowledgeFact("", "uses", "Firestore").isFailure)
+        assertTrue(repository.addKnowledgeFact("Zaythar AI", "uses", "Firestore", source = "s".repeat(41)).isFailure)
+        val noteId = repository.addMemoryNote("Valid synthetic note").getOrThrow()
+        assertTrue(repository.updateMemoryNote(noteId, "   ").isFailure)
+        assertTrue(repository.updateMemoryNote("../another-user", "Rejected").isFailure)
+        assertTrue(repository.deleteMemoryNote("../another-user").isFailure)
+        val factId = repository.addKnowledgeFact("Zaythar AI", "stores", "synthetic facts").getOrThrow()
+        assertTrue(repository.updateKnowledgeFact(factId, " ", "stores", "synthetic facts").isFailure)
+        assertTrue(repository.updateKnowledgeFact(factId, "Zaythar AI", "stores", "synthetic facts", source = "s".repeat(41)).isFailure)
+        assertTrue(repository.deleteKnowledgeFact("../another-user").isFailure)
+        assertTrue(repository.deleteMemoryNote(noteId).isSuccess)
+        assertTrue(repository.deleteKnowledgeFact(factId).isSuccess)
+    }
+
+    @Test
+    fun observeSubcollections_crossUserAccess_isRejectedBeforeListenerCreation() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         val aliceRepo = FirestoreRepository(firestore)
         val aliceStore = FirestoreSessionAndBrainStore(firestore)
@@ -210,44 +240,46 @@ class FirestoreRepositoryRuleTest : FirestoreEmulatorTestBase() {
             aliceRepo.addMemoryNote("Alice private note").getOrThrow()
             aliceStore.createChatSession("Alice private session", "general").getOrThrow()
         }
-
         signInTestUser(BOB_EMAIL)
         val bobRepo = FirestoreRepository(firestore)
         val bobStore = FirestoreSessionAndBrainStore(firestore)
-
-        val memEx = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                bobRepo.observeMemoryNotes(aliceUid).first()
-            }
-        }
-        val memFirestoreEx = checkNotNull(memEx.unwrapFirestoreException())
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, memFirestoreEx.code)
-
-        val sessionEx = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                bobStore.observeChatSessions(aliceUid).first()
-            }
-        }
-        val sessionFirestoreEx = checkNotNull(sessionEx.unwrapFirestoreException())
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, sessionFirestoreEx.code)
+        assertFailsWithType<SecurityException> { bobRepo.observeUserProfile(aliceUid) }
+        assertFailsWithType<SecurityException> { bobRepo.observeChatMessages(aliceUid) }
+        assertFailsWithType<SecurityException> { bobRepo.observeMemoryNotes(aliceUid) }
+        assertFailsWithType<SecurityException> { bobRepo.observeKnowledgeFacts(aliceUid) }
+        assertFailsWithType<SecurityException> { bobStore.observeChatSessions(aliceUid) }
+        assertFailsWithType<SecurityException> { bobStore.observeSessionMessages(aliceUid, "alice-session") }
+        assertFailsWithType<SecurityException> { bobStore.observePlugins(aliceUid) }
+        assertFailsWithType<SecurityException> { bobStore.observeBrainRuns(aliceUid) }
+        Unit
     }
 
     @Test
-    fun observeCollections_unauthenticatedUser_failsWithPermissionDenied() = runBlocking {
+    fun allObservers_unauthenticatedUser_areRejectedBeforeListenerCreation() = runBlocking {
         val aliceUid = signInTestUser(ALICE_EMAIL)
         auth.signOut()
         Firebase.auth.signOut()
         val repository = FirestoreRepository(firestore)
+        val store = FirestoreSessionAndBrainStore(firestore)
+        assertFailsWithType<IllegalStateException> { repository.observeUserProfile(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeChatMessages(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeMemoryNotes(aliceUid) }
+        assertFailsWithType<IllegalStateException> { repository.observeKnowledgeFacts(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeChatSessions(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeSessionMessages(aliceUid, "session") }
+        assertFailsWithType<IllegalStateException> { store.observePlugins(aliceUid) }
+        assertFailsWithType<IllegalStateException> { store.observeBrainRuns(aliceUid) }
+        Unit
+    }
 
-        val exception = assertFailsWithType<Exception> {
-            withTimeout(FLOW_TIMEOUT_MS) {
-                repository.observeChatMessages(aliceUid).first()
-            }
+    @Test
+    fun observeSessionMessages_rejectsMalformedClientSessionIds() = runBlocking {
+        val uid = signInTestUser(ALICE_EMAIL)
+        val store = FirestoreSessionAndBrainStore(firestore)
+        assertFailsWithType<IllegalArgumentException> {
+            store.observeSessionMessages(uid, "../another-user")
         }
-        val firestoreException = checkNotNull(exception.unwrapFirestoreException()) {
-            "Expected nested FirebaseFirestoreException, got $exception"
-        }
-        assertEquals(FirebaseFirestoreException.Code.PERMISSION_DENIED, firestoreException.code)
+        Unit
     }
 
     private companion object {

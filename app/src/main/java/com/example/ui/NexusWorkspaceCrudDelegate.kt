@@ -30,7 +30,7 @@ internal class NexusWorkspaceCrudDelegate(
             val res = firestoreRepo.addMemoryNote(cleaned)
             onToast(
                 if (res.isSuccess) "Note synced to Zaythar cloud memory."
-                else "Could not save note: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
+                else "Could not save memory note. Please try again."
             )
         }
     }
@@ -65,7 +65,7 @@ internal class NexusWorkspaceCrudDelegate(
         }
         if (guestStore != null) {
             val res = guestStore.addKnowledgeFact(subject, predicate, obj, source)
-            onToast(if (res.isSuccess) "Knowledge fact added to guest RAG graph." else res.exceptionOrNull()?.localizedMessage ?: "error")
+            onToast(if (res.isSuccess) "Knowledge fact added to guest RAG graph." else "Could not add knowledge fact. Please try again.")
             return
         }
         scope.launch {
@@ -76,7 +76,7 @@ internal class NexusWorkspaceCrudDelegate(
             val res = firestoreRepo.addKnowledgeFact(subject, predicate, obj, source)
             onToast(
                 if (res.isSuccess) "Knowledge fact synced to Cloud Firestore."
-                else "Failed to save fact: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
+                else "Could not save knowledge fact. Please try again."
             )
         }
     }
@@ -141,7 +141,7 @@ internal class NexusWorkspaceCrudDelegate(
             val res = workspaceStore.addCustomPlugin(name, description, category, systemInstruction)
             onToast(
                 if (res.isSuccess) "Custom plugin plugged into Zaythar Core."
-                else "Could not add plugin: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
+                else "Could not add plugin. Please try again."
             )
         }
     }

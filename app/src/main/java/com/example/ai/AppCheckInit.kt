@@ -65,6 +65,6 @@ fun configureAppCheck(context: Context, intent: Intent?) {
             }
         }
     } catch (t: Throwable) {
-        Log.e(TAG, "Failed to initialize Firebase App Check", t)
+        Log.e(TAG, "Failed to initialize Firebase App Check (${t.javaClass.simpleName}).")
     }
 }

@@ -153,7 +153,7 @@ fun attemptAutoSignIn(
         } catch (_: NoCredentialException) {
             onUnauthenticated()
         } catch (t: Throwable) {
-            Log.w(TAG, "Auto sign-in skipped: ${t.message}")
+            Log.w(TAG, "Auto sign-in skipped (${t.javaClass.simpleName}).")
             onUnauthenticated()
         }
     }
@@ -197,14 +197,14 @@ fun onGoogleSignInClicked(
         } catch (e: CancellationException) {
             throw e
         } catch (e: GetCredentialCancellationException) {
-            Log.w(TAG, "Google Sign-In flow cancelled or dismissed: ${e.message}", e)
+            Log.i(TAG, "Google Sign-In flow cancelled by user.")
             onAuthCancelled()
         } catch (e: NoCredentialException) {
-            Log.w(TAG, "No Google credentials available on device", e)
+            Log.w(TAG, "No Google credentials available on device.")
             onAuthError("No Google account is configured on this device. Add a Google account in Settings or use Guest mode.")
         } catch (t: Throwable) {
-            Log.e(TAG, "Google Sign-In failed", t)
-            onAuthError(t.localizedMessage ?: "Google Sign-In failed. You can continue as Guest.")
+            Log.e(TAG, "Google Sign-In failed (${t.javaClass.simpleName}).")
+            onAuthError("Google Sign-In failed. You can continue as Guest.")
         }
     }
 }
@@ -219,7 +219,7 @@ fun signOut(
             try {
                 credentialManager?.clearCredentialState(ClearCredentialStateRequest())
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to clear credential state: ${e.message}")
+                Log.w(TAG, "Failed to clear credential state (${e.javaClass.simpleName}).")
             } finally {
                 runCatching { Firebase.auth.signOut() }
                 onSignOutComplete()

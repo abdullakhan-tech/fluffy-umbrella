@@ -25,7 +25,9 @@ import com.example.domain.ProviderRoute
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.domain.toChatMessage
+import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -64,6 +66,13 @@ class ZaytharViewModel(
 
     val isSpeaking: StateFlow<Boolean> = ttsSpeaker.isSpeaking
 
+    // ViewModel construction must remain safe while the auth screen is active or a token is
+    // being restored. Firestore observer APIs intentionally fail fast for unauthenticated or
+    // cross-user access, so only construct those observers for the current authenticated owner.
+    private val hasAuthenticatedOwner = runCatching {
+        Firebase.auth.currentUser?.uid == currentUserId
+    }.getOrDefault(false)
+
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
     private val _isRestoringSession = MutableStateFlow(true)
     private val _activeSessionId = MutableStateFlow("")
@@ -97,17 +106,25 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), ZaytharPreferences())
 
     val userProfileState: StateFlow<UiState<UserProfileDoc?>> = (
-        guestStore?.userProfile ?: firestoreRepo.observeUserProfile(currentUserId)
+        when {
+            guestStore != null -> guestStore.userProfile
+            hasAuthenticatedOwner -> firestoreRepo.observeUserProfile(currentUserId)
+            else -> flowOf(null)
+        }
     ).map<UserProfileDoc?, UiState<UserProfileDoc?>> { UiState.Success(it) }
         .catch { error ->
             val rootError = unwrapFirestoreErrorOrRethrow(error)
-            Log.w(TAG, "Error observing user profile", rootError)
-            emit(UiState.Error(rootError.message ?: "Failed to load user profile"))
+            Log.w(TAG, "Error observing user profile (${rootError.javaClass.simpleName}).")
+            emit(UiState.Error("User profile is temporarily unavailable."))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val chatSessionsState: StateFlow<UiState<List<FirestoreChatSession>>> = (
-        guestStore?.chatSessions ?: workspaceStore.observeChatSessions(currentUserId)
+        when {
+            guestStore != null -> guestStore.chatSessions
+            hasAuthenticatedOwner -> workspaceStore.observeChatSessions(currentUserId)
+            else -> flowOf(emptyList())
+        }
     ).map<List<FirestoreChatSession>, UiState<List<FirestoreChatSession>>> { sessions ->
         if (!_isRestoringSession.value && sessions.isNotEmpty() && _activeSessionId.value.isBlank()) {
             _activeSessionId.value = sessions.first().id
@@ -115,8 +132,8 @@ class ZaytharViewModel(
         UiState.Success(sessions)
     }.catch { error ->
         val rootError = unwrapFirestoreErrorOrRethrow(error)
-        Log.w(TAG, "Error observing chat sessions", rootError)
-        emit(UiState.Error(rootError.message ?: "Failed to load chat threads"))
+        Log.w(TAG, "Error observing chat sessions (${rootError.javaClass.simpleName}).")
+        emit(UiState.Error("Chat threads are temporarily unavailable."))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val sessionMessagesState: StateFlow<UiState<List<FirestoreSessionMessage>>> = _activeSessionId
@@ -124,20 +141,27 @@ class ZaytharViewModel(
             if (sessionId.isBlank()) {
                 flowOf<UiState<List<FirestoreSessionMessage>>>(UiState.Loading)
             } else {
-                val flow = guestStore?.observeSessionMessages(sessionId)
-                    ?: workspaceStore.observeSessionMessages(currentUserId, sessionId)
+                val flow = when {
+                    guestStore != null -> guestStore.observeSessionMessages(sessionId)
+                    hasAuthenticatedOwner -> workspaceStore.observeSessionMessages(currentUserId, sessionId)
+                    else -> flowOf(emptyList())
+                }
                 flow.map<List<FirestoreSessionMessage>, UiState<List<FirestoreSessionMessage>>> { UiState.Success(it) }
                     .catch { error ->
                         val rootError = unwrapFirestoreErrorOrRethrow(error)
-                        Log.w(TAG, "Error observing session messages", rootError)
-                        emit(UiState.Error(rootError.message ?: "Failed to load session history"))
+                        Log.w(TAG, "Error observing session messages (${rootError.javaClass.simpleName}).")
+                        emit(UiState.Error("Session history is temporarily unavailable."))
                     }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val activePluginsFlow: StateFlow<List<FirestorePluginConfig>> = (
-        guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
+        when {
+            guestStore != null -> guestStore.plugins
+            hasAuthenticatedOwner -> workspaceStore.observePlugins(currentUserId)
+            else -> flowOf(emptyList())
+        }
     ).catch { error ->
         unwrapFirestoreErrorOrRethrow(error)
         emit(emptyList())
@@ -175,7 +199,7 @@ class ZaytharViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Deferred startup sync error", e)
+                Log.w(TAG, "Deferred startup sync failed (${e.javaClass.simpleName}).")
                 _isRestoringSession.value = false
             }
         }
@@ -288,7 +312,7 @@ class ZaytharViewModel(
                 val result = firestoreRepo.updateOperatorName(cleaned)
                 emitToast(
                     if (result.isSuccess) "Operator profile synced to Cloud Firestore."
-                    else "Could not sync profile to cloud: ${result.exceptionOrNull()?.localizedMessage ?: "error"}"
+                    else "Could not sync profile to cloud. Please try again."
                 )
             }
         }
@@ -379,7 +403,7 @@ class ZaytharViewModel(
                 sessionId = sessionId, role = "user", text = text, agent = agent.id, autoTitleFromFirstPrompt = autoTitle
             )
             if (userMsgRes.isFailure) {
-                val msg = userMsgRes.exceptionOrNull()?.localizedMessage ?: "Failed to save message."
+                val msg = "Failed to save message. Please try again."
                 _chatUiState.value = UiState.Error(msg)
                 emitToast(msg)
                 return@launch
@@ -429,15 +453,15 @@ class ZaytharViewModel(
                     if (currentPrefs.speakReplies) ttsSpeaker.speak(finalReply, currentPrefs.languageCode)
                 }
             } catch (e: TimeoutCancellationException) {
-                Log.e(TAG, "Chat timed out", e)
+                Log.w(TAG, "Chat timed out.")
                 val msg = "Generation timed out after 60 seconds. Check network connectivity and try again."
                 _chatUiState.value = UiState.Error(msg)
                 emitToast(msg)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Chat generation failed", e)
-                val msg = e.localizedMessage ?: "AI service failed to respond. Check Firebase AI Logic & App Check."
+                Log.e(TAG, "Chat generation failed (${e.javaClass.simpleName}).")
+                val msg = "AI service failed to respond. Check Firebase AI Logic & App Check."
                 _chatUiState.value = UiState.Error(msg)
                 emitToast(msg)
             }
