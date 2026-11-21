@@ -97,6 +97,47 @@ fun NeuralBrainScreen(
 
         item {
             CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    com.example.ui.components.MolecularNeuralOrb(
+                        modifier = Modifier,
+                        size = 112.dp,
+                        activity = 0.82f
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(
+                            text = "MOLECULAR NEURAL CORE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = cyber.accentSoft
+                        )
+                        Text(
+                            text = "JARVIS COGNITIVE SWARM",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "6 specialist personas · guarded autonomy · verification-first execution",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = com.example.domain.JarvisAgentOrchestrator.team.joinToString("  ·  ") { it.name.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = cyber.cyberGreen
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
                 CyberCardHeader(
                     title = "SELECT NEURAL PIPELINE",
                     badge = "HYBRID RAG + JSON CORE"
