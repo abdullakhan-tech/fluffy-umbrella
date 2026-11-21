@@ -7,6 +7,13 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+// Automatically provide a template configuration if google-services.json is absent locally
+val googleServicesJson = file("google-services.json")
+val googleServicesExample = file("google-services.json.example")
+if (!googleServicesJson.exists() && googleServicesExample.exists()) {
+    googleServicesExample.copyTo(googleServicesJson, overwrite = false)
+}
+
 android {
     namespace = "com.example"
     compileSdk = 36

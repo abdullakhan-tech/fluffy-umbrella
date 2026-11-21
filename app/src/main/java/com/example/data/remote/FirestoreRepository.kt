@@ -33,18 +33,11 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
 
     private fun userDoc(uid: String) = db.collection("users").document(uid)
 
-    private fun cleanRequiredInput(value: String, maxLength: Int, label: String): String {
-        val cleaned = value.trim()
-        require(cleaned.isNotEmpty()) { "$label must not be blank." }
-        require(cleaned.length <= maxLength) { "$label exceeds the $maxLength character limit." }
-        return cleaned
-    }
+    private fun cleanRequiredInput(value: String, maxLength: Int, label: String): String =
+        cleanRequiredFirestoreInput(value, maxLength, label)
 
-    private fun requireValidDocumentId(value: String, label: String) {
-        require(value.matches(Regex("^[a-zA-Z0-9_-]{1,128}$"))) {
-            "$label is invalid."
-        }
-    }
+    private fun requireValidDocumentId(value: String, label: String) =
+        requireValidFirestoreDocumentId(value, label)
 
     // --- USER PROFILE ---
 
@@ -493,14 +486,5 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
         op: OperationType,
         path: String,
         expectedUid: String
-    ) {
-        val firestoreError = generateSequence(error) { it.cause }
-            .filterIsInstance<FirebaseFirestoreException>()
-            .firstOrNull()
-        if (firestoreError == null && error is CancellationException) return
-        val exceptionToLog = firestoreError ?: (error as? Exception)
-        if (exceptionToLog != null && runCatching { auth.currentUser?.uid }.getOrNull() == expectedUid) {
-            handleFirestoreError(exceptionToLog, op, path)
-        }
-    }
+    ) = logFirestoreFlowError(error, op, path, expectedUid, auth)
 }

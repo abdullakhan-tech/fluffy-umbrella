@@ -5,8 +5,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.R
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.ZaytharPreferences
@@ -26,10 +24,7 @@ import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.domain.toChatMessage
 import com.google.firebase.Firebase
-import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.auth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -213,13 +208,8 @@ class ZaytharViewModel(
         }
     }
 
-    private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable {
-        val firestoreError = generateSequence(error) { it.cause }
-            .filterIsInstance<FirebaseFirestoreException>()
-            .firstOrNull()
-        if (firestoreError == null && error is CancellationException) throw error
-        return firestoreError ?: error
-    }
+    private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable =
+        unwrapFirestoreUiError(error)
 
     private fun formatCurrentTime(): String =
         LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
@@ -498,15 +488,7 @@ class ZaytharViewModel(
             prefsRepo: PreferencesRepository,
             currentUserId: String,
             guestStore: GuestWorkspaceStore? = null
-        ): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val db = FirebaseFirestore.getInstance(application.getString(R.string.firestore_database_id))
-                val firebaseReady = runCatching { FirebaseApp.getApps(application).isNotEmpty() }.getOrDefault(false)
-                ZaytharViewModel(
-                    FirestoreRepository(db), FirestoreSessionAndBrainStore(db), prefsRepo,
-                    AndroidTtsSpeaker(application), currentUserId, firebaseReady, guestStore
-                )
-            }
-        }
+        ): ViewModelProvider.Factory =
+            createZaytharViewModelFactory(application, prefsRepo, currentUserId, guestStore)
     }
 }
