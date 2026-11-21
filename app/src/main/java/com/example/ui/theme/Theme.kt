@@ -59,6 +59,8 @@ val RajdhaniFontFamily = FontFamily(
 val AccentSwatches = listOf(
     0xFFFF3155L to "Crimson",
     0xFFFF623DL to "Ember",
+    0xFF8B102BL to "Dark Red",
+    0xFFC4CBD6L to "Titanium",
     0xFFBB6CFFL to "Violet",
     0xFF39D9DBL to "Cyan",
     0xFFE6B84CL to "Amber",
@@ -174,7 +176,8 @@ fun ZaytharTheme(
     content: @Composable () -> Unit
 ) {
     val accent = Color(accentHex)
-    val accentSoft = lerp(accent, Color.White, 0.25f)
+    // Neutral titanium highlight keeps the red/black interface metallic rather than neon-only.
+    val accentSoft = lerp(accent, Color(0xFFD9DEE7), 0.48f)
     val green = Color(0xFF68E5B2)
 
     val colorScheme = if (darkTheme) {
@@ -225,8 +228,8 @@ fun ZaytharTheme(
         accent = accent,
         accentSoft = accentSoft,
         cyberGreen = if (darkTheme) green else Color(0xFF17694D),
-        panelGlass = if (darkTheme) Color(0xFF101319) else Color(0xFFF8F9FB),
-        panelElevated = if (darkTheme) Color(0xFF171B23) else Color(0xFFFFFFFF),
+        panelGlass = if (darkTheme) Color(0xFF0D1016) else Color(0xFFF8F9FB),
+        panelElevated = if (darkTheme) Color(0xFF191D26) else Color(0xFFFFFFFF),
         gridLine = if (darkTheme) Color(0x0BFFFFFF) else Color(0x0E1A2029),
         glowStrength = glowStrength,
         metalSpecularity = metalSpecularity,

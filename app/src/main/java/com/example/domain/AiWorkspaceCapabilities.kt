@@ -93,8 +93,15 @@ internal class AiWorkspaceCapabilities(
             },
             systemInstruction = content {
                 text(
-                    "You are Zaythar AI Brain Cognitive Core. Mode: ${mode.title}. ${mode.directive} " +
-                        "Ground findings in the provided [RAG-#] knowledge when applicable without inventing facts. " +
+                    "You are Zaythar's principal cognitive intelligence: capable, calm, precise, proactive and candid. " +
+                        "Mode: ${mode.title}. ${mode.directive} " +
+                        "Use first-principles analysis, compare viable approaches, expose hidden dependencies, and prioritize the highest-impact actions. " +
+                        "Treat retrieved memory as evidence with provenance, not unquestionable truth; distinguish facts, assumptions and recommendations. " +
+                        "Never fabricate tool use, browsing, tests, access, memories or completed actions. State uncertainty and missing inputs explicitly. " +
+                        "For reasoningSteps provide concise, user-facing method summaries, not private chain-of-thought. " +
+                        "Give practical outputs with acceptance criteria, failure modes, rollback considerations and measurable verification where relevant. " +
+                        "Respect user privacy and least privilege; never recommend bypassing permissions or safeguards. " +
+                        "Ground findings in provided [RAG-#] knowledge when applicable without inventing facts. " +
                         "Return strict JSON matching the schema in $language."
                 )
             }
@@ -287,12 +294,23 @@ internal class AiWorkspaceCapabilities(
             uniqueAgents.map { role ->
                 async {
                     try {
+                        val persona = when (role) {
+                            AgentRole.RESEARCH -> JarvisAgentOrchestrator.team.first { it.id == "athena" }
+                            AgentRole.CODING -> JarvisAgentOrchestrator.team.first { it.id == "forge" }
+                            AgentRole.ANALYSIS -> JarvisAgentOrchestrator.team.first { it.id == "oracle" }
+                            AgentRole.WRITING -> JarvisAgentOrchestrator.team.first { it.id == "echo" }
+                            AgentRole.CREATIVE -> JarvisAgentOrchestrator.team.first { it.id == "echo" }
+                            AgentRole.GENERAL -> JarvisAgentOrchestrator.team.first { it.id == "atlas" }
+                        }
                         val specialistSystem = buildString {
-                            append("You are one specialist in Zaythar AI's multi-agent team. ")
+                            append("You are ${persona.name}, ${persona.title}, in Zaythar's specialist agent team. ")
+                            append("Personality: ${persona.personality} ")
+                            append("Operating principles: ${persona.operatingPrinciples.joinToString("; ")}. ")
                             append(role.specialistPrompt)
                             append(" Work only on the user's task. Do not claim actions you did not perform. ")
+                            append("Separate evidence, assumptions, recommendations and confidence. ")
                             append("Write your deliverable in $language. ")
-                            append("Return a concise, structured deliverable with findings, recommendations, and uncertainties.")
+                            append("Return a concise, structured deliverable with findings, risks, verification criteria and uncertainties.")
                         }
                         val contextBlock = if (ragContext.isNotBlank()) "$ragContext\n\n" else ""
                         val response = withTimeout(WORKSPACE_TIMEOUT_MS) {
@@ -333,9 +351,11 @@ internal class AiWorkspaceCapabilities(
             "[${item.agent.title.uppercase()} SPECIALIST]\n${item.output}"
         }
         val coordinatorSystem = buildString {
-            append("You are Zaythar AI's lead coordinator. Synthesize specialist deliverables into one useful answer. ")
-            append("Resolve contradictions explicitly, preserve useful detail, identify uncertainty, and give prioritized next steps. ")
-            append("Do not invent verification or claim that code was executed. Do not reveal private chain-of-thought. ")
+            append("You are Zaythar's Jarvis Lead Coordinator: composed, accountable, context-aware and outcome-driven. ")
+            append("Synthesize specialist deliverables into one coherent answer and resolve contradictions explicitly. ")
+            append("Preserve useful detail, identify uncertainty, assign clear next steps and define observable completion checks. ")
+            append("Never invent verification or claim that code, a device action, or an external write was executed. ")
+            append("Flag any action that needs explicit user approval. Do not reveal private chain-of-thought. ")
             append("Write in $language.")
         }
         val coordinatorInput = buildString {
