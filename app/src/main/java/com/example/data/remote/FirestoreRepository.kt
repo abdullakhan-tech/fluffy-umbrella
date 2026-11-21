@@ -145,7 +145,7 @@ class FirestoreRepository(private val db: FirebaseFirestore) {
             path = colRef.path
             colRef
                 .orderBy("createdAt", Query.Direction.DESCENDING)
-                .limit(limit)
+                .limit(boundedFirestoreQueryLimit(limit, maximum = 60L))
                 .get()
                 .await()
                 .toObjectsSafe<FirestoreChatMessage>()
