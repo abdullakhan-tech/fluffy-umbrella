@@ -68,6 +68,13 @@ enum class ZaytharEngineId(
         subtitle = "BM25 + Bigram + Graph RAG, SSRF Guard & Deterministic Tools",
         route = "knowledge",
         modelTag = "ON-DEVICE DETERMINISTIC"
+    ),
+    VOICE_AUDIO(
+        id = "voice_audio",
+        title = "Live Voice & Transcribe",
+        subtitle = "Bidirectional Gemini Live audio & speech transcription",
+        route = "voice_audio",
+        modelTag = "gemini-3.8-live / 3.5-transcribe"
     )
 }
 
@@ -137,6 +144,14 @@ object SmartEngineRouter {
         "prove", "theorem", "distributed system", "concurrency", "formal", "cryptograph",
         "optimize", "complexity", "deep dive", "in-depth", "step by step"
     )
+    private val voiceKeywords = listOf(
+        "live voice", "voice conversation", "transcribe", "audio note", "dictation",
+        "voice chat", "talk to zaythar", "record audio"
+    )
+    private val mapsKeywords = listOf(
+        "nearby", "directions to", "google maps", "restaurant near", "coffee shop",
+        "places near", "navigate to", "route to", "hotel near", "museum in"
+    )
 
     fun classifyPrompt(
         rawPrompt: String,
@@ -179,6 +194,22 @@ object SmartEngineRouter {
         val wordCount = prompt.split(Regex("""\s+""")).count { it.isNotBlank() }
 
         return when {
+            voiceKeywords.any { it in lower } -> SmartRouteDecision(
+                engine = ZaytharEngineId.VOICE_AUDIO,
+                recommendedRoute = ProviderRoute.FLASH,
+                candidateModels = listOf("gemini-3.8-live", "gemini-3.5-transcribe"),
+                complexityLabel = "VOICE & AUDIO AI",
+                confidencePercent = 94,
+                rationale = "Voice conversation / audio transcription intent detected; routing to Voice & Audio Nexus."
+            )
+            mapsKeywords.any { it in lower } -> SmartRouteDecision(
+                engine = ZaytharEngineId.NEURAL_CHAT,
+                recommendedRoute = ProviderRoute.HYDROGEN,
+                candidateModels = listOf("gemini-4-hydrogen", "gemini-3.8-flash"),
+                complexityLabel = "GOOGLE MAPS + SEARCH",
+                confidencePercent = 92,
+                rationale = "Location & places intent detected; Gemini 4 Hydrogen with Google Maps Grounding fits best."
+            )
             imageKeywords.any { it in lower } -> SmartRouteDecision(
                 engine = ZaytharEngineId.IMAGE_STUDIO,
                 recommendedRoute = ProviderRoute.FLASH,
@@ -365,6 +396,13 @@ object SmartEngineRouter {
             summary = "Parallel 1–4 Specialist Swarm + Lead Coordinator synthesis ready",
             latencyMs = 0L,
             details = "Concurrent async fan-out across Research, Coding, Writing, Analysis, Creative"
+        )
+        results += EngineCheckResult(
+            engine = ZaytharEngineId.VOICE_AUDIO,
+            status = if (firebaseReady) EngineCheckStatus.READY else EngineCheckStatus.WARN,
+            summary = if (firebaseReady) "Gemini 3.8 Live voice & 3.5 Transcribe audio pipeline wired" else "Firebase not initialized",
+            latencyMs = 0L,
+            details = "Live bidirectional audio + audio/mp4 transcription + Google Maps/Search grounding"
         )
 
         val (liveStatusText, liveLatency) = if (liveProbeResult == null) {

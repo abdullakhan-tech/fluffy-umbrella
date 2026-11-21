@@ -93,9 +93,9 @@ enum class ProviderRoute(
     ),
     HYBRID(
         id = "hybrid",
-        title = "GEMINI 4 HYDROGEN · HYBRID CORE",
-        modelName = "gemini-4-hydrogen",
-        description = "Gemini 4 Hydrogen primary routing with Gemini 3.8 Flash and Gemini 3.5 Flash-Lite automatic fallbacks."
+        title = "HYBRID CORE",
+        modelName = "gemini-3.8-flash",
+        description = "Gemini 3.8 Flash primary routing with Gemini 3.5 Flash-Lite automatic fallback."
     ),
     FLASH(
         id = "flash",
@@ -114,13 +114,31 @@ enum class ProviderRoute(
         title = "GEMINI FLASH-LITE",
         modelName = "gemini-3.5-flash-lite",
         description = "Ultra-fast Gemini 3.5 Flash-Lite routing for rapid responses."
+    ),
+    HYDROGEN(
+        id = "hydrogen",
+        title = "GEMINI 4 HYDROGEN",
+        modelName = "gemini-4-hydrogen",
+        description = "General intelligence, coding, Google Search & Maps grounding."
+    ),
+    CARBON(
+        id = "carbon",
+        title = "GEMINI 4 CARBON",
+        modelName = "gemini-4-carbon",
+        description = "Deep reasoning, multi-step analysis & systems architecture."
+    ),
+    NEON(
+        id = "neon",
+        title = "GEMINI 4 NEON",
+        modelName = "gemini-4-neon",
+        description = "Complex interactive workflows & autonomous reasoning."
+    ),
+    FLASH_LITE_31(
+        id = "flash_lite_31",
+        title = "GEMINI 3.1 FLASH-LITE",
+        modelName = "gemini-3.1-flash-lite",
+        description = "High-efficiency Gemini 3.1 Flash-Lite for crisp, rapid answers."
     );
-
-    val candidateModels: List<String>
-        get() = when (this) {
-            HYBRID -> listOf(modelName, FLASH.modelName, LITE.modelName)
-            FLASH, LITE -> listOf(modelName)
-        }
 
     companion object {
         fun fromId(id: String): ProviderRoute = entries.find { it.id == id } ?: HYBRID

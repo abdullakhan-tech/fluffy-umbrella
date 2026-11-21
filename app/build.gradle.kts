@@ -49,6 +49,10 @@ android {
 tasks.withType<Test> {
     failFast = true
     timeout.set(Duration.ofMinutes(2))
+    systemProperty(
+        "skipFirebaseTests",
+        System.getProperty("skipFirebaseTests") ?: System.getenv("SKIP_FIREBASE_TESTS") ?: "false"
+    )
     testLogging {
         events("passed", "failed", "skipped")
     }

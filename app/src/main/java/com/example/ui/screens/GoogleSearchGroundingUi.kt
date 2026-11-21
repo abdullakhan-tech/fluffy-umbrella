@@ -90,11 +90,13 @@ internal fun GoogleSearchGroundingSection(
                 tint = cyber.cyberGreen,
                 modifier = Modifier.size(14.dp)
             )
+            val hasMapsSource = sources.any { it.title.startsWith("Maps:") || it.url.contains("maps") }
             Text(
-                text = if (searchQueries.isNotEmpty()) {
-                    "GOOGLE SEARCH GROUNDED"
-                } else {
-                    "GROUNDED SOURCES"
+                text = when {
+                    hasMapsSource && searchQueries.isNotEmpty() -> "GOOGLE SEARCH & MAPS GROUNDED"
+                    hasMapsSource -> "GOOGLE MAPS GROUNDED"
+                    searchQueries.isNotEmpty() -> "GOOGLE SEARCH GROUNDED"
+                    else -> "GROUNDED SOURCES"
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = cyber.cyberGreen

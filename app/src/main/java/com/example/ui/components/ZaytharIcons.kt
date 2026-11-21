@@ -21,6 +21,8 @@ import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.DataObject
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.FlashOn
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.PrecisionManufacturing
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.Troubleshoot
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.Icon
@@ -181,6 +184,10 @@ object ZaytharIcons {
         ProviderRoute.FLASH -> Icons.Rounded.Bolt
         ProviderRoute.ARGON -> Icons.Rounded.PsychologyAlt
         ProviderRoute.LITE -> Icons.Rounded.Speed
+        ProviderRoute.HYDROGEN -> Icons.Rounded.TravelExplore
+        ProviderRoute.CARBON -> Icons.Rounded.Memory
+        ProviderRoute.NEON -> Icons.Rounded.PrecisionManufacturing
+        ProviderRoute.FLASH_LITE_31 -> Icons.Rounded.FlashOn
     }
 
     fun forEngine(engine: ZaytharEngineId): ImageVector = when (engine) {
@@ -192,6 +199,7 @@ object ZaytharIcons {
         ZaytharEngineId.CODE_COPILOT -> Icons.Rounded.Code
         ZaytharEngineId.MULTI_AGENT -> Icons.Rounded.Hub
         ZaytharEngineId.RAG_AND_TOOLS -> Icons.Rounded.Memory
+        ZaytharEngineId.VOICE_AUDIO -> Icons.Rounded.GraphicEq
     }
 
     fun forBrainMode(mode: NeuralBrainMode): ImageVector = when (mode) {

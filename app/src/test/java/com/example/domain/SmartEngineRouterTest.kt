@@ -37,6 +37,14 @@ class SmartEngineRouterTest {
         val lite = SmartEngineRouter.classifyPrompt("hello zaythar")
         assertEquals(ZaytharEngineId.NEURAL_CHAT, lite.engine)
         assertEquals(ProviderRoute.LITE, lite.recommendedRoute)
+
+        val voice = SmartEngineRouter.classifyPrompt("Start live voice conversation with Zaythar")
+        assertEquals(ZaytharEngineId.VOICE_AUDIO, voice.engine)
+        assertEquals(listOf("gemini-3.8-live", "gemini-3.5-transcribe"), voice.candidateModels)
+
+        val maps = SmartEngineRouter.classifyPrompt("Find a quiet coffee shop nearby")
+        assertEquals(ZaytharEngineId.NEURAL_CHAT, maps.engine)
+        assertEquals(ProviderRoute.HYDROGEN, maps.recommendedRoute)
     }
 
     @Test
@@ -50,11 +58,12 @@ class SmartEngineRouterTest {
             liveProbeResult = Result.success("gemini-3.8-flash" to 142L)
         )
 
-        assertEquals(8, report.totalCount)
-        assertEquals(8, report.passedCount)
+        assertEquals(9, report.totalCount)
+        assertEquals(9, report.passedCount)
         assertEquals(142L, report.liveGeminiLatencyMs)
         assertTrue(report.liveGeminiStatus.contains("ONLINE · gemini-3.8-flash"))
         assertTrue(report.results.any { it.engine == ZaytharEngineId.RAG_AND_TOOLS && it.status == EngineCheckStatus.PASS })
         assertTrue(report.results.any { it.engine == ZaytharEngineId.SMART_ROUTER && it.status == EngineCheckStatus.PASS })
+        assertTrue(report.results.any { it.engine == ZaytharEngineId.VOICE_AUDIO && it.status == EngineCheckStatus.READY })
     }
 }

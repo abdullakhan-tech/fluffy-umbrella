@@ -18,10 +18,10 @@ Android app (Kotlin + Jetpack Compose)
 ## Android app modules
 
 - `app/src/main/java/com/example/MainActivity.kt`: app entry point, App Check initialization, Google Sign-In gate, and authenticated ViewModel lifecycle.
-- `app/src/main/java/com/example/ui/ZaytharApp.kt` & `ZaytharNavigation.kt`: adaptive NavigationSuite / Rail / Drawer scaffold and Navigation Compose routing across 16 destinations (including `engine_hub`).
+- `app/src/main/java/com/example/ui/ZaytharApp.kt` & `ZaytharNavigation.kt`: adaptive NavigationSuite / Rail / Drawer scaffold and Navigation Compose routing across 17 destinations (including `engine_hub` and `voice_audio`).
 - `app/src/main/java/com/example/ui/components/ZaytharIcons.kt`: custom Compose `Canvas` hexagonal emblem (`ZaytharHexEmblem`), `CyberIconBadge`, and Material `Icons.Rounded.*` mappings.
-- `app/src/main/java/com/example/ui/ZaytharViewModel.kt` & `NexusWorkspaceViewModel.kt`: state coordination for multi-thread chat, AI Engine Hub diagnostics, AI Brain, Camera Eyes, Plugin Hub, Code Copilot, Image Studio, and Collaboration Nexus.
-- `app/src/main/java/com/example/domain/AiRepository.kt`, `AiWorkspaceCapabilities.kt` & `SmartEngineRouter.kt`: streaming Gemini chat (`AUTO`, `HYBRID`, `FLASH`, `ARGON`, `LITE`), structured-JSON Neural Brain, Camera Eyes vision, Nano Banana 2.1 image generation & editing, engine diagnostics, and Multi-Agent team orchestration.
+- `app/src/main/java/com/example/ui/ZaytharViewModel.kt`, `NexusWorkspaceViewModel.kt` & `VoiceAudioController.kt`: state coordination for multi-thread chat, AI Engine Hub diagnostics, Live Voice (`gemini-3.8-live`), Audio Transcribe (`gemini-3.5-transcribe`), AI Brain, Camera Eyes, Plugin Hub, Code Copilot, Image Studio, and Collaboration Nexus.
+- `app/src/main/java/com/example/domain/AiRepository.kt`, `AiWorkspaceCapabilities.kt`, `AiVisionAndMediaEngine.kt`, `AiVoiceAndAudioEngine.kt` & `SmartEngineRouter.kt`: streaming Gemini chat (`AUTO`, `HYBRID`, `FLASH`, `ARGON`, `LITE`, `HYDROGEN`, `CARBON`, `NEON`, `FLASH_LITE_31`), Google Search & Google Maps Grounding (`Tool.googleSearch()`, `Tool.googleMaps()`), Live bidirectional audio, recorded audio transcription, structured-JSON Neural Brain, Camera Eyes vision, Nano Banana 2.1 image generation & editing, engine diagnostics, and Multi-Agent team orchestration.
 - `app/src/main/java/com/example/domain/WebConnector.kt` & `LocalToolRouter.kt`: SSRF-hardened HTTPS fetcher (`WebConnector`) and local deterministic tool plugins (`LocalToolRouter`).
 - `app/src/main/java/com/example/data/remote/FirestoreRepository.kt` & `FirestoreSessionAndBrainStore.kt`: UID-scoped Cloud Firestore persistence (`users/{uid}/...`).
 - `app/build.gradle.kts` & `gradle/libs.versions.toml`: Android Gradle build and dependency version catalog.
@@ -32,8 +32,8 @@ Android app (Kotlin + Jetpack Compose)
 - **Authentication:** Google sign-in via Credential Manager; the signed-in Firebase UID is the identity boundary.
 - **Firestore:** user data is stored under `users/{userId}` and its subcollections (`chatSessions`, `messages`, `memoryNotes`, `knowledgeFacts`, `plugins`, `brainRuns`) in named database `ai-studio-android-fluffyum-16d0226b-744f-4389-a061-b5bf3e77239a`.
 - **Security rules:** `firestore.rules` denies access by default and enforces authenticated UID ownership and bounded field validation.
-- **AI:** Firebase AI Logic provides the client SDK and proxy path to Gemini models (`gemini-3.8-flash`, `gemini-3.5-flash-lite`, `gemini-4-argon`, and `gemini-nano-banana-2.1`).
-- **App Check:** `AppCheckInit` configures Play Integrity (release) or Debug App Check (debug builds) to protect AI Logic and Firebase resources.
+- **AI:** Firebase AI Logic provides the client SDK and proxy path to Gemini models (`gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-4-neon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.8-live`, `gemini-3.5-transcribe`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, and `gemini-nano-banana-2.1`).
+- **App Check:** `AppCheckInit` configures reCAPTCHA Enterprise (release, when configured) or Debug App Check (debug builds) to protect AI Logic and Firebase resources.
 
 ## Secrets and configuration
 

@@ -1,28 +1,25 @@
 package com.example.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderRouteTest {
     private val firebaseAiLogicSupportedModels = setOf(
-        "gemini-4-hydrogen",
         "gemini-3.8-flash",
         "gemini-3.5-flash-lite"
     )
 
     @Test
-    fun hybridUsesGemini4ThenBoundedFallbacks() {
-        assertEquals(
-            listOf("gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-flash-lite"),
-            ProviderRoute.HYBRID.candidateModels
-        )
+    fun hybridUsesFlashAsPrimaryModel() {
+        assertEquals("gemini-3.8-flash", ProviderRoute.HYBRID.modelName)
     }
 
     @Test
-    fun singleModelRoutesDoNotFanOut() {
-        assertEquals(listOf("gemini-3.8-flash"), ProviderRoute.FLASH.candidateModels)
-        assertEquals(listOf("gemini-3.5-flash-lite"), ProviderRoute.LITE.candidateModels)
+    fun singleModelRoutesUseTheirConfiguredModels() {
+        assertEquals("gemini-3.8-flash", ProviderRoute.FLASH.modelName)
+        assertEquals("gemini-3.5-flash-lite", ProviderRoute.LITE.modelName)
     }
 
     @Test
@@ -31,11 +28,16 @@ class ProviderRouteTest {
     }
 
     @Test
-    fun everyConfiguredCandidateIsInTheFirebaseSupportedModelAllowList() {
+    fun supportedFirebaseRoutesUseAllowListedModels() {
         assertTrue(
-            ProviderRoute.entries
-                .flatMap { it.candidateModels }
-                .all { it in firebaseAiLogicSupportedModels }
+            listOf(ProviderRoute.HYBRID, ProviderRoute.FLASH, ProviderRoute.LITE)
+                .all { it.modelName in firebaseAiLogicSupportedModels }
         )
+    }
+
+    @Test
+    fun everyRouteHasAnIdAndModelName() {
+        assertTrue(ProviderRoute.entries.all { it.id.isNotBlank() && it.modelName.isNotBlank() })
+        assertFalse(ProviderRoute.entries.map { it.id }.toSet().size < ProviderRoute.entries.size)
     }
 }

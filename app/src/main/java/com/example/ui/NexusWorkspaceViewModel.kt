@@ -57,6 +57,8 @@ class NexusWorkspaceViewModel(
 ) : ViewModel() {
 
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
+    private val crudDelegate = NexusWorkspaceCrudDelegate(viewModelScope, firestoreRepo, workspaceStore, guestStore)
+    internal val voiceAudio = VoiceAudioController(viewModelScope, aiRepo)
 
     val memoryNotesState: StateFlow<UiState<List<FirestoreMemoryNote>>> = (
         guestStore?.memoryNotes ?: firestoreRepo.observeMemoryNotes(currentUserId)
@@ -125,30 +127,13 @@ class NexusWorkspaceViewModel(
         return firestoreError ?: error
     }
 
-    // --- MEMORY & KNOWLEDGE GRAPH ---
+    // --- MEMORY, KNOWLEDGE GRAPH & PLUGINS ---
 
-    fun addMemoryNote(rawContent: String, onToast: (String) -> Unit) {
-        val cleaned = rawContent.trim()
-        if (cleaned.isEmpty()) return
-        if (cleaned.length > 2000) {
-            onToast("Note must be 2000 characters or fewer.")
-            return
-        }
-        if (guestStore != null) {
-            guestStore.addMemoryNote(cleaned)
-            onToast("Note saved to local guest RAG memory.")
-            return
-        }
-        viewModelScope.launch {
-            val res = firestoreRepo.addMemoryNote(cleaned)
-            onToast(if (res.isSuccess) "Note synced to Zaythar cloud memory." else "Could not save note: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
-        }
-    }
+    fun addMemoryNote(rawContent: String, onToast: (String) -> Unit) =
+        crudDelegate.addMemoryNote(rawContent, onToast)
 
-    fun deleteMemoryNote(id: String, onToast: (String) -> Unit) {
-        if (guestStore != null) { guestStore.deleteMemoryNote(id); return }
-        viewModelScope.launch { if (firestoreRepo.deleteMemoryNote(id).isFailure) onToast("Failed to delete note.") }
-    }
+    fun deleteMemoryNote(id: String, onToast: (String) -> Unit) =
+        crudDelegate.deleteMemoryNote(id, onToast)
 
     fun addKnowledgeFact(
         rawSubject: String,
@@ -156,88 +141,22 @@ class NexusWorkspaceViewModel(
         rawObject: String,
         source: String = "operator",
         onToast: (String) -> Unit
-    ) {
-        val subject = rawSubject.trim()
-        val predicate = rawPredicate.trim()
-        val obj = rawObject.trim()
-        if (subject.isEmpty() || predicate.isEmpty() || obj.isEmpty()) {
-            onToast("Fill in subject, relation, and object.")
-            return
-        }
-        if (subject.length > 300 || predicate.length > 300 || obj.length > 300) {
-            onToast("Each field must be 300 characters or fewer.")
-            return
-        }
-        if (guestStore != null) {
-            val res = guestStore.addKnowledgeFact(subject, predicate, obj, source)
-            onToast(if (res.isSuccess) "Knowledge fact added to guest RAG graph." else res.exceptionOrNull()?.localizedMessage ?: "error")
-            return
-        }
-        viewModelScope.launch {
-            if (firestoreRepo.countKnowledgeFacts() >= 200) {
-                onToast("Knowledge graph limit reached (200 facts).")
-                return@launch
-            }
-            val res = firestoreRepo.addKnowledgeFact(subject, predicate, obj, source)
-            onToast(
-                if (res.isSuccess) "Knowledge fact synced to Cloud Firestore."
-                else "Failed to save fact: ${res.exceptionOrNull()?.localizedMessage ?: "error"}"
-            )
-        }
-    }
+    ) = crudDelegate.addKnowledgeFact(rawSubject, rawPredicate, rawObject, source, onToast)
 
-    fun deleteKnowledgeFact(id: String, onToast: (String) -> Unit) {
-        if (guestStore != null) { guestStore.deleteKnowledgeFact(id); return }
-        viewModelScope.launch { if (firestoreRepo.deleteKnowledgeFact(id).isFailure) onToast("Failed to delete knowledge fact.") }
-    }
+    fun deleteKnowledgeFact(id: String, onToast: (String) -> Unit) =
+        crudDelegate.deleteKnowledgeFact(id, onToast)
 
-    fun commitSuggestedTriples(triples: List<SuggestedTriple>, onToast: (String) -> Unit) {
-        if (triples.isEmpty()) return
-        if (guestStore != null) {
-            val saved = triples.count { t -> guestStore.addKnowledgeFact(t.subject, t.predicate, t.objectValue, "neural_brain").isSuccess }
-            onToast("Committed $saved knowledge triple(s) to guest RAG graph.")
-            return
-        }
-        viewModelScope.launch {
-            val currentCount = firestoreRepo.countKnowledgeFacts()
-            if (currentCount >= 200) {
-                onToast("Knowledge graph limit reached (200 facts).")
-                return@launch
-            }
-            val saved = triples.take(200 - currentCount).count { t ->
-                firestoreRepo.addKnowledgeFact(t.subject, t.predicate, t.objectValue, source = "neural_brain").isSuccess
-            }
-            onToast("Committed $saved knowledge triple(s) to Cloud Firestore.")
-        }
-    }
+    fun commitSuggestedTriples(triples: List<SuggestedTriple>, onToast: (String) -> Unit) =
+        crudDelegate.commitSuggestedTriples(triples, onToast)
 
-    // --- PLUGINS ---
+    fun togglePlugin(pluginId: String, enabled: Boolean, onToast: (String) -> Unit) =
+        crudDelegate.togglePlugin(pluginId, enabled, onToast)
 
-    fun togglePlugin(pluginId: String, enabled: Boolean, onToast: (String) -> Unit) {
-        if (guestStore != null) { guestStore.setPluginEnabled(pluginId, enabled); return }
-        viewModelScope.launch { if (workspaceStore.setPluginEnabled(pluginId, enabled).isFailure) onToast("Failed to update plugin state.") }
-    }
+    fun addCustomPlugin(name: String, description: String, category: String, systemInstruction: String, onToast: (String) -> Unit) =
+        crudDelegate.addCustomPlugin(name, description, category, systemInstruction, onToast)
 
-    fun addCustomPlugin(name: String, description: String, category: String, systemInstruction: String, onToast: (String) -> Unit) {
-        if (name.isBlank() || description.isBlank()) { onToast("Plugin name and description are required."); return }
-        if (guestStore != null) {
-            guestStore.addCustomPlugin(name, description, category, systemInstruction)
-            onToast("Custom plugin plugged into guest core.")
-            return
-        }
-        viewModelScope.launch {
-            val res = workspaceStore.addCustomPlugin(name, description, category, systemInstruction)
-            onToast(if (res.isSuccess) "Custom plugin plugged into Zaythar Core." else "Could not add plugin: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
-        }
-    }
-
-    fun deletePlugin(pluginId: String, onToast: (String) -> Unit) {
-        if (guestStore != null) { guestStore.deletePlugin(pluginId); onToast("Plugin unplugged and removed."); return }
-        viewModelScope.launch {
-            val res = workspaceStore.deletePlugin(pluginId)
-            onToast(if (res.isSuccess) "Plugin unplugged and removed." else "Failed to remove plugin.")
-        }
-    }
+    fun deletePlugin(pluginId: String, onToast: (String) -> Unit) =
+        crudDelegate.deletePlugin(pluginId, onToast)
 
     // --- AI BRAIN & NEURAL FUNCTIONS ---
 
@@ -523,6 +442,11 @@ class NexusWorkspaceViewModel(
                 onToast(msg)
             }
         }
+    }
+
+    override fun onCleared() {
+        voiceAudio.shutdown()
+        super.onCleared()
     }
 
     companion object {

@@ -19,10 +19,13 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -79,7 +82,11 @@ internal fun AssistantChatCard(
     onNewSession: () -> Unit,
     onOpenPlugins: () -> Unit,
     onOpenCameraEyes: () -> Unit,
+    onOpenVoiceAudio: () -> Unit = {},
     onToggleWebConnect: (Boolean) -> Unit,
+    onToggleMapsGrounding: (Boolean) -> Unit = {},
+    isSpeaking: Boolean = false,
+    onStopSpeaking: () -> Unit = {},
     onSelectAgent: (AgentRole) -> Unit,
     onSelectLanguage: (SupportedLanguage) -> Unit,
     onToggleSpeakReplies: (Boolean) -> Unit,
@@ -99,7 +106,12 @@ internal fun AssistantChatCard(
     CyberCard(modifier = modifier) {
         CyberCardHeader(
             title = sessionTitle.uppercase(),
-            badge = if (prefs.webConnectEnabled) "GOOGLE SEARCH+CLOUD" else "CLOUD SYNC",
+            badge = when {
+                prefs.webConnectEnabled && prefs.mapsGroundingEnabled -> "SEARCH+MAPS"
+                prefs.mapsGroundingEnabled -> "MAPS+CLOUD"
+                prefs.webConnectEnabled -> "GOOGLE SEARCH+CLOUD"
+                else -> "CLOUD SYNC"
+            },
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
@@ -237,6 +249,44 @@ internal fun AssistantChatCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = if (prefs.webConnectEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            Surface(
+                modifier = Modifier.minimumInteractiveComponentSize().clickable { onToggleMapsGrounding(!prefs.mapsGroundingEnabled) }.testTag("maps_grounding_toggle"),
+                shape = MaterialTheme.shapes.small,
+                color = if (prefs.mapsGroundingEnabled) cyber.cyberGreen.copy(alpha = 0.16f) else cyber.panelElevated,
+                border = BorderStroke(1.dp, if (prefs.mapsGroundingEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.outline)
+            ) {
+                Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.LocationOn, "Toggle Google Maps Grounding", tint = if (prefs.mapsGroundingEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Text(if (prefs.mapsGroundingEnabled) "MAPS: ON" else "MAPS: OFF", style = MaterialTheme.typography.labelSmall, color = if (prefs.mapsGroundingEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Surface(
+                modifier = Modifier.minimumInteractiveComponentSize().clickable(onClick = onOpenVoiceAudio).testTag("assistant_voice_live_chip"),
+                shape = MaterialTheme.shapes.small,
+                color = cyber.panelElevated,
+                border = BorderStroke(1.dp, cyber.cyberGreen.copy(alpha = 0.45f))
+            ) {
+                Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.GraphicEq, null, tint = cyber.cyberGreen, modifier = Modifier.size(16.dp))
+                    Text("VOICE LIVE", style = MaterialTheme.typography.labelSmall, color = cyber.cyberGreen)
+                }
+            }
+
+            if (isSpeaking) {
+                Surface(
+                    modifier = Modifier.minimumInteractiveComponentSize().clickable(onClick = onStopSpeaking).testTag("stop_tts_chip"),
+                    shape = MaterialTheme.shapes.small,
+                    color = cyber.accent.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, cyber.accent)
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Rounded.StopCircle, "Stop speaking", tint = cyber.accentSoft, modifier = Modifier.size(16.dp))
+                        Text("STOP TTS", style = MaterialTheme.typography.labelSmall, color = cyber.accentSoft)
+                    }
                 }
             }
 
