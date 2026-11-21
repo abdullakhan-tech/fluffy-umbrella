@@ -31,6 +31,10 @@ These controls still require correct Firebase Console configuration and deployme
 - Use HTTPS for any future backend and redact credentials and personal data from logs.
 - Test authorization boundaries with multiple accounts before release.
 
+## Memory isolation regression coverage
+
+The Firestore emulator suite checks that an authenticated account cannot read, list, create, update, or delete another account's memory notes or knowledge facts. Owner CRUD success paths remain covered separately. These emulator tests validate the checked-in rules only; they do not prove that the rules have been deployed to the production Firebase project.
+
 ## Safe development
 
 Use synthetic data in tests. Avoid logging prompts, memory, or provider responses by default. Return sanitized errors to clients and keep sensitive diagnostics redacted.
