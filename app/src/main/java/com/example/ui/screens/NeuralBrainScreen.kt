@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.data.remote.FirestoreBrainRun
+import com.example.domain.AgentExecutionPlan
+import com.example.domain.JarvisAgentOrchestrator
 import com.example.domain.NeuralBrainAnalysis
 import com.example.domain.NeuralBrainMode
 import com.example.domain.SuggestedTriple
@@ -65,6 +67,8 @@ fun NeuralBrainScreen(
     val cyber = LocalCyberColors.current
     var selectedMode by remember { mutableStateOf(NeuralBrainMode.REASONER) }
     var prompt by remember { mutableStateOf("") }
+    var agentTask by remember { mutableStateOf("") }
+    var agentPlan by remember { mutableStateOf<AgentExecutionPlan?>(null) }
     val pastRuns = (brainRunsState as? UiState.Success)?.data ?: emptyList()
 
     val presets = remember {
@@ -128,6 +132,67 @@ fun NeuralBrainScreen(
                         )
                         Text(
                             text = com.example.domain.JarvisAgentOrchestrator.team.joinToString("  ·  ") { it.name.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = cyber.cyberGreen
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
+                CyberCardHeader(
+                    title = "JARVIS TASK DIRECTOR",
+                    badge = "6 PERSONAS · GUARDED AUTONOMY"
+                )
+                OutlinedTextField(
+                    value = agentTask,
+                    onValueChange = { if (it.length <= 4000) agentTask = it },
+                    label = { Text("TASK FOR YOUR AI TEAM") },
+                    placeholder = { Text("e.g. Audit my project, plan fixes, verify tests and report blockers…") },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth().testTag("jarvis_agent_task_input")
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                CyberActionButton(
+                    text = "BUILD EXECUTION PLAN",
+                    onClick = {
+                        agentPlan = runCatching { JarvisAgentOrchestrator.createPlan(agentTask) }.getOrNull()
+                    },
+                    enabled = agentTask.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "jarvis_agent_plan_button"
+                )
+                agentPlan?.let { plan ->
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "TASK TYPE · ${plan.taskKind.name.replace('_', ' ')}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cyber.accentSoft
+                    )
+                    Text(
+                        text = "TEAM · ${plan.assignedAgents.joinToString("  ·  ") { it.name }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = cyber.cyberGreen
+                    )
+                    plan.steps.forEachIndexed { index, step ->
+                        Text(
+                            text = "${index + 1}. ${step.title} — ${step.ownerAgentId.uppercase()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (plan.approvalRequired) {
+                        Text(
+                            text = "APPROVAL REQUIRED · ${plan.approvalReason}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        Text(
+                            text = "READ-ONLY PLAN · No external action will run without a registered tool.",
                             style = MaterialTheme.typography.labelSmall,
                             color = cyber.cyberGreen
                         )
