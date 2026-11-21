@@ -150,6 +150,65 @@ test("Authenticated user: cannot read, create, update, or delete another user's 
   );
 });
 
+test("Authenticated user cannot read or mutate another user's memory notes or knowledge facts", async () => {
+  const ts = pastTimestamp();
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.collection("users").doc(BOB_UID).collection("memories").doc("mem_private").set({
+      userId: BOB_UID,
+      content: "Synthetic private memory",
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    await db.collection("users").doc(BOB_UID).collection("knowledge_facts").doc("fact_private").set({
+      userId: BOB_UID,
+      subject: "Synthetic subject",
+      predicate: "has",
+      objectValue: "private value",
+      source: "test",
+      createdAt: ts,
+      updatedAt: ts,
+    });
+  });
+
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobMemories = aliceDb.collection("users").doc(BOB_UID).collection("memories");
+  const bobMemory = bobMemories.doc("mem_private");
+  await assertFails(bobMemories.get());
+  await assertFails(bobMemory.get());
+  await assertFails(bobMemory.update({
+    content: "Attempted overwrite",
+    updatedAt: pastTimestamp(1000),
+  }));
+  await assertFails(bobMemory.delete());
+  await assertFails(bobMemories.doc("mem_injected").set({
+    userId: ALICE_UID,
+    content: "Attempted cross-account create",
+    createdAt: ts,
+    updatedAt: ts,
+  }));
+
+  const bobFacts = aliceDb.collection("users").doc(BOB_UID).collection("knowledge_facts");
+  const bobFact = bobFacts.doc("fact_private");
+  await assertFails(bobFacts.get());
+  await assertFails(bobFact.get());
+  await assertFails(bobFact.update({
+    predicate: "attempted overwrite",
+    updatedAt: pastTimestamp(1000),
+  }));
+  await assertFails(bobFact.delete());
+  await assertFails(bobFacts.doc("fact_injected").set({
+    userId: ALICE_UID,
+    subject: "Attempted cross-account create",
+    predicate: "has",
+    objectValue: "no access",
+    source: "test",
+    createdAt: ts,
+    updatedAt: ts,
+  }));
+});
+
 // --- 3. SCHEMA, GHOST FIELDS, SPOOFING & RESOURCE POISONING ---
 
 test("Schema guard: rejects ghost fields, spoofed userId, mismatched sessionId, oversized arrays/strings, and invalid pluginKey", async () => {
