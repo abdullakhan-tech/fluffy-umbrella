@@ -49,9 +49,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck"],
 )
-app.add_middleware(RequestSecurityMiddleware, max_bytes=settings.max_request_body_bytes)
-
-
 class RequestSecurityMiddleware:
     """Bound complete ASGI request bodies, including chunked bodies, and add safe headers."""
 
@@ -128,6 +125,9 @@ class RequestSecurityMiddleware:
             await send(message)
 
         await self.app(scope, replay_body, send_with_security_headers)
+
+
+app.add_middleware(RequestSecurityMiddleware, max_bytes=settings.max_request_body_bytes)
 
 
 @app.exception_handler(Exception)
