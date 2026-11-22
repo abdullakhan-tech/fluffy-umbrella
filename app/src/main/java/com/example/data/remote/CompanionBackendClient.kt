@@ -1,6 +1,9 @@
 package com.example.data.remote
 
 import android.util.Log
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -58,6 +61,17 @@ class CompanionBackendClient(
 
     private fun normalizeUrl(baseUrl: String): String =
         baseUrl.trim().trimEnd('/')
+
+    private suspend fun applyFirebaseAuthHeaders(connection: HttpURLConnection) {
+        val user = FirebaseAuth.getInstance().currentUser
+            ?: error("Sign in to Zaythar AI before using the companion backend.")
+        val idToken = user.getIdToken(false).await().token
+            ?: error("Firebase authentication token is unavailable.")
+        val appCheckToken = FirebaseAppCheck.getInstance().getAppCheckToken(false).await().token
+            ?: error("Firebase App Check attestation is unavailable.")
+        connection.setRequestProperty("Authorization", "Bearer $idToken")
+        connection.setRequestProperty("X-Firebase-AppCheck", appCheckToken)
+    }
 
     suspend fun checkHealth(baseUrl: String = defaultBaseUrl): Result<CompanionHealth> =
         withContext(Dispatchers.IO) {
@@ -136,7 +150,11 @@ class CompanionBackendClient(
                 setRequestProperty("Accept", "application/json")
             }
 
-            val payload = JSONObject().apply {
+            applyFirebaseAuthHeaders(conn)
+
+            applyFirebaseAuthHeaders(conn)
+
+        val payload = JSONObject().apply {
                 val msgArray = JSONArray()
                 messages.forEach { m ->
                     msgArray.put(JSONObject().apply {
@@ -250,6 +268,8 @@ class CompanionBackendClient(
                 setRequestProperty("Content-Type", "application/json")
                 setRequestProperty("Accept", "application/json")
             }
+
+            applyFirebaseAuthHeaders(conn)
 
             val payload = JSONObject().apply {
                 put("task", task)
