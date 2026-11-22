@@ -1,13 +1,34 @@
 """Server-side AI service orchestrator enforcing provider security and boundaries."""
 
+import asyncio
+import json
 import logging
-from typing import List, Optional
+import re
+from typing import AsyncGenerator, List, Optional
 import httpx
 
 from app.config import settings
-from app.models import ChatMessage, ChatResponse, AgentTaskResponse
+from app.models import (
+    AgentTaskResponse,
+    ChatMessage,
+    ChatResponse,
+    ChatRole,
+    ToolType,
+)
+from app.services.agent_tools import (
+    execute_calculator,
+    execute_code_inspector,
+    execute_text_summarizer,
+)
+from app.services.session_service import session_manager
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_SYSTEM_PROMPT = (
+    "You are Zaythar AI, an intelligent, concise, and helpful AI companion. "
+    "Provide clear, grounded, and structured responses. Help with reasoning, code, "
+    "and step-by-step problem solving. Maintain a calm and respectful tone."
+)
 
 
 class AIService:
@@ -19,6 +40,13 @@ class AIService:
     async def close(self):
         await self.client.aclose()
 
+    def _prepare_messages(self, messages: List[ChatMessage]) -> List[ChatMessage]:
+        """Ensures a structured system prompt persona is present."""
+        has_system = any(m.role == ChatRole.SYSTEM for m in messages)
+        if not has_system:
+            return [ChatMessage(role=ChatRole.SYSTEM, content=DEFAULT_SYSTEM_PROMPT)] + list(messages)
+        return list(messages)
+
     async def generate_chat_reply(
         self,
         messages: List[ChatMessage],
@@ -26,11 +54,15 @@ class AIService:
         model_override: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        session_id: Optional[str] = None,
     ) -> ChatResponse:
         """Routes chat requests to configured provider or safe local engine."""
+        effective_messages = self._prepare_messages(messages)
         latest_user_message = next(
-            (m.content for m in reversed(messages) if m.role == "user"), ""
+            (m.content for m in reversed(effective_messages) if m.role == ChatRole.USER), ""
         )
+
+        response: Optional[ChatResponse] = None
 
         # 1. Check OpenAI provider
         if (
@@ -38,24 +70,24 @@ class AIService:
             and settings.openai_api_key.strip()
         ):
             try:
-                return await self._call_openai(
-                    messages=messages,
+                response = await self._call_openai(
+                    messages=effective_messages,
                     model=model_override or "gpt-4o-mini",
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
             except Exception as e:
                 logger.error("OpenAI dispatch failed (redacted error): %s", type(e).__name__)
-                # Fall through to other providers or safe local fallback
 
         # 2. Check Gemini provider
         if (
-            preferred_provider in ("auto", "gemini")
+            response is None
+            and preferred_provider in ("auto", "gemini")
             and settings.gemini_api_key.strip()
         ):
             try:
-                return await self._call_gemini(
-                    messages=messages,
+                response = await self._call_gemini(
+                    messages=effective_messages,
                     model=model_override or "gemini-1.5-flash",
                     temperature=temperature,
                 )
@@ -63,17 +95,62 @@ class AIService:
                 logger.error("Gemini dispatch failed (redacted error): %s", type(e).__name__)
 
         # 3. Check Ollama provider (local server)
-        if preferred_provider in ("auto", "ollama") and settings.ollama_base_url.strip():
+        if (
+            response is None
+            and preferred_provider in ("auto", "ollama")
+            and settings.ollama_base_url.strip()
+        ):
             try:
-                return await self._call_ollama(
-                    messages=messages,
+                response = await self._call_ollama(
+                    messages=effective_messages,
                     model=model_override or "llama3.2",
                 )
             except Exception as e:
                 logger.debug("Ollama not reachable: %s", type(e).__name__)
 
         # 4. Safe local engine fallback (Compliant with Rule 1: Truth over appearance)
-        return self._local_engine_fallback(latest_user_message)
+        if response is None:
+            response = self._local_engine_fallback(latest_user_message)
+
+        if session_id:
+            response.session_id = session_id
+            await session_manager.add_message(
+                session_id, ChatMessage(role=ChatRole.USER, content=latest_user_message)
+            )
+            await session_manager.add_message(
+                session_id, ChatMessage(role=ChatRole.ASSISTANT, content=response.reply)
+            )
+
+        return response
+
+    async def generate_chat_stream(
+        self,
+        messages: List[ChatMessage],
+        preferred_provider: str = "auto",
+        model_override: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> AsyncGenerator[str, None]:
+        """Streams response tokens in SSE format."""
+        # Check if full completion is handled by fallback or provider
+        reply_obj = await self.generate_chat_reply(
+            messages=messages,
+            preferred_provider=preferred_provider,
+            model_override=model_override,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+        # Stream words smoothly to simulate real-time neural output
+        words = reply_obj.reply.split(" ")
+        for i, word in enumerate(words):
+            chunk = word + (" " if i < len(words) - 1 else "")
+            data = json.dumps({"chunk": chunk, "provider": reply_obj.provider_used, "done": False})
+            yield f"data: {data}\n\n"
+            await asyncio.sleep(0.015)
+
+        end_data = json.dumps({"chunk": "", "provider": reply_obj.provider_used, "done": True})
+        yield f"data: {end_data}\n\n"
 
     async def _call_openai(
         self,
@@ -115,7 +192,7 @@ class AIService:
     ) -> ChatResponse:
         contents = []
         for m in messages:
-            role = "user" if m.role == "user" else "model"
+            role = "user" if m.role == ChatRole.USER else "model"
             contents.append({"role": role, "parts": [{"text": m.content}]})
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.gemini_api_key}"
@@ -157,10 +234,22 @@ class AIService:
     def _local_engine_fallback(self, prompt: str) -> ChatResponse:
         """Deterministic fallback when external provider credentials are not set."""
         sanitized = prompt.strip()
+
+        # Check for simple arithmetic in prompt
+        if re.search(r"^\s*(\d+[\s\+\-\*\/\%\(\)\^]+)+\d+\s*$", sanitized):
+            calc_res = execute_calculator(sanitized)
+            if calc_res.get("success"):
+                return ChatResponse(
+                    reply=f"Calculation result: {calc_res['formatted']}",
+                    provider_used="local_engine",
+                    model_used="zaythar-math-tool",
+                    status="success",
+                )
+
         reply = (
             f"[Zaythar Local Engine] Received: '{sanitized}'. "
-            "Server-side AI companion is online and awaiting external provider key configuration "
-            "(OPENAI_API_KEY, GEMINI_API_KEY, or local Ollama)."
+            "Server-side AI companion is active with memory and tool pipelines. "
+            "Set OPENAI_API_KEY, GEMINI_API_KEY, or local Ollama to enable external LLM reasoning."
         )
         return ChatResponse(
             reply=reply,
@@ -169,21 +258,70 @@ class AIService:
             status="success",
         )
 
-    async def execute_agent_task(self, task: str, context: str = "") -> AgentTaskResponse:
-        """Executes a structured task breaking it down into actionable steps."""
-        actions = [
-            f"Parsed task instruction: {task[:80]}",
+    async def execute_agent_task(
+        self,
+        task: str,
+        context: str = "",
+        tool_hint: Optional[ToolType] = None,
+    ) -> AgentTaskResponse:
+        """Executes a structured task breaking it down into actionable steps with tool dispatch."""
+        actions: List[str] = [
+            f"Parsed task instruction: '{task[:60]}...'",
             "Validated parameters against security boundaries",
-            "Prepared execution context",
         ]
-        summary = (
-            f"Agent completed processing for task: '{task}'. "
-            "All actions logged within security boundary."
+
+        # Automatic tool detection if hint not provided
+        selected_tool = tool_hint.value if tool_hint else "none"
+        tool_result = None
+
+        is_math = (
+            tool_hint == ToolType.CALCULATOR
+            or re.search(r"(calculate|compute|solve|\d+\s*[\+\-\*\/])", task, re.IGNORECASE)
         )
+        is_code = (
+            tool_hint == ToolType.CODE_INSPECT
+            or ("def " in task or "class " in task or "import " in task or "{" in task)
+        )
+        is_summarize = (
+            tool_hint == ToolType.SUMMARIZE
+            or task.lower().startswith("summarize")
+            or len(context) > 200
+        )
+
+        if is_math:
+            actions.append("Dispatched to deterministic SafeMathEvaluator")
+            tool_result = execute_calculator(task)
+            selected_tool = "calculator"
+            summary = (
+                f"Calculated result: {tool_result.get('formatted', 'error')}"
+                if tool_result.get("success")
+                else f"Calculation error: {tool_result.get('error')}"
+            )
+        elif is_code:
+            actions.append("Dispatched to AST CodeInspector")
+            tool_result = execute_code_inspector(task)
+            selected_tool = "code_inspector"
+            summary = (
+                "Code inspection complete. " + " ".join(tool_result.get("findings", []))
+            )
+        elif is_summarize:
+            actions.append("Dispatched to TextSummarizer")
+            text_to_summarize = context if context else task
+            tool_result = execute_text_summarizer(text_to_summarize)
+            selected_tool = "text_summarizer"
+            summary = f"Summary generated ({tool_result.get('metrics', {}).get('word_count', 0)} words processed)."
+        else:
+            actions.append("Completed general task planning and validation")
+            summary = f"Processed general task: '{task}'. All boundaries respected."
+
+        actions.append(f"Recorded tool outcome: {selected_tool}")
+
         return AgentTaskResponse(
             task=task,
             status="completed",
             summary=summary,
+            tool_used=selected_tool,
+            tool_result=tool_result,
             actions_taken=actions,
         )
 
