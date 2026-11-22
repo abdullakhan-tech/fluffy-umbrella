@@ -49,23 +49,85 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck"],
 )
+app.add_middleware(RequestSecurityMiddleware, max_bytes=settings.max_request_body_bytes)
 
 
-@app.middleware("http")
-async def security_headers_and_body_limit(request: Request, call_next):
-    content_length = request.headers.get("content-length")
-    if content_length:
-        try:
-            if int(content_length) > settings.max_request_body_bytes:
-                return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
-        except ValueError:
-            return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header."})
+class RequestSecurityMiddleware:
+    """Bound complete ASGI request bodies, including chunked bodies, and add safe headers."""
 
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Cache-Control"] = "no-store"
-    return response
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        response_headers = {
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+        }
+        raw_length = dict(scope.get("headers", [])).get(b"content-length")
+        if raw_length:
+            try:
+                declared_length = int(raw_length)
+            except ValueError:
+                response = JSONResponse(
+                    status_code=400,
+                    content={"detail": "Invalid Content-Length header."},
+                    headers=response_headers,
+                )
+                await response(scope, receive, send)
+                return
+            if declared_length < 0 or declared_length > self.max_bytes:
+                response = JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body is too large."},
+                    headers=response_headers,
+                )
+                await response(scope, receive, send)
+                return
+
+        buffered_messages = []
+        total_bytes = 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            if message["type"] != "http.request":
+                continue
+            total_bytes += len(message.get("body", b""))
+            if total_bytes > self.max_bytes:
+                response = JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body is too large."},
+                    headers=response_headers,
+                )
+                await response(scope, receive, send)
+                return
+            buffered_messages.append(message)
+            if not message.get("more_body", False):
+                break
+
+        async def replay_body():
+            if buffered_messages:
+                return buffered_messages.pop(0)
+            return await receive()
+
+        async def send_with_security_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                existing = {name.lower() for name, _ in headers}
+                for name, value in response_headers.items():
+                    encoded_name = name.lower().encode("latin-1")
+                    if encoded_name not in existing:
+                        headers.append((encoded_name, value.encode("latin-1")))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, replay_body, send_with_security_headers)
 
 
 @app.exception_handler(Exception)
