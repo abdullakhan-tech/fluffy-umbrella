@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     default_ai_provider: str = "fallback"
 
+    # Optional Stonic gateway; enabled only for OpenAI-compatible endpoints.
+    stonic_base_url: str = ""
+    stonic_api_key: str = ""
+    stonic_model: str = "stonic-default"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

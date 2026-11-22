@@ -123,7 +123,8 @@ class CompanionBackendClient(
         provider: String = "auto",
         model: String? = null,
         temperature: Float = 0.7f,
-        sessionId: String? = null
+        sessionId: String? = null,
+        personality: String = "friday"
     ): Result<CompanionChatResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val targetUrl = "${normalizeUrl(baseUrl)}/api/v1/chat"
@@ -148,6 +149,7 @@ class CompanionBackendClient(
                 put("provider", provider)
                 if (!model.isNullOrBlank()) put("model", model)
                 put("temperature", temperature.toDouble())
+                put("personality", personality)
                 if (!sessionId.isNullOrBlank()) put("session_id", sessionId)
             }
 
@@ -178,7 +180,8 @@ class CompanionBackendClient(
         messages: List<CompanionChatMessage>,
         provider: String = "auto",
         model: String? = null,
-        temperature: Float = 0.7f
+        temperature: Float = 0.7f,
+        personality: String = "friday"
     ): Flow<String> = flow {
         val targetUrl = "${normalizeUrl(baseUrl)}/api/v1/chat/stream"
         val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
@@ -202,6 +205,7 @@ class CompanionBackendClient(
             put("provider", provider)
             if (!model.isNullOrBlank()) put("model", model)
             put("temperature", temperature.toDouble())
+            put("personality", personality)
         }
 
         try {
@@ -221,7 +225,7 @@ class CompanionBackendClient(
                     if (rawData.isNotEmpty()) {
                         val token = runCatching {
                             val json = JSONObject(rawData)
-                            json.optString("token", "")
+                            json.optString("token", json.optString("chunk", ""))
                         }.getOrDefault(rawData)
                         if (token.isNotEmpty()) {
                             emit(token)

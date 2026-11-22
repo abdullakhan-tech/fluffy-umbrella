@@ -89,7 +89,8 @@ class MainActivity : ComponentActivity() {
                 accentHex = prefs.accentHex,
                 glowStrength = prefs.glowStrength / 100f,
                 metalSpecularity = prefs.metalSpecularity / 100f,
-                contrastStrength = prefs.contrastStrength / 100f
+                contrastStrength = prefs.contrastStrength / 100f,
+                themePresetId = prefs.themePresetId
             ) {
                 val user = currentUser
                 if (user == null && !isGuestMode) {

@@ -4,6 +4,9 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
 
 ## Implemented Features
 
+- **Zaythar Personality Studio**: Native Android chat and Python companion support selectable `FRIDAY`, `PROFESSIONAL`, `FRIENDLY`, `DEVELOPER`, and `RESEARCHER` response profiles. Unknown backend profile values safely fall back to `FRIDAY`.
+- **Command Studio Themes**: Five persistent Android palettes (Reactor Red, Titanium, Stealth, Arc Blue, Light Command) stored in DataStore and applied to the Compose Material 3 theme; matching presets are also exposed at `/api/v1/ui/themes`.
+- **Specialist Agent Catalog**: Android Command Studio can switch the active chat specialist and open Collaboration Nexus; backend catalog exposes Planner, Research Analyst, Code Engineer, Communication Specialist, and Data Analyst profiles at `/api/v1/agents`.
 - **AI Engine Nexus & Smart Auto-Router**: Dedicated `EngineHubScreen` featuring a deterministic prompt intent classifier (`SmartEngineRouter`) across 9 Zaythar engines, dynamic Gemini tier routing (`AUTO`, `HYBRID`, `FLASH`, `ARGON`, `LITE`, `HYDROGEN`, `CARBON`, `NEON`, `FLASH_LITE_31`), and an **All-Engine Verification Suite** running local deterministic checks + optional live `gemini-3.8-flash` connectivity probes.
 - **Voice & Audio Nexus (`gemini-3.8-live` & `gemini-3.5-transcribe`)**:
   - Dedicated `VoiceAndAudioScreen` supporting bidirectional real-time **Gemini Live** voice conversations (`LiveSession.startAudioConversation` with selectable voices, interruptions, live captions, and RAG transcript export) and AAC/M4A voice-note recording & transcription (`gemini-3.5-transcribe` with `gemini-3.8-flash` fallback), runtime-gated by `RECORD_AUDIO`.

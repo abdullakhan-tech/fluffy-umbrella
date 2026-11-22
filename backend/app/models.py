@@ -28,6 +28,7 @@ class ChatRequest(BaseModel):
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: int = Field(default=1024, ge=1, le=4096, description="Maximum tokens")
     session_id: Optional[str] = Field(default=None, max_length=100, description="Optional session identifier for history")
+    personality: str = Field(default="friday", pattern="^(friday|professional|friendly|developer|researcher)$", description="Assistant response personality")
 
 
 class ChatResponse(BaseModel):

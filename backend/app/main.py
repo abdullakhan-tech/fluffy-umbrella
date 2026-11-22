@@ -22,6 +22,7 @@ from app.models import (
 )
 from app.services.ai_service import ai_service
 from app.services.session_service import session_manager
+from app.services.personality import AGENT_CATALOG, THEME_PRESETS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -106,6 +107,7 @@ async def chat_completion(request: ChatRequest):
             temperature=request.temperature,
             max_tokens=request.max_tokens,
             session_id=request.session_id,
+            personality=request.personality,
         )
         return response
     except Exception as e:
@@ -127,6 +129,7 @@ async def chat_stream(request: ChatRequest):
                 model_override=request.model,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
+                personality=request.personality,
             ),
             media_type="text/event-stream",
         )
@@ -136,6 +139,21 @@ async def chat_stream(request: ChatRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Streaming chat service encountered an error.",
         )
+
+
+@app.get("/api/v1/ui/themes", summary="Available Zaythar UI theme presets")
+async def list_ui_themes():
+    return {"themes": THEME_PRESETS}
+
+
+@app.get("/api/v1/agents", summary="Available specialist agent profiles")
+async def list_agents():
+    return {"agents": AGENT_CATALOG, "execution": "Use POST /api/v1/agent/task for bounded task dispatch."}
+
+
+@app.get("/api/v1/personality", summary="Available assistant personalities")
+async def list_personalities():
+    return {"personalities": ["friday", "professional", "friendly", "developer", "researcher"], "default": "friday"}
 
 
 @app.get("/api/v1/sessions", response_model=List[SessionSummary], summary="List active chat sessions")

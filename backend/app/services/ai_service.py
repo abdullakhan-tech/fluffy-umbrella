@@ -21,6 +21,8 @@ from app.services.agent_tools import (
     execute_text_summarizer,
 )
 from app.services.session_service import session_manager
+from app.services.stonic_adapter import StonicAdapter
+from app.services.personality import system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +38,21 @@ class AIService:
 
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=30.0)
+        self.stonic = StonicAdapter(
+            client=self.client,
+            base_url=settings.stonic_base_url,
+            api_key=settings.stonic_api_key,
+            model=settings.stonic_model,
+        ) if settings.stonic_base_url.strip() and settings.stonic_api_key.strip() else None
 
     async def close(self):
         await self.client.aclose()
 
-    def _prepare_messages(self, messages: List[ChatMessage]) -> List[ChatMessage]:
+    def _prepare_messages(self, messages: List[ChatMessage], personality: str = "friday") -> List[ChatMessage]:
         """Ensures a structured system prompt persona is present."""
         has_system = any(m.role == ChatRole.SYSTEM for m in messages)
         if not has_system:
-            return [ChatMessage(role=ChatRole.SYSTEM, content=DEFAULT_SYSTEM_PROMPT)] + list(messages)
+            return [ChatMessage(role=ChatRole.SYSTEM, content=system_prompt(personality))] + list(messages)
         return list(messages)
 
     async def generate_chat_reply(
@@ -55,14 +63,31 @@ class AIService:
         temperature: float = 0.7,
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
+        personality: str = "friday",
     ) -> ChatResponse:
         """Routes chat requests to configured provider or safe local engine."""
-        effective_messages = self._prepare_messages(messages)
+        effective_messages = self._prepare_messages(messages, personality)
         latest_user_message = next(
             (m.content for m in reversed(effective_messages) if m.role == ChatRole.USER), ""
         )
 
         response: Optional[ChatResponse] = None
+
+        # 0. Optional Stonic gateway (requires explicit endpoint + server-side key).
+        if (
+            response is None
+            and preferred_provider in ("auto", "stonic")
+            and self.stonic is not None
+        ):
+            try:
+                response = await self.stonic.generate(
+                    messages=effective_messages,
+                    model_override=model_override,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            except Exception as e:
+                logger.error("Stonic dispatch failed (redacted error): %s", type(e).__name__)
 
         # 1. Check OpenAI provider
         if (
@@ -130,6 +155,7 @@ class AIService:
         model_override: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        personality: str = "friday",
     ) -> AsyncGenerator[str, None]:
         """Streams response tokens in SSE format."""
         # Check if full completion is handled by fallback or provider
@@ -139,6 +165,7 @@ class AIService:
             model_override=model_override,
             temperature=temperature,
             max_tokens=max_tokens,
+            personality=personality,
         )
 
         # Stream words smoothly to simulate real-time neural output

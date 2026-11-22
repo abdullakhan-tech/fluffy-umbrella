@@ -174,6 +174,14 @@ class AiRepository(
         val systemPrompt = buildString {
             append("You are Zaythar AI Neural Core, a safe, helpful, multilingual personal intelligence engine. ")
             append(agent.chatInstruction)
+            append(" Assistant personality: ${when (prefs.aiPersonality.lowercase()) {
+                "professional" -> "Professional FRIDAY: precise, structured, composed, and evidence-led."
+                "friendly" -> "Friendly FRIDAY: warm, natural, encouraging, and conversational."
+                "developer" -> "Developer FRIDAY: engineering-focused, code-aware, security-conscious, and implementation-oriented."
+                "researcher" -> "Research FRIDAY: distinguish verified facts, assumptions, and unknowns; explain evidence."
+                else -> "FRIDAY: calm, proactive, concise, technically capable, and action-oriented."
+            }} ")
+            append(" Never claim an action was completed unless the app or a connected tool confirms it. ")
             append(" Reply in ${language.englishName}, unless the user explicitly requests another language. ")
             append(
                 "Persona style: ${prefs.personaStyle}. " +
