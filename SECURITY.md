@@ -26,7 +26,7 @@ Do not publish exploitable vulnerabilities, credentials, access tokens, private 
 - Protected routes also require a Firebase App Check token by default.
 - Owner identity is derived only from verified token claims. Client-supplied owner IDs are rejected by strict request models.
 - Session storage is namespaced by verified UID and caller-provided session ID; session IDs are not credentials and cannot cross account boundaries.
-- Request bodies are bounded by content length and strict Pydantic field limits. Client-supplied system messages and unknown tool names are rejected.
+- ASGI middleware caps complete request bodies at the configured limit (256 KiB by default), including chunked bodies. Strict Pydantic models also cap field sizes and reject unknown fields, client-supplied system messages, and unknown tool names.
 - Authenticated requests use per-UID and per-observed-IP sliding-window limits. Current counters are process-local and do not protect a horizontally scaled service from coordinated abuse; deploy a shared atomic quota store before scaling.
 - Generic errors and logs omit exception text and tracebacks. Avoid logging prompts, tokens, provider responses, memory content, or user identifiers.
 - Android release builds disable cleartext traffic and the companion client rejects HTTP except for debug loopback hosts. Android automatic backup is disabled to reduce exposure of local app data.
