@@ -31,6 +31,7 @@ import com.example.ui.screens.AssistantScreen
 import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
 import com.example.ui.screens.CollaborationScreen
+import com.example.ui.screens.CommandStudioScreen
 import com.example.ui.screens.EngineHubScreen
 import com.example.ui.screens.KnowledgeBaseScreen
 import com.example.ui.screens.ModelMatrixScreen
@@ -54,6 +55,7 @@ object ZaytharRoutes {
     const val PLUGINS = "plugins"
     const val PERSONA = "persona"
     const val SETTINGS = "settingsPanel"
+    const val COMMAND_STUDIO = "command_studio"
     const val COLLABORATION = "collaboration"
     const val MODELS = "models"
     const val STUDIO = "studio"
@@ -73,6 +75,7 @@ internal val allZaytharDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.BRAIN, "AI Brain", "COMMAND", Icons.Rounded.PsychologyAlt, "NEURAL", "BRAIN"),
     ZaytharNavDestination(ZaytharRoutes.PERSONA, "Persona Builder", "COMMAND", Icons.Rounded.Psychology, "PERSONA", "BUILDER"),
     ZaytharNavDestination(ZaytharRoutes.SETTINGS, "AI Settings", "COMMAND", Icons.Rounded.Settings, "AI CORE", "SETTINGS"),
+    ZaytharNavDestination(ZaytharRoutes.COMMAND_STUDIO, "Command Studio", "COMMAND", Icons.Rounded.PrecisionManufacturing, "COMMAND", "STUDIO"),
     ZaytharNavDestination(ZaytharRoutes.CAMERA_EYES, "Camera Eyes", "WORKSPACE", Icons.Rounded.CameraAlt, "CAMERA", "EYES"),
     ZaytharNavDestination(ZaytharRoutes.PLUGINS, "Plugin Plug", "WORKSPACE", Icons.Rounded.Extension, "PLUGIN", "PLUG HUB"),
     ZaytharNavDestination(ZaytharRoutes.COLLABORATION, "Collaboration", "WORKSPACE", Icons.Rounded.Hub, "COLLABORATION", "NEXUS"),
@@ -304,6 +307,15 @@ internal fun ZaytharNavHost(
                 prefs = prefs,
                 onUpdatePrefs = viewModel::updatePreferences,
                 onToast = viewModel::emitToast
+            )
+        }
+        composable(ZaytharRoutes.COMMAND_STUDIO) {
+            CommandStudioScreen(
+                prefs = prefs,
+                selectedAgent = activeAgent,
+                onUpdatePrefs = viewModel::updatePreferences,
+                onSelectAgent = viewModel::selectAgent,
+                onOpenAgentWorkspace = { onNavigate(ZaytharRoutes.COLLABORATION) }
             )
         }
         composable(ZaytharRoutes.SETTINGS) {
