@@ -1,7 +1,6 @@
 package com.example.data.remote
 
 import android.net.Uri
-import android.util.Log
 import com.example.BuildConfig
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.auth.FirebaseAuth
@@ -188,8 +187,7 @@ class CompanionBackendClient(
                 OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
                 val code = conn.responseCode
                 if (code != HttpURLConnection.HTTP_OK) {
-                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                    error("Chat failed: $err")
+                    error("Chat failed with HTTP $code")
                 }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
@@ -243,8 +241,7 @@ class CompanionBackendClient(
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
             val code = conn.responseCode
             if (code != HttpURLConnection.HTTP_OK) {
-                val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                throw IllegalStateException("Stream request failed with HTTP $code: $err")
+                throw IllegalStateException("Stream request failed with HTTP $code")
             }
 
             val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
@@ -298,8 +295,7 @@ class CompanionBackendClient(
                 OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
                 val code = conn.responseCode
                 if (code != HttpURLConnection.HTTP_OK) {
-                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                    error("Agent task failed: $err")
+                    error("Agent task failed with HTTP $code")
                 }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
