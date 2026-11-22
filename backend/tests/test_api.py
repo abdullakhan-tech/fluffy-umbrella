@@ -343,6 +343,25 @@ def test_memory_api_rejects_invalid_payload(client):
     )
     assert response.status_code == 422
 
+def test_memory_search_query_length_is_bounded(client, monkeypatch, tmp_path):
+    from app.services.memory_service import memory_service
+
+    monkeypatch.setattr(memory_service, "db_path", tmp_path / "memory.sqlite3")
+
+    boundary = client.get(
+        "/api/v1/memories",
+        headers=auth_headers("alice"),
+        params={"q": "x" * 200},
+    )
+    assert boundary.status_code == 200
+
+    oversized = client.get(
+        "/api/v1/memories",
+        headers=auth_headers("alice"),
+        params={"q": "x" * 201},
+    )
+    assert oversized.status_code == 422
+
 
 
 
