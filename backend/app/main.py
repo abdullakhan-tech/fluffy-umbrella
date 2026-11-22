@@ -26,7 +26,7 @@ from app.models import (
 from app.security import AuthenticatedUser, require_authenticated_user
 from app.services.ai_service import ai_service
 from app.services.session_service import session_manager
-from app.services.memory_service import memory_service
+from app.services.memory_service import MemoryQuotaExceeded, memory_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("zaythar_backend")
@@ -280,6 +280,11 @@ async def create_memory(
 ):
     try:
         return await memory_service.create(user.uid, request.content, request.tags)
+    except MemoryQuotaExceeded:
+        raise HTTPException(
+            status_code=409,
+            detail="Memory capacity reached. Delete an existing memory before saving another.",
+        ) from None
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid memory content.") from None
 
