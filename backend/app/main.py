@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from fastapi import Depends, FastAPI, HTTPException, Path, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -266,7 +266,7 @@ async def chat_stream(
 
 @app.get("/api/v1/memories", summary="List authenticated user's saved long-term memories")
 async def list_memories(
-    q: str = "",
+    q: str = Query(default="", max_length=200),
     limit: int = 20,
     user: AuthenticatedUser = Depends(require_authenticated_user),
 ):
