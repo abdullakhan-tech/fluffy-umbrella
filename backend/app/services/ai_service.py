@@ -155,6 +155,7 @@ class AIService:
         model_override: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        personality: str = "friday",
     ) -> AsyncGenerator[str, None]:
         """Streams response tokens in SSE format."""
         # Check if full completion is handled by fallback or provider
@@ -164,6 +165,7 @@ class AIService:
             model_override=model_override,
             temperature=temperature,
             max_tokens=max_tokens,
+            personality=personality,
         )
 
         # Stream words smoothly to simulate real-time neural output
