@@ -37,3 +37,15 @@ firebase-adminsdk-*.json
 # Environment variants (keep only documented templates)
 .env.*
 !.env.example
+
+# Python & Backend artifacts
+backend/__pycache__/
+backend/*/__pycache__/
+backend/*/*/__pycache__/
+backend/.pytest_cache/
+backend/.venv/
+backend/venv/
+backend/env/
+*.pyc
+*.pyo
+*.pyd
