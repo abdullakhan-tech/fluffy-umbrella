@@ -16,7 +16,12 @@ from typing import Any, Iterator
 from app.config import settings
 
 
+class MemoryQuotaExceeded(Exception):
+    """Raised when an owner has reached the configured durable-memory cap."""
+
+
 class MemoryService:
+    MAX_MEMORIES_PER_OWNER = 500
     def __init__(self) -> None:
         configured_path = Path(settings.memory_db_path)
         self.db_path = configured_path if configured_path.is_absolute() else Path(__file__).resolve().parents[2] / configured_path
@@ -69,6 +74,14 @@ class MemoryService:
         now = datetime.now(timezone.utc).isoformat()
         memory_id = uuid.uuid4().hex
         with self._connect() as db:
+            # Serialize quota check + insert so concurrent requests cannot exceed the cap.
+            db.execute("BEGIN IMMEDIATE")
+            count = db.execute(
+                "SELECT COUNT(*) FROM memories WHERE owner_id = ?",
+                (owner_id,),
+            ).fetchone()[0]
+            if count >= self.MAX_MEMORIES_PER_OWNER:
+                raise MemoryQuotaExceeded("Owner memory capacity reached.")
             db.execute(
                 "INSERT INTO memories(memory_id, owner_id, content, tags_json, created_at, updated_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
