@@ -29,6 +29,7 @@ Do not publish exploitable vulnerabilities, credentials, access tokens, private 
 - Request bodies are bounded by content length and strict Pydantic field limits. Client-supplied system messages and unknown tool names are rejected.
 - Authenticated requests use per-UID and per-observed-IP sliding-window limits. Current counters are process-local and do not protect a horizontally scaled service from coordinated abuse; deploy a shared atomic quota store before scaling.
 - Generic errors and logs omit exception text and tracebacks. Avoid logging prompts, tokens, provider responses, memory content, or user identifiers.
+- Android release builds disable cleartext traffic and the companion client rejects HTTP except for debug loopback hosts. Android automatic backup is disabled to reduce exposure of local app data.
 - CORS defaults to no allowed origins. Add exact browser origins only.
 - The Orb endpoint returns a static hint and does not expose global session counts.
 
