@@ -17,7 +17,8 @@ from app.config import settings
 
 class MemoryService:
     def __init__(self) -> None:
-        self.db_path = Path(settings.memory_db_path)
+        configured_path = Path(settings.memory_db_path)
+        self.db_path = configured_path if configured_path.is_absolute() else Path(__file__).resolve().parents[2] / configured_path
 
     def _connect(self) -> sqlite3.Connection:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
