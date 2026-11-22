@@ -54,7 +54,9 @@ data class ZaytharPreferences(
     val lastActiveSessionUid: String = "",
     val lastActiveSessionId: String = "",
     val companionBackendUrl: String = "http://10.0.2.2:8000",
-    val useCompanionBackend: Boolean = false
+    val useCompanionBackend: Boolean = false,
+    val themePresetId: String = "reactor-red",
+    val aiPersonality: String = "friday"
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -88,6 +90,8 @@ class PreferencesRepository(private val context: Context) {
         val LAST_ACTIVE_SESSION_ID = stringPreferencesKey("last_active_session_id")
         val COMPANION_BACKEND_URL = stringPreferencesKey("companion_backend_url")
         val USE_COMPANION_BACKEND = booleanPreferencesKey("use_companion_backend")
+        val THEME_PRESET_ID = stringPreferencesKey("theme_preset_id")
+        val AI_PERSONALITY = stringPreferencesKey("ai_personality")
     }
 
     private fun mapPreferences(prefs: Preferences): ZaytharPreferences {
@@ -125,7 +129,9 @@ class PreferencesRepository(private val context: Context) {
             lastActiveSessionUid = prefs[Keys.LAST_ACTIVE_SESSION_UID] ?: "",
             lastActiveSessionId = prefs[Keys.LAST_ACTIVE_SESSION_ID] ?: "",
             companionBackendUrl = prefs[Keys.COMPANION_BACKEND_URL] ?: "http://10.0.2.2:8000",
-            useCompanionBackend = prefs[Keys.USE_COMPANION_BACKEND] ?: false
+            useCompanionBackend = prefs[Keys.USE_COMPANION_BACKEND] ?: false,
+            themePresetId = prefs[Keys.THEME_PRESET_ID] ?: "reactor-red",
+            aiPersonality = prefs[Keys.AI_PERSONALITY] ?: "friday"
         )
     }
 
@@ -183,6 +189,8 @@ class PreferencesRepository(private val context: Context) {
                 prefs[Keys.LAST_ACTIVE_SESSION_ID] = next.lastActiveSessionId
                 prefs[Keys.COMPANION_BACKEND_URL] = next.companionBackendUrl
                 prefs[Keys.USE_COMPANION_BACKEND] = next.useCompanionBackend
+                prefs[Keys.THEME_PRESET_ID] = next.themePresetId
+                prefs[Keys.AI_PERSONALITY] = next.aiPersonality
             }
         } catch (e: CancellationException) {
             throw e
