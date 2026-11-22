@@ -49,3 +49,8 @@ backend/env/
 *.pyc
 *.pyo
 *.pyd
+
+# Local SQLite memory database (never commit user memory)
+backend/data/*.sqlite3
+backend/data/*.sqlite3-shm
+backend/data/*.sqlite3-wal
