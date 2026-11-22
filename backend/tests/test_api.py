@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app import security
-from app.config import settings
 from app.main import app
 from app.services.rate_limit import rate_limiter
 
@@ -269,17 +268,17 @@ def test_authenticated_api_enforces_ip_rate_limit(client, monkeypatch):
 
 
 
-def test_request_body_limit_rejects_declared_and_chunked_payloads(client, monkeypatch):
-    monkeypatch.setattr(settings, "max_request_body_bytes", 10)
+def test_request_body_limit_rejects_declared_and_chunked_payloads(client):
     headers = {**auth_headers("alice"), "Content-Type": "application/json"}
+    oversized = b"x" * (262144 + 1)
 
-    declared = client.post("/api/v1/chat", headers=headers, content=b'{"message":"too large"}')
+    declared = client.post("/api/v1/chat", headers=headers, content=oversized)
     assert declared.status_code == 413
 
     chunked = client.post(
         "/api/v1/chat",
         headers=headers,
-        content=iter([b'{"message":', b'"chunked body too large"}']),
+        content=iter([b"x" * 130000, b"x" * 130000, b"x" * 2145]),
     )
     assert chunked.status_code == 413
 
