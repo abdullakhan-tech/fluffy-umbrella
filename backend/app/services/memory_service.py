@@ -4,13 +4,14 @@ SQLite is used as a single-instance persistence adapter. For multi-instance
 production deployments, replace this adapter with a shared transactional store.
 """
 import asyncio
+from contextlib import contextmanager
 import json
 import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from app.config import settings
 
@@ -20,13 +21,21 @@ class MemoryService:
         configured_path = Path(settings.memory_db_path)
         self.db_path = configured_path if configured_path.is_absolute() else Path(__file__).resolve().parents[2] / configured_path
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(str(self.db_path), timeout=10)
         connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA journal_mode=WAL")
-        connection.execute("PRAGMA foreign_keys=ON")
-        return connection
+        try:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA foreign_keys=ON")
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def _initialize_sync(self) -> None:
         with self._connect() as db:
