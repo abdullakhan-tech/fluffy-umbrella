@@ -43,7 +43,7 @@ All protected endpoints require `Authorization: Bearer <Firebase-ID-token>` and,
 
 Memory records are stored in SQLite at `MEMORY_DB_PATH` (default `data/zaythar_memory.sqlite3`, relative to the backend working directory). Chat and streaming requests retrieve a small relevant memory context using the verified Firebase UID. Records are isolated by owner, parameterized SQL is used, and retrieved context is capped.
 
-SQLite is a single-instance persistence adapter. For multi-worker or multi-instance production, replace it with a shared transactional database and managed backups. Local database files are ignored by Git and must never be committed.
+Each verified UID is capped at 500 saved records. The quota check and insert run in one SQLite write transaction, so concurrent requests cannot exceed the cap; the API returns HTTP 409 when the owner reaches capacity. Users can delete an existing memory before saving another. SQLite is a single-instance persistence adapter. For multi-worker or multi-instance production, replace it with a shared transactional database and managed backups. Local database files are ignored by Git and must never be committed.
 
 ## Python usage
 
