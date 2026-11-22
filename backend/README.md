@@ -1,92 +1,79 @@
-# Zaythar AI — Python Companion Backend
+# Zaythar AI — Python Companion API
 
-FastAPI companion service for the Zaythar AI Android app. The API verifies Firebase Authentication ID tokens and Firebase App Check tokens before allowing chat, agent, or session operations. AI provider credentials remain server-side.
+Python 3.10+ FastAPI service for the Zaythar AI Android app. It provides authenticated chat, SSE streaming, allow-listed agent tools, owner-scoped sessions, and durable long-term memory. Provider credentials remain server-side.
 
-## Security boundary
-
-- `/health`, `/`, and `/api/v1/status` are public health endpoints.
-- Chat, streaming, agent-task, and session endpoints require `Authorization: Bearer <Firebase ID token>`.
-- Protected routes also require `X-Firebase-AppCheck: <App Check token>` by default.
-- The backend verifies ID tokens with Firebase Admin SDK, checks revocation, and derives the owner UID from verified claims. A request body or session ID cannot choose the owner.
-- Session keys are `(verified UID, session ID)`; the same caller-chosen session ID is isolated between accounts. Session IDs are identifiers, never credentials.
-- Request bodies are capped at 256 KiB by default, including chunked requests. Strict Pydantic models reject unknown fields, client-supplied system messages, malformed IDs, oversized strings, and unknown tool names.
-- Authenticated API requests are limited per UID and per observed client IP. The current limiter is process-local and is only defense in depth; it is not a distributed quota for multi-worker or multi-instance deployments.
-- Generic error responses and logs omit exception messages and tracebacks because upstream provider URLs may contain credentials.
-- CORS defaults to no allowed browser origins. Configure exact origins only when a browser client is deployed.
-- The Orb animation hint is static and does not disclose process-wide session counts.
-
-## Prerequisites
-
-- Python 3.10+
-- A Firebase project with Authentication and App Check configured
-- Firebase Admin Application Default Credentials with permission to verify Firebase tokens
-
-## Install
+## Install and run
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+# Windows: .venv\\Scripts\\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-```
-
-Set `FIREBASE_PROJECT_ID` in `.env`. Supply Firebase Admin credentials outside the repository:
-
-- On Google Cloud, prefer the runtime's attached workload identity / Application Default Credentials.
-- For local development, use `gcloud auth application-default login`, or export `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON file stored outside this repository.
-- Never commit a service-account file or its contents.
-
-Register the Android app with Firebase App Check. Use a debug token only in a local debug build and register that token in Firebase Console. Production builds must use the configured production attestation provider. Do not disable App Check on a public deployment.
-
-For local-only tests against a loopback server, `APP_CHECK_REQUIRED=false` may be used only when the server is not exposed to a network. Authentication remains required. Restore `APP_CHECK_REQUIRED=true` before any shared or public deployment.
-
-## Run locally
-
-```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The Android client obtains a Firebase ID token and App Check token from the installed Firebase SDK and sends both on protected companion API calls. A signed-in Firebase user is required. Release builds accept only HTTPS backend URLs; HTTP is restricted to loopback addresses in debug builds.
+Configure Firebase Admin Application Default Credentials and `FIREBASE_PROJECT_ID`. Use workload identity on hosted deployments. Do not commit service-account files, Firebase configuration, provider keys, or real user data.
 
 ## API
 
-| Method | Endpoint | Access |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/health` | Public health |
-| GET | `/api/v1/status` | Public health |
-| POST | `/api/v1/chat` | Firebase Auth + App Check |
-| POST | `/api/v1/chat/stream` | Firebase Auth + App Check |
-| GET | `/api/v1/sessions` | Firebase Auth + App Check |
-| GET | `/api/v1/sessions/{id}` | Firebase Auth + App Check; owner scoped |
-| DELETE | `/api/v1/sessions/{id}` | Firebase Auth + App Check; owner scoped |
-| POST | `/api/v1/sessions/{id}/chat` | Firebase Auth + App Check; owner scoped |
-| POST | `/api/v1/agent/task` | Firebase Auth + App Check; deterministic allow-list |
-| GET | `/api/v1/orb/animation-state` | Public static UI hint |
+| GET | `/health` | Public liveness check |
+| POST | `/api/v1/chat` | Authenticated chat completion |
+| POST | `/api/v1/chat/stream` | Authenticated Server-Sent Events chat |
+| POST | `/api/v1/agent/task` | Allow-listed deterministic agent tools |
+| GET | `/api/v1/sessions` | List caller's sessions |
+| GET/DELETE | `/api/v1/sessions/{id}` | Read/delete caller's session |
+| POST | `/api/v1/sessions/{id}/chat` | Session-aware chat |
+| GET | `/api/v1/memories?q=...` | Search caller's saved memories |
+| POST | `/api/v1/memories` | Save a memory |
+| DELETE | `/api/v1/memories/{memory_id}` | Delete only caller's memory |
 
-Example protected request headers:
+Create memory example:
 
-```http
-Authorization: Bearer <Firebase ID token>
-X-Firebase-AppCheck: <Firebase App Check token>
-Content-Type: application/json
+```json
+{"content":"User prefers concise Jarvis-style voice replies.","tags":["voice","preferences"]}
+```
+
+All protected endpoints require `Authorization: Bearer <Firebase-ID-token>` and, when enabled, `X-Firebase-AppCheck: <App-Check-token>`. Owner identity comes only from verified Firebase claims; never send a client-supplied owner ID. Unknown request fields and client system prompts are rejected.
+
+## Durable AI memory
+
+Memory records are stored in SQLite at `MEMORY_DB_PATH` (default `data/zaythar_memory.sqlite3`, relative to the backend working directory). Chat and streaming requests retrieve a small relevant memory context using the verified Firebase UID. Records are isolated by owner, parameterized SQL is used, and retrieved context is capped.
+
+Each verified UID is capped at 500 saved records. The quota check and insert run in one SQLite write transaction, so concurrent requests cannot exceed the cap; the API returns HTTP 409 when the owner reaches capacity. Users can delete an existing memory before saving another. SQLite is a single-instance persistence adapter. For multi-worker or multi-instance production, replace it with a shared transactional database and managed backups. Local database files are ignored by Git and must never be committed.
+
+## Python usage
+
+The backend is a native Python API. It can be called from Python with `httpx`:
+
+```python
+import asyncio
+import httpx
+
+async def save_memory(base_url: str, firebase_id_token: str, app_check_token: str):
+    async with httpx.AsyncClient(base_url=base_url, timeout=20) as client:
+        response = await client.post(
+            "/api/v1/memories",
+            headers={
+                "Authorization": f"Bearer {firebase_id_token}",
+                "X-Firebase-AppCheck": app_check_token,
+            },
+            json={"content": "Prefers concise voice responses", "tags": ["voice"]},
+        )
+        response.raise_for_status()
+        return response.json()
+
+# asyncio.run(save_memory("http://127.0.0.1:8000", id_token, app_check_token))
 ```
 
 ## Tests
 
 ```bash
-PYTHONPATH=. pytest -v
+cd backend
+PYTHONPATH=. pytest -q
 ```
 
-Tests stub token verification with synthetic identities; they do not require real Firebase credentials. Firestore Rules emulator tests live at the repository root and separately verify memory/knowledge document ownership and CRUD.
-
-## Important production limitations
-
-- Session history is in process memory and is lost on restart; it is not a durable cloud memory store.
-- The rate limiter is per process. Before scaling to multiple workers or instances, replace it with a shared atomic store such as Redis or a Firestore transaction-based quota.
-- Production deployment, App Check enforcement, service identity, TLS termination, and deployed Firestore rules must be independently verified. A passing CI run does not prove production configuration.
-- This backend does not yet expose a durable Firestore memory CRUD API. Do not treat its in-memory sessions as the user's permanent memory.
-
-## Container
-
-The Docker image listens on `0.0.0.0` inside the container. Publish it only behind a trusted HTTPS reverse proxy or private service network, and provide Application Default Credentials through workload identity rather than copying credentials into the image.
+Tests use synthetic Firebase token verifiers. They do not prove live Firebase Console configuration, production App Check enforcement, external provider connectivity, multi-instance durability, or Android device behavior.

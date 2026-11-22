@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     rate_limit_user_per_minute: int = 60
     rate_limit_ip_per_minute: int = 120
     max_request_body_bytes: int = 262144
+    memory_db_path: str = "data/zaythar_memory.sqlite3"
 
     # Provider credentials remain server-side only.
     openai_api_key: str = ""
