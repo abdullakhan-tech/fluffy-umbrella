@@ -152,9 +152,7 @@ class CompanionBackendClient(
 
             applyFirebaseAuthHeaders(conn)
 
-            applyFirebaseAuthHeaders(conn)
-
-        val payload = JSONObject().apply {
+            val payload = JSONObject().apply {
                 val msgArray = JSONArray()
                 messages.forEach { m ->
                     msgArray.put(JSONObject().apply {
@@ -207,6 +205,8 @@ class CompanionBackendClient(
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "text/event-stream")
         }
+
+        applyFirebaseAuthHeaders(conn)
 
         val payload = JSONObject().apply {
             val msgArray = JSONArray()
