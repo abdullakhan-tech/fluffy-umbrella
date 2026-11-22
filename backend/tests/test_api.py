@@ -257,6 +257,16 @@ def test_authenticated_api_enforces_user_rate_limit(client, monkeypatch):
     assert int(limited.headers["Retry-After"]) >= 1
 
 
+
+def test_authenticated_api_enforces_ip_rate_limit(client, monkeypatch):
+    rate_limiter.reset()
+    monkeypatch.setattr(rate_limiter, "ip_limit", 1)
+    first = client.get("/api/v1/sessions", headers=auth_headers("alice"))
+    assert first.status_code == 200
+    second = client.get("/api/v1/sessions", headers=auth_headers("bob"))
+    assert second.status_code == 429
+
+
 def test_public_orb_hint_does_not_expose_global_session_count(client):
     response = client.get("/api/v1/orb/animation-state")
     assert response.status_code == 200
