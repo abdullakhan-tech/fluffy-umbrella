@@ -47,7 +47,7 @@ For local-only tests against a loopback server, `APP_CHECK_REQUIRED=false` may b
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The Android client obtains a Firebase ID token and App Check token from the installed Firebase SDK and sends both on protected companion API calls. A signed-in Firebase user is required.
+The Android client obtains a Firebase ID token and App Check token from the installed Firebase SDK and sends both on protected companion API calls. A signed-in Firebase user is required. Release builds accept only HTTPS backend URLs; HTTP is restricted to loopback addresses in debug builds.
 
 ## API
 
