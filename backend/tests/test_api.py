@@ -65,11 +65,11 @@ def test_invalid_firebase_id_token_is_rejected(client, monkeypatch):
     monkeypatch.setattr(
         security,
         "verify_firebase_id_token",
-        lambda token: (_ for _ in ()).throw(ValueError("invalid")),
+        lambda token: (_ for _ in ()).throw(ValueError("sensitive-internal-detail")),
     )
     response = client.get("/api/v1/sessions", headers=auth_headers("alice"))
     assert response.status_code == 401
-    assert "invalid" not in response.text.lower()
+    assert "sensitive-internal-detail" not in response.text
 
 
 def test_missing_or_invalid_app_check_is_rejected(client, monkeypatch):
