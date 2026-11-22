@@ -171,8 +171,16 @@ fun ZaytharTheme(
     glowStrength: Float = 0.72f,
     metalSpecularity: Float = 0.65f,
     contrastStrength: Float = 0.80f,
+    themePresetId: String = "reactor-red",
     content: @Composable () -> Unit
 ) {
+    val preset = when (themePresetId) {
+        "titanium" -> Triple(Color(0xFF0D1117), Color(0xFF161D26), Color(0xFF202832))
+        "stealth" -> Triple(Color(0xFF050607), Color(0xFF0B0E10), Color(0xFF111416))
+        "arc-blue" -> Triple(Color(0xFF07111D), Color(0xFF0C1B2B), Color(0xFF122235))
+        "light-command" -> Triple(Color(0xFFF4F6F8), Color(0xFFFFFFFF), Color(0xFFFFFFFF))
+        else -> Triple(Color(0xFF08090D), Color(0xFF101319), Color(0xFF171B23))
+    }
     val accent = Color(accentHex)
     val accentSoft = lerp(accent, Color.White, 0.25f)
     val green = Color(0xFF68E5B2)
@@ -187,11 +195,11 @@ fun ZaytharTheme(
             onSecondary = Color(0xFF08090D),
             tertiary = green,
             onTertiary = Color(0xFF08090D),
-            background = Color(0xFF08090D),
+            background = preset.first,
             onBackground = Color(0xFFEDF0F5),
-            surface = Color(0xFF101319),
+            surface = preset.second,
             onSurface = Color(0xFFEDF0F5),
-            surfaceVariant = Color(0xFF151A22),
+            surfaceVariant = preset.third,
             onSurfaceVariant = Color(0xFF87909D),
             outline = Color(0xFF343B47),
             outlineVariant = Color(0xFF414957),
@@ -225,8 +233,8 @@ fun ZaytharTheme(
         accent = accent,
         accentSoft = accentSoft,
         cyberGreen = if (darkTheme) green else Color(0xFF17694D),
-        panelGlass = if (darkTheme) Color(0xFF101319) else Color(0xFFF8F9FB),
-        panelElevated = if (darkTheme) Color(0xFF171B23) else Color(0xFFFFFFFF),
+        panelGlass = if (darkTheme) preset.second else Color(0xFFF8F9FB),
+        panelElevated = if (darkTheme) preset.third else Color(0xFFFFFFFF),
         gridLine = if (darkTheme) Color(0x0BFFFFFF) else Color(0x0E1A2029),
         glowStrength = glowStrength,
         metalSpecularity = metalSpecularity,
