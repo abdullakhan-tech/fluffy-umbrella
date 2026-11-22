@@ -63,6 +63,7 @@ class AIService:
         temperature: float = 0.7,
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
+        personality: str = "friday",
     ) -> ChatResponse:
         """Routes chat requests to configured provider or safe local engine."""
         effective_messages = self._prepare_messages(messages, personality)
