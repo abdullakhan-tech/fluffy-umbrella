@@ -22,6 +22,7 @@ from app.services.agent_tools import (
 )
 from app.services.session_service import session_manager
 from app.services.stonic_adapter import StonicAdapter
+from app.services.personality import system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +48,11 @@ class AIService:
     async def close(self):
         await self.client.aclose()
 
-    def _prepare_messages(self, messages: List[ChatMessage]) -> List[ChatMessage]:
+    def _prepare_messages(self, messages: List[ChatMessage], personality: str = "friday") -> List[ChatMessage]:
         """Ensures a structured system prompt persona is present."""
         has_system = any(m.role == ChatRole.SYSTEM for m in messages)
         if not has_system:
-            return [ChatMessage(role=ChatRole.SYSTEM, content=DEFAULT_SYSTEM_PROMPT)] + list(messages)
+            return [ChatMessage(role=ChatRole.SYSTEM, content=system_prompt(personality))] + list(messages)
         return list(messages)
 
     async def generate_chat_reply(
@@ -64,7 +65,7 @@ class AIService:
         session_id: Optional[str] = None,
     ) -> ChatResponse:
         """Routes chat requests to configured provider or safe local engine."""
-        effective_messages = self._prepare_messages(messages)
+        effective_messages = self._prepare_messages(messages, personality)
         latest_user_message = next(
             (m.content for m in reversed(effective_messages) if m.role == ChatRole.USER), ""
         )
