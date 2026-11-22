@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import logging
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -137,6 +137,8 @@ app.add_middleware(RequestSecurityMiddleware, max_bytes=settings.max_request_bod
 
 
 class MemoryCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     content: str = Field(..., min_length=1, max_length=2000)
     tags: List[str] = Field(default_factory=list, max_length=10)
 
