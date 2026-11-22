@@ -107,6 +107,7 @@ async def chat_completion(request: ChatRequest):
             temperature=request.temperature,
             max_tokens=request.max_tokens,
             session_id=request.session_id,
+            personality=request.personality,
         )
         return response
     except Exception as e:
