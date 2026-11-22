@@ -237,16 +237,21 @@ fun NeuralCoreVisualizer(
         }
     }
 
-    val pulseTransition = rememberInfiniteTransition(label = "corePulse")
-    val pulseScale by pulseTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(orbConfig.pulseDurationMs, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
-    )
+    val pulseScale = if (animate) {
+        val pulseTransition = rememberInfiniteTransition(label = "corePulse")
+        val anim by pulseTransition.animateFloat(
+            initialValue = 0.94f,
+            targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(orbConfig.pulseDurationMs, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulseScale"
+        )
+        anim
+    } else {
+        1.0f
+    }
 
     val clampedActivity = (activityLevel + pulseBoost + audioLevel * 0.5f).coerceIn(0.2f, 1.8f)
     val sphereScale = if (animate) pulseScale + pulseBoost * 0.08f + audioLevel * 0.12f else 1f

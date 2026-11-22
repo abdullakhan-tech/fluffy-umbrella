@@ -265,7 +265,7 @@ private fun LiveVoiceCard(
         ) {
             NeuralCoreVisualizer(
                 size = 56.dp,
-                motionEnabled = true,
+                motionEnabled = isLive,
                 coreLabel = if (isLive) "LIVE" else "VOX",
                 orbState = liveOrbState,
                 audioLevel = if (liveStatus == LiveVoiceStatus.ACTIVE) 0.65f else 0f
