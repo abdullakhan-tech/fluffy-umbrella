@@ -129,6 +129,7 @@ async def chat_stream(request: ChatRequest):
                 model_override=request.model,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
+                personality=request.personality,
             ),
             media_type="text/event-stream",
         )
