@@ -56,7 +56,7 @@ class NeuralOrbVisualizerTest {
             ZaytharTheme {
                 NeuralCoreVisualizer(
                     size = 200.dp,
-                    motionEnabled = true,
+                    motionEnabled = false,
                     coreLabel = "Z",
                     orbState = OrbState.PROCESSING,
                     customGlowColor = Color(0xFF9D00FF)
@@ -73,7 +73,7 @@ class NeuralOrbVisualizerTest {
             ZaytharTheme {
                 NeuralCoreVisualizer(
                     size = 150.dp,
-                    motionEnabled = true,
+                    motionEnabled = false,
                     coreLabel = "VOX",
                     orbState = OrbState.LISTENING,
                     audioLevel = 0.85f
