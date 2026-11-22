@@ -111,36 +111,36 @@ fun NeuralCoreVisualizer(
     val orbConfig = remember(orbState, customGlowColor, cyber) {
         val baseConfig = when (orbState) {
             OrbState.IDLE -> OrbVisualConfig(
-                primaryColor = cyber.accentSoft,
-                secondaryColor = cyber.cyberGreen,
-                coreGlow = Color(0xFF0D2538),
+                primaryColor = Color(0xFFB8BEC7),
+                secondaryColor = Color(0xFF8F1526),
+                coreGlow = Color(0xFF17070B),
                 pulseDurationMs = 2200,
                 spinMultiplier = 1.0f
             )
             OrbState.LISTENING -> OrbVisualConfig(
-                primaryColor = cyber.cyberGreen,
-                secondaryColor = Color(0xFF00E5FF),
-                coreGlow = Color(0xFF082C18),
+                primaryColor = Color(0xFFFF334F),
+                secondaryColor = Color(0xFFE6E8EC),
+                coreGlow = Color(0xFF310812),
                 pulseDurationMs = 1200,
                 spinMultiplier = 1.4f
             )
             OrbState.PROCESSING -> OrbVisualConfig(
-                primaryColor = Color(0xFF9D00FF),
-                secondaryColor = Color(0xFFFF007F),
-                coreGlow = Color(0xFF2C0A42),
+                primaryColor = Color(0xFFFF1738),
+                secondaryColor = Color(0xFFB8BEC7),
+                coreGlow = Color(0xFF390812),
                 pulseDurationMs = 750,
                 spinMultiplier = 2.4f
             )
             OrbState.SPEAKING -> OrbVisualConfig(
-                primaryColor = Color(0xFF00E5FF),
-                secondaryColor = Color(0xFFFFB700),
-                coreGlow = Color(0xFF332008),
+                primaryColor = Color(0xFFFF465C),
+                secondaryColor = Color(0xFFF1F2F4),
+                coreGlow = Color(0xFF2C0A10),
                 pulseDurationMs = 950,
                 spinMultiplier = 1.6f
             )
             OrbState.ERROR -> OrbVisualConfig(
-                primaryColor = Color(0xFFFF3366),
-                secondaryColor = Color(0xFFFF7A90),
+                primaryColor = Color(0xFFFF1744),
+                secondaryColor = Color(0xFFFFA1AD),
                 coreGlow = Color(0xFF360812),
                 pulseDurationMs = 500,
                 spinMultiplier = 1.8f
