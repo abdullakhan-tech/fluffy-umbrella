@@ -58,12 +58,9 @@ class SessionManager:
         self._last_active.pop(key, None)
 
     async def add_message(self, owner_id: str, session_id: str, message: ChatMessage) -> None:
+        await self.get_or_create_session(owner_id, session_id)
         key = self._key(owner_id, session_id)
         async with self._lock:
-            if key not in self._sessions:
-                now = datetime.now(timezone.utc)
-                self._sessions[key] = []
-                self._created_at[key] = now
             self._sessions[key].append(message)
             self._last_active[key] = datetime.now(timezone.utc)
             if len(self._sessions[key]) > self.MAX_MESSAGES_PER_SESSION:
