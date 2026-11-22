@@ -51,7 +51,9 @@ import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberSecondaryButton
+import androidx.compose.ui.graphics.Color
 import com.example.ui.components.NeuralCoreVisualizer
+import com.example.ui.components.OrbState
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.ThemeMode
 
@@ -99,6 +101,12 @@ fun AssistantScreen(
     val messages = (messagesState as? UiState.Success)?.data ?: emptyList()
     val sessions = (sessionsState as? UiState.Success)?.data ?: emptyList()
     val activeSessionTitle = sessions.find { it.id == activeSessionId }?.title ?: "Primary Nexus"
+    val currentOrbState = when {
+        isListening -> OrbState.LISTENING
+        chatUiState is UiState.Loading || chatUiState is UiState.Streaming -> OrbState.PROCESSING
+        chatUiState is UiState.Error -> OrbState.ERROR
+        else -> OrbState.IDLE
+    }
 
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -178,6 +186,7 @@ fun AssistantScreen(
                     modifier = Modifier.weight(0.75f),
                     motionEnabled = prefs.motion3dEnabled,
                     activeAgent = activeAgent,
+                    orbState = currentOrbState,
                     onSuggestionClick = { onSend(it) }
                 )
                 AssistantChatCard(
@@ -241,13 +250,21 @@ fun AssistantScreen(
                             NeuralCoreVisualizer(
                                 size = 58.dp,
                                 motionEnabled = prefs.motion3dEnabled,
-                                coreLabel = activeAgent.shortCode
+                                coreLabel = activeAgent.shortCode,
+                                orbState = currentOrbState
                             )
                             Column(modifier = Modifier.weight(1f)) {
+                                val (headerStatus, headerColor) = when (currentOrbState) {
+                                    OrbState.PROCESSING -> "NEURAL CORE / REASONING ACTIVE" to cyber.accentSoft
+                                    OrbState.ERROR -> "NEURAL CORE / TELEMETRY ALERT" to Color(0xFFFF3366)
+                                    OrbState.LISTENING -> "NEURAL CORE / SENSORS ACTIVE" to cyber.cyberGreen
+                                    OrbState.SPEAKING -> "NEURAL CORE / TRANSMITTING" to Color(0xFFFFB700)
+                                    OrbState.IDLE -> "PERSONAL INTELLIGENCE / READY" to cyber.cyberGreen
+                                }
                                 Text(
-                                    text = "PERSONAL INTELLIGENCE / READY",
+                                    text = headerStatus,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = cyber.cyberGreen
+                                    color = headerColor
                                 )
                                 Text(
                                     text = buildAnnotatedString {
@@ -355,9 +372,17 @@ private fun AssistantOrbCard(
     modifier: Modifier = Modifier,
     motionEnabled: Boolean,
     activeAgent: AgentRole,
+    orbState: OrbState = OrbState.IDLE,
     onSuggestionClick: (String) -> Unit
 ) {
     val cyber = LocalCyberColors.current
+    val (badgeText, badgeColor) = when (orbState) {
+        OrbState.PROCESSING -> "NEURAL CORE / REASONING ACTIVE" to cyber.accentSoft
+        OrbState.ERROR -> "NEURAL CORE / TELEMETRY ALERT" to Color(0xFFFF3366)
+        OrbState.LISTENING -> "NEURAL CORE / SENSORS ACTIVE" to cyber.cyberGreen
+        OrbState.SPEAKING -> "NEURAL CORE / TRANSMITTING" to Color(0xFFFFB700)
+        OrbState.IDLE -> "PERSONAL INTELLIGENCE / READY" to cyber.cyberGreen
+    }
     CyberCard(modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -365,14 +390,16 @@ private fun AssistantOrbCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "PERSONAL INTELLIGENCE / READY",
+                text = badgeText,
                 style = MaterialTheme.typography.labelSmall,
-                color = cyber.cyberGreen
+                color = badgeColor
             )
             NeuralCoreVisualizer(
                 size = 170.dp,
                 motionEnabled = motionEnabled,
-                coreLabel = activeAgent.shortCode
+                coreLabel = activeAgent.shortCode,
+                orbState = orbState,
+                activityLevel = if (orbState == OrbState.PROCESSING) 1.25f else 0.65f
             )
             Text(
                 text = buildAnnotatedString {

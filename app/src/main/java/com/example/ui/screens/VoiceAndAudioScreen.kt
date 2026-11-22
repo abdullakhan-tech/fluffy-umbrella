@@ -52,6 +52,8 @@ import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberIconBadge
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
+import com.example.ui.components.NeuralCoreVisualizer
+import com.example.ui.components.OrbState
 import com.example.ui.theme.LocalCyberColors
 import java.util.Locale
 
@@ -251,17 +253,22 @@ private fun LiveVoiceCard(
             }
         )
 
+        val liveOrbState = when (liveStatus) {
+            LiveVoiceStatus.ACTIVE -> OrbState.LISTENING
+            LiveVoiceStatus.CONNECTING -> OrbState.PROCESSING
+            LiveVoiceStatus.ERROR -> OrbState.ERROR
+            LiveVoiceStatus.DISCONNECTED -> OrbState.IDLE
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            CyberIconBadge(
-                icon = Icons.Rounded.RecordVoiceOver,
-                contentDescription = "Gemini Live Voice Conversation",
-                sizeDp = 50.dp,
-                iconSizeDp = 26.dp,
-                isActive = isLive,
-                tint = if (isLive) cyber.cyberGreen else cyber.accentSoft
+            NeuralCoreVisualizer(
+                size = 56.dp,
+                motionEnabled = true,
+                coreLabel = if (isLive) "LIVE" else "VOX",
+                orbState = liveOrbState,
+                audioLevel = if (liveStatus == LiveVoiceStatus.ACTIVE) 0.65f else 0f
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text("Real-Time Voice Conversations", style = MaterialTheme.typography.titleSmall)
