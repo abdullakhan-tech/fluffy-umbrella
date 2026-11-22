@@ -3,7 +3,7 @@ name: Zaythar CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, feature/stonic-provider-bridge]
 
 permissions:
   contents: read
