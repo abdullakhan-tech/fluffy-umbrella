@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -170,7 +169,7 @@ fun CommandStudioScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(10.dp))
-                AgentRole.specialists.forEach { role ->
+                (listOf(AgentRole.GENERAL) + AgentRole.specialists).forEach { role ->
                     FilterChip(
                         selected = selectedAgent == role,
                         onClick = { onSelectAgent(role) },
