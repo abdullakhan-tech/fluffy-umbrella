@@ -1,157 +1,92 @@
 # Zaythar AI — Python Companion Backend
 
-This directory contains the Python AI companion service for **Zaythar AI** (`fluffy-umbrella`). It provides a server-side AI execution boundary, keeping provider API credentials off mobile devices and exposing authenticated REST endpoints for the Android client.
+FastAPI companion service for the Zaythar AI Android app. The API verifies Firebase Authentication ID tokens and Firebase App Check tokens before allowing chat, agent, or session operations. AI provider credentials remain server-side.
 
-## Features
+## Security boundary
 
-- **FastAPI Framework**: High-performance, async REST API with automatic OpenAPI / Swagger documentation (`/docs`).
-- **Server-Side Security**: External AI API keys (OpenAI, Gemini, Ollama) remain server-side and are never committed or distributed to mobile devices (Rules 2 & 3).
-- **Session Memory**: In-memory session manager for tracking conversational context across turns.
-- **Deterministic Agent Tools**: Built-in safe tools for AST math evaluation, text summarization, and syntax code inspection (Rules 1 & 4).
-- **Real-Time Streaming**: Server-Sent Events (SSE) `/api/v1/chat/stream` for real-time word-by-word streaming.
-- **Orb UI State**: `/api/v1/orb/animation-state` provides visual state and pulse frequency hints for the Android Jetpack Compose Orb Canvas.
-- **Strict Input Validation**: Pydantic models validate all incoming requests, character limits, and message histories before dispatch (Rule 5).
-- **Local Fallback Engine**: If no external provider keys are configured, the service operates gracefully via a safe local engine without crashing (Rule 1).
-- **Redacted Error Handling**: Provider errors and internal stack traces are redacted before reaching clients (Rule 9).
-- **Container Ready**: Includes production-ready `Dockerfile` and automated `pytest` test suite.
+- `/health`, `/`, and `/api/v1/status` are public health endpoints.
+- Chat, streaming, agent-task, and session endpoints require `Authorization: Bearer <Firebase ID token>`.
+- Protected routes also require `X-Firebase-AppCheck: <App Check token>` by default.
+- The backend verifies ID tokens with Firebase Admin SDK, checks revocation, and derives the owner UID from verified claims. A request body or session ID cannot choose the owner.
+- Session keys are `(verified UID, session ID)`; the same caller-chosen session ID is isolated between accounts. Session IDs are identifiers, never credentials.
+- Request models reject unknown fields, client-supplied system messages, malformed IDs, oversized strings, and unknown tool names.
+- Authenticated API requests are limited per UID and per observed client IP. The current limiter is process-local and is only defense in depth; it is not a distributed quota for multi-worker or multi-instance deployments.
+- Generic error responses and logs omit exception messages and tracebacks because upstream provider URLs may contain credentials.
+- CORS defaults to no allowed browser origins. Configure exact origins only when a browser client is deployed.
+- The Orb animation hint is static and does not disclose process-wide session counts.
 
-## Architecture
+## Prerequisites
 
-```
-fluffy-umbrella/
-├── app/                  # Native Android Application (Kotlin + Jetpack Compose)
-└── backend/              # Python Companion Backend (FastAPI)
-    ├── app/
-    │   ├── config.py     # Environment settings & CORS configuration
-    │   ├── main.py       # FastAPI application and route definitions
-    │   ├── models.py     # Pydantic request/response schemas
-    │   └── services/
-    │       ├── ai_service.py     # AI provider orchestrator & streaming
-    │       ├── agent_tools.py    # Math evaluator, code inspector, text summarizer
-    │       └── session_service.py # Bounded in-memory session manager
-    ├── tests/
-    │   └── test_api.py   # Automated pytest suite (11 unit tests)
-    ├── Dockerfile
-    ├── requirements.txt
-    └── .env.example
-```
-
-## Quick Start
-
-### 1. Prerequisites
 - Python 3.10+
-- Virtual environment (recommended)
+- A Firebase project with Authentication and App Check configured
+- Firebase Admin Application Default Credentials with permission to verify Firebase tokens
 
-### 2. Setup & Installation
+## Install
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
-```
-
-### 3. Configuration
-
-Copy the example environment file:
-
-```bash
 cp .env.example .env
 ```
 
-Configure your server-side keys in `.env` (optional for local testing):
-```env
-PORT=8000
-HOST=0.0.0.0
-ENVIRONMENT=development
-OPENAI_API_KEY=your_key_here
-GEMINI_API_KEY=your_key_here
-OLLAMA_BASE_URL=http://localhost:11434
-```
+Set `FIREBASE_PROJECT_ID` in `.env`. Supply Firebase Admin credentials outside the repository:
 
-### 4. Running the Server
+- On Google Cloud, prefer the runtime's attached workload identity / Application Default Credentials.
+- For local development, use `gcloud auth application-default login`, or export `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON file stored outside this repository.
+- Never commit a service-account file or its contents.
+
+Register the Android app with Firebase App Check. Use a debug token only in a local debug build and register that token in Firebase Console. Production builds must use the configured production attestation provider. Do not disable App Check on a public deployment.
+
+For local-only tests against a loopback server, `APP_CHECK_REQUIRED=false` may be used only when the server is not exposed to a network. Authentication remains required. Restore `APP_CHECK_REQUIRED=true` before any shared or public deployment.
+
+## Run locally
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-The interactive API documentation is available at:
-- Swagger UI: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
+The Android client obtains a Firebase ID token and App Check token from the installed Firebase SDK and sends both on protected companion API calls. A signed-in Firebase user is required.
 
-### 5. Running Tests
+## API
+
+| Method | Endpoint | Access |
+|---|---|---|
+| GET | `/health` | Public health |
+| GET | `/api/v1/status` | Public health |
+| POST | `/api/v1/chat` | Firebase Auth + App Check |
+| POST | `/api/v1/chat/stream` | Firebase Auth + App Check |
+| GET | `/api/v1/sessions` | Firebase Auth + App Check |
+| GET | `/api/v1/sessions/{id}` | Firebase Auth + App Check; owner scoped |
+| DELETE | `/api/v1/sessions/{id}` | Firebase Auth + App Check; owner scoped |
+| POST | `/api/v1/sessions/{id}/chat` | Firebase Auth + App Check; owner scoped |
+| POST | `/api/v1/agent/task` | Firebase Auth + App Check; deterministic allow-list |
+| GET | `/api/v1/orb/animation-state` | Public static UI hint |
+
+Example protected request headers:
+
+```http
+Authorization: Bearer <Firebase ID token>
+X-Firebase-AppCheck: <Firebase App Check token>
+Content-Type: application/json
+```
+
+## Tests
 
 ```bash
 PYTHONPATH=. pytest -v
 ```
 
-## API Endpoints
+Tests stub token verification with synthetic identities; they do not require real Firebase credentials. Firestore Rules emulator tests live at the repository root and separately verify memory/knowledge document ownership and CRUD.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Service health status check |
-| `GET` | `/api/v1/status` | API version and runtime status |
-| `POST` | `/api/v1/chat` | Chat completion with provider routing & session tracking |
-| `POST` | `/api/v1/chat/stream` | Server-Sent Events (SSE) streaming token output |
-| `GET` | `/api/v1/sessions` | List active conversation sessions |
-| `GET` | `/api/v1/sessions/{id}` | Retrieve history for a given session |
-| `DELETE` | `/api/v1/sessions/{id}` | Clear conversation history for a session |
-| `POST` | `/api/v1/sessions/{id}/chat` | Session-aware chat with automatic context history |
-| `GET` | `/api/v1/orb/animation-state` | Visual animation hints for Android Compose Orb UI |
-| `POST` | `/api/v1/agent/task` | Structured agent task execution with smart tool dispatch |
+## Important production limitations
 
-### Example Chat Request
-```json
-POST /api/v1/chat
-Content-Type: application/json
+- Session history is in process memory and is lost on restart; it is not a durable cloud memory store.
+- The rate limiter is per process. Before scaling to multiple workers or instances, replace it with a shared atomic store such as Redis or a Firestore transaction-based quota.
+- Production deployment, App Check enforcement, service identity, TLS termination, and deployed Firestore rules must be independently verified. A passing CI run does not prove production configuration.
+- This backend does not yet expose a durable Firestore memory CRUD API. Do not treat its in-memory sessions as the user's permanent memory.
 
-{
-  "messages": [
-    {"role": "user", "content": "What are my upcoming tasks?"}
-  ],
-  "provider": "auto",
-  "temperature": 0.7
-}
-```
+## Container
 
-### Example Agent Task with Safe Tool Execution
-```json
-POST /api/v1/agent/task
-Content-Type: application/json
-
-{
-  "task": "calculate 25 * (4 + 6)",
-  "tool_hint": "calculator"
-}
-```
-
-Response:
-```json
-{
-  "task": "calculate 25 * (4 + 6)",
-  "status": "completed",
-  "summary": "Calculated result: 250",
-  "tool_used": "calculator",
-  "tool_result": {
-    "success": true,
-    "expression": "calculate 25 * (4 + 6)",
-    "result": 250,
-    "formatted": "250"
-  },
-  "actions_taken": [
-    "Parsed task instruction: 'calculate 25 * (4 + 6)...'",
-    "Validated parameters against security boundaries",
-    "Dispatched to deterministic SafeMathEvaluator",
-    "Recorded tool outcome: calculator"
-  ]
-}
-```
-
-## Docker Support
-
-Build and run with Docker:
-
-```bash
-docker build -t zaythar-backend .
-docker run -p 8000:8000 --env-file .env zaythar-backend
-```
+The Docker image listens on `0.0.0.0` inside the container. Publish it only behind a trusted HTTPS reverse proxy or private service network, and provide Application Default Credentials through workload identity rather than copying credentials into the image.
