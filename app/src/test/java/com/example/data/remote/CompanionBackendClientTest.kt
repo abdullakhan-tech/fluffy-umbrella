@@ -4,6 +4,7 @@ import com.example.domain.ProviderRoute
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -95,6 +96,19 @@ class CompanionBackendClientTest {
         assertEquals("auto", provider)
         assertEquals(15.4, timeMs, 0.001)
         assertEquals("nexus-7", session)
+    }
+
+    @Test
+    fun companionBackendUrl_allowsHttpsAndDebugLoopbackOnly() {
+        val client = CompanionBackendClient()
+        assertEquals("https://api.example.com", client.normalizeUrl("https://api.example.com/"))
+        assertEquals("http://127.0.0.1:8000", client.normalizeUrl("http://127.0.0.1:8000/"))
+        assertThrows(IllegalArgumentException::class.java) {
+            client.normalizeUrl("http://api.example.com")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            client.normalizeUrl("http://user:password@127.0.0.1:8000")
+        }
     }
 
     @Test
