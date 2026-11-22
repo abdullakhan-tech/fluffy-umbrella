@@ -166,6 +166,14 @@ class AIService:
                     return
             except Exception as exc:
                 logger.warning("%s stream failed (redacted): %s", provider, type(exc).__name__)
+                if streamed:
+                    # Once bytes have reached the client, never splice in a second model's answer.
+                    payload = json.dumps({
+                        "chunk": "", "provider": provider, "done": True,
+                        "error": "Provider stream interrupted",
+                    })
+                    yield f"data: {payload}\\n\\n"
+                    return
 
         fallback = self._local_engine_fallback(
             next((m.content for m in reversed(effective_messages) if m.role == ChatRole.USER), "")
