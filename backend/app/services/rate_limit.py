@@ -10,6 +10,8 @@ from typing import Deque, Dict, Tuple
 
 from fastapi import HTTPException
 
+from app.config import settings
+
 
 class SlidingWindowRateLimiter:
     def __init__(self, user_limit: int = 60, ip_limit: int = 120, window_seconds: int = 60):
@@ -55,4 +57,7 @@ class SlidingWindowRateLimiter:
                 self._events.setdefault(key, deque()).append(now)
 
 
-rate_limiter = SlidingWindowRateLimiter()
+rate_limiter = SlidingWindowRateLimiter(
+    user_limit=settings.rate_limit_user_per_minute,
+    ip_limit=settings.rate_limit_ip_per_minute,
+)
