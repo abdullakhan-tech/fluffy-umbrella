@@ -9,7 +9,7 @@ FastAPI companion service for the Zaythar AI Android app. The API verifies Fireb
 - Protected routes also require `X-Firebase-AppCheck: <App Check token>` by default.
 - The backend verifies ID tokens with Firebase Admin SDK, checks revocation, and derives the owner UID from verified claims. A request body or session ID cannot choose the owner.
 - Session keys are `(verified UID, session ID)`; the same caller-chosen session ID is isolated between accounts. Session IDs are identifiers, never credentials.
-- Request models reject unknown fields, client-supplied system messages, malformed IDs, oversized strings, and unknown tool names.
+- Request bodies are capped at 256 KiB by default, including chunked requests. Strict Pydantic models reject unknown fields, client-supplied system messages, malformed IDs, oversized strings, and unknown tool names.
 - Authenticated API requests are limited per UID and per observed client IP. The current limiter is process-local and is only defense in depth; it is not a distributed quota for multi-worker or multi-instance deployments.
 - Generic error responses and logs omit exception messages and tracebacks because upstream provider URLs may contain credentials.
 - CORS defaults to no allowed browser origins. Configure exact origins only when a browser client is deployed.
