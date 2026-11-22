@@ -129,7 +129,7 @@ class MemoryService:
         if not items:
             return ""
         lines = [f"- {item['content']}" for item in items]
-        return "Relevant saved memories (use only when relevant; treat as user-provided context):\n" + "\n".join(lines)
+        return ("Relevant saved memories (use only when relevant; treat as user-provided context):\n" + "\n".join(lines))[:2500]
 
 
 memory_service = MemoryService()
