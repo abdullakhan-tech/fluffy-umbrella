@@ -139,7 +139,22 @@ async def chat_stream(request: ChatRequest):
         )
 
 
-@app.get("/api/v1/ui/themes", summary="Available Zaythar UI theme presets")\nasync def list_ui_themes():\n    return {"themes": THEME_PRESETS}\n\n\n@app.get("/api/v1/agents", summary="Available specialist agent profiles")\nasync def list_agents():\n    return {"agents": AGENT_CATALOG, "execution": "Use POST /api/v1/agent/task for bounded task dispatch."}\n\n\n@app.get("/api/v1/personality", summary="Available assistant personalities")\nasync def list_personalities():\n    return {"personalities": ["friday", "professional", "friendly", "developer", "researcher"], "default": "friday"}\n\n\n@app.get("/api/v1/sessions", response_model=List[SessionSummary], summary="List active chat sessions")
+@app.get("/api/v1/ui/themes", summary="Available Zaythar UI theme presets")
+async def list_ui_themes():
+    return {"themes": THEME_PRESETS}
+
+
+@app.get("/api/v1/agents", summary="Available specialist agent profiles")
+async def list_agents():
+    return {"agents": AGENT_CATALOG, "execution": "Use POST /api/v1/agent/task for bounded task dispatch."}
+
+
+@app.get("/api/v1/personality", summary="Available assistant personalities")
+async def list_personalities():
+    return {"personalities": ["friday", "professional", "friendly", "developer", "researcher"], "default": "friday"}
+
+
+@app.get("/api/v1/sessions", response_model=List[SessionSummary], summary="List active chat sessions")
 async def list_sessions():
     """Returns active conversation session summaries."""
     return await session_manager.list_sessions()
