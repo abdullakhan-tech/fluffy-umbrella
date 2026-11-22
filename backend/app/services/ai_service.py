@@ -21,6 +21,7 @@ from app.services.agent_tools import (
     execute_text_summarizer,
 )
 from app.services.session_service import session_manager
+from app.services.stonic_adapter import StonicAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,12 @@ class AIService:
 
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=30.0)
+        self.stonic = StonicAdapter(
+            client=self.client,
+            base_url=settings.stonic_base_url,
+            api_key=settings.stonic_api_key,
+            model=settings.stonic_model,
+        ) if settings.stonic_base_url.strip() and settings.stonic_api_key.strip() else None
 
     async def close(self):
         await self.client.aclose()
@@ -63,6 +70,22 @@ class AIService:
         )
 
         response: Optional[ChatResponse] = None
+
+        # 0. Optional Stonic gateway (requires explicit endpoint + server-side key).
+        if (
+            response is None
+            and preferred_provider in ("auto", "stonic")
+            and self.stonic is not None
+        ):
+            try:
+                response = await self.stonic.generate(
+                    messages=effective_messages,
+                    model_override=model_override,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            except Exception as e:
+                logger.error("Stonic dispatch failed (redacted error): %s", type(e).__name__)
 
         # 1. Check OpenAI provider
         if (
