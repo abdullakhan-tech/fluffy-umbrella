@@ -1,6 +1,8 @@
 package com.example.data.remote
 
+import android.net.Uri
 import android.util.Log
+import com.example.BuildConfig
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
@@ -59,8 +61,22 @@ class CompanionBackendClient(
     private val defaultBaseUrl: String = "http://10.0.2.2:8000"
 ) {
 
-    private fun normalizeUrl(baseUrl: String): String =
-        baseUrl.trim().trimEnd('/')
+    private fun normalizeUrl(baseUrl: String): String {
+        val normalized = baseUrl.trim().trimEnd('/')
+        val uri = Uri.parse(normalized)
+        val scheme = uri.scheme?.lowercase()
+        val host = uri.host?.lowercase()
+        val localDevelopmentHosts = setOf("localhost", "127.0.0.1", "::1", "10.0.2.2")
+        val secure = scheme == "https"
+        val permittedDebugLoopback = BuildConfig.DEBUG && scheme == "http" && host in localDevelopmentHosts
+        require(secure || permittedDebugLoopback) {
+            "The companion backend must use HTTPS. HTTP is allowed only for debug loopback development."
+        }
+        require(!uri.userInfo.let { !it.isNullOrBlank() }) {
+            "Backend URLs must not embed usernames or passwords."
+        }
+        return normalized
+    }
 
     private suspend fun applyFirebaseAuthHeaders(connection: HttpURLConnection) {
         val user = FirebaseAuth.getInstance().currentUser
