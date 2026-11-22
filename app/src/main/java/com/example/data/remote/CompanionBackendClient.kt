@@ -203,7 +203,7 @@ class CompanionBackendClient(
                 CompanionChatResponse(
                     reply = json.optString("reply", ""),
                     modelUsed = json.optString("model_used", "companion-local"),
-                    provider = json.optString("provider", provider),
+                    provider = json.optString("provider_used", json.optString("provider", provider)),
                     executionTimeMs = json.optDouble("execution_time_ms", 0.0),
                     sessionId = json.optString("session_id").takeIf { it.isNotBlank() }
                 )
@@ -262,7 +262,7 @@ class CompanionBackendClient(
                     if (rawData.isNotEmpty()) {
                         val token = runCatching {
                             val json = JSONObject(rawData)
-                            json.optString("token", "")
+                            json.optString("chunk", json.optString("token", ""))
                         }.getOrDefault(rawData)
                         if (token.isNotEmpty()) {
                             emit(token)
