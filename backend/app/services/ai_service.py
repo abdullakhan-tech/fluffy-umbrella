@@ -131,26 +131,139 @@ class AIService:
         temperature: float = 0.7,
         max_tokens: int = 1024,
     ) -> AsyncGenerator[str, None]:
-        """Streams response tokens in SSE format."""
-        # Check if full completion is handled by fallback or provider
-        reply_obj = await self.generate_chat_reply(
-            messages=messages,
-            preferred_provider=preferred_provider,
-            model_override=model_override,
-            temperature=temperature,
-            max_tokens=max_tokens,
+        """Stream provider output as SSE; never simulate token streaming for remote models."""
+        effective_messages = self._prepare_messages(messages)
+        provider_order = (
+            [preferred_provider] if preferred_provider != "auto"
+            else ["openai", "gemini", "ollama"]
         )
+        streamed = False
 
-        # Stream words smoothly to simulate real-time neural output
-        words = reply_obj.reply.split(" ")
-        for i, word in enumerate(words):
-            chunk = word + (" " if i < len(words) - 1 else "")
-            data = json.dumps({"chunk": chunk, "provider": reply_obj.provider_used, "done": False})
-            yield f"data: {data}\n\n"
-            await asyncio.sleep(0.015)
+        for provider in provider_order:
+            try:
+                if provider == "openai" and settings.openai_api_key.strip():
+                    async for chunk in self._stream_openai(
+                        effective_messages, model_override or "gpt-4o-mini",
+                        temperature, max_tokens
+                    ):
+                        streamed = True
+                        yield self._sse(chunk, "openai", False)
+                elif provider == "gemini" and settings.gemini_api_key.strip():
+                    async for chunk in self._stream_gemini(
+                        effective_messages, model_override or "gemini-2.5-flash",
+                        temperature
+                    ):
+                        streamed = True
+                        yield self._sse(chunk, "gemini", False)
+                elif provider == "ollama" and settings.ollama_base_url.strip():
+                    async for chunk in self._stream_ollama(
+                        effective_messages, model_override or "llama3.2"
+                    ):
+                        streamed = True
+                        yield self._sse(chunk, "ollama", False)
+                if streamed:
+                    yield self._sse("", provider, True)
+                    return
+            except Exception as exc:
+                logger.warning("%s stream failed (redacted): %s", provider, type(exc).__name__)
+                if streamed:
+                    # Once bytes have reached the client, never splice in a second model's answer.
+                    payload = json.dumps({
+                        "chunk": "", "provider": provider, "done": True,
+                        "error": "Provider stream interrupted",
+                    })
+                    yield f"data: {payload}\\n\\n"
+                    return
 
-        end_data = json.dumps({"chunk": "", "provider": reply_obj.provider_used, "done": True})
-        yield f"data: {end_data}\n\n"
+        fallback = self._local_engine_fallback(
+            next((m.content for m in reversed(effective_messages) if m.role == ChatRole.USER), "")
+        )
+        # Local deterministic fallback is already complete; mark its chunks honestly.
+        yield self._sse(fallback.reply, fallback.provider_used, False)
+        yield self._sse("", fallback.provider_used, True)
+
+    @staticmethod
+    def _sse(chunk: str, provider: str, done: bool) -> str:
+        payload = json.dumps({"chunk": chunk, "provider": provider, "done": done})
+        return f"data: {payload}\\n\\n"
+
+    async def _stream_openai(
+        self, messages: List[ChatMessage], model: str,
+        temperature: float, max_tokens: int
+    ) -> AsyncGenerator[str, None]:
+        payload = {
+            "model": model,
+            "messages": [{"role": m.role.value, "content": m.content} for m in messages],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+        headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
+        async with self.client.stream(
+            "POST", "https://api.openai.com/v1/chat/completions",
+            json=payload, headers=headers
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                raw = line[5:].strip()
+                if raw == "[DONE]":
+                    break
+                event = json.loads(raw)
+                delta = event.get("choices", [{}])[0].get("delta", {}).get("content")
+                if delta:
+                    yield delta
+
+    async def _stream_gemini(
+        self, messages: List[ChatMessage], model: str, temperature: float
+    ) -> AsyncGenerator[str, None]:
+        contents = []
+        for message in messages:
+            if message.role == ChatRole.SYSTEM:
+                continue
+            role = "user" if message.role == ChatRole.USER else "model"
+            contents.append({"role": role, "parts": [{"text": message.content}]})
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent"
+            f"?alt=sse&key={settings.gemini_api_key}"
+        )
+        async with self.client.stream(
+            "POST", url,
+            json={"systemInstruction": {"parts": [{"text": next(
+                (m.content for m in messages if m.role == ChatRole.SYSTEM), DEFAULT_SYSTEM_PROMPT
+            )}]}, "contents": contents,
+                 "generationConfig": {"temperature": temperature}}
+        ) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                event = json.loads(line[5:].strip())
+                for part in event.get("candidates", [{}])[0].get("content", {}).get("parts", []):
+                    if part.get("text"):
+                        yield part["text"]
+
+    async def _stream_ollama(
+        self, messages: List[ChatMessage], model: str
+    ) -> AsyncGenerator[str, None]:
+        url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
+        payload = {
+            "model": model,
+            "messages": [{"role": m.role.value, "content": m.content} for m in messages],
+            "stream": True,
+        }
+        async with self.client.stream("POST", url, json=payload, timeout=30.0) as response:
+            response.raise_for_status()
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
+                event = json.loads(line)
+                chunk = event.get("message", {}).get("content")
+                if chunk:
+                    yield chunk
+                if event.get("done"):
+                    break
 
     async def _call_openai(
         self,

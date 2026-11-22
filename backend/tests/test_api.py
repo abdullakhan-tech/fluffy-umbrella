@@ -157,3 +157,31 @@ def test_orb_animation_state(client):
     assert "pulse_rate_hz" in data
     assert "glow_color_hex" in data
     assert data["glow_color_hex"].startswith("#")
+
+
+
+def test_chat_stream_emits_provider_chunks_without_buffering(client, monkeypatch):
+    """Configured providers should yield chunks as they arrive, not after completion."""
+    from app.services import ai_service as service_module
+
+    monkeypatch.setattr(service_module.settings, "openai_api_key", "test-key")
+
+    async def fake_openai_stream(*args, **kwargs):
+        yield "first "
+        yield "second"
+
+    monkeypatch.setattr(service_module.ai_service, "_stream_openai", fake_openai_stream)
+    response = client.post(
+        "/api/v1/chat/stream",
+        json={
+            "messages": [{"role": "user", "content": "Say hello"}],
+            "provider": "openai",
+        },
+    )
+
+    assert response.status_code == 200
+    events = [line for line in response.text.splitlines() if line.startswith("data:")]
+    assert len(events) == 3
+    assert '"chunk": "first "' in events[0]
+    assert '"chunk": "second"' in events[1]
+    assert '"done": true' in events[2]
