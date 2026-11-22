@@ -63,6 +63,9 @@ class VoiceAndMapsAiTest {
 
         composeRule.onNodeWithTag("model_route_flash_lite_31").performScrollTo().assertIsDisplayed().performClick()
         assertEquals(ProviderRoute.FLASH_LITE_31, pickedRoute)
+
+        composeRule.onNodeWithTag("model_route_python_companion").performScrollTo().assertIsDisplayed().performClick()
+        assertEquals(ProviderRoute.PYTHON_COMPANION, pickedRoute)
     }
 
     @Test

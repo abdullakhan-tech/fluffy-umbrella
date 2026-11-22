@@ -52,7 +52,9 @@ data class ZaytharPreferences(
     val mapsGroundingEnabled: Boolean = false,
     val operatorName: String = "OPERATOR 01",
     val lastActiveSessionUid: String = "",
-    val lastActiveSessionId: String = ""
+    val lastActiveSessionId: String = "",
+    val companionBackendUrl: String = "http://10.0.2.2:8000",
+    val useCompanionBackend: Boolean = false
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -84,6 +86,8 @@ class PreferencesRepository(private val context: Context) {
         val OPERATOR_NAME = stringPreferencesKey("operator_name")
         val LAST_ACTIVE_SESSION_UID = stringPreferencesKey("last_active_session_uid")
         val LAST_ACTIVE_SESSION_ID = stringPreferencesKey("last_active_session_id")
+        val COMPANION_BACKEND_URL = stringPreferencesKey("companion_backend_url")
+        val USE_COMPANION_BACKEND = booleanPreferencesKey("use_companion_backend")
     }
 
     private fun mapPreferences(prefs: Preferences): ZaytharPreferences {
@@ -119,7 +123,9 @@ class PreferencesRepository(private val context: Context) {
             mapsGroundingEnabled = prefs[Keys.MAPS_GROUNDING] ?: false,
             operatorName = prefs[Keys.OPERATOR_NAME] ?: "OPERATOR 01",
             lastActiveSessionUid = prefs[Keys.LAST_ACTIVE_SESSION_UID] ?: "",
-            lastActiveSessionId = prefs[Keys.LAST_ACTIVE_SESSION_ID] ?: ""
+            lastActiveSessionId = prefs[Keys.LAST_ACTIVE_SESSION_ID] ?: "",
+            companionBackendUrl = prefs[Keys.COMPANION_BACKEND_URL] ?: "http://10.0.2.2:8000",
+            useCompanionBackend = prefs[Keys.USE_COMPANION_BACKEND] ?: false
         )
     }
 
@@ -175,6 +181,8 @@ class PreferencesRepository(private val context: Context) {
                 prefs[Keys.OPERATOR_NAME] = next.operatorName
                 prefs[Keys.LAST_ACTIVE_SESSION_UID] = next.lastActiveSessionUid
                 prefs[Keys.LAST_ACTIVE_SESSION_ID] = next.lastActiveSessionId
+                prefs[Keys.COMPANION_BACKEND_URL] = next.companionBackendUrl
+                prefs[Keys.USE_COMPANION_BACKEND] = next.useCompanionBackend
             }
         } catch (e: CancellationException) {
             throw e

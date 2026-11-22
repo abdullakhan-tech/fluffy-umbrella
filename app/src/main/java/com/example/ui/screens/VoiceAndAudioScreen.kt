@@ -257,7 +257,7 @@ private fun LiveVoiceCard(
             LiveVoiceStatus.ACTIVE -> OrbState.LISTENING
             LiveVoiceStatus.CONNECTING -> OrbState.PROCESSING
             LiveVoiceStatus.ERROR -> OrbState.ERROR
-            LiveVoiceStatus.DISCONNECTED -> OrbState.IDLE
+            LiveVoiceStatus.IDLE, LiveVoiceStatus.STOPPING -> OrbState.IDLE
         }
         Row(
             verticalAlignment = Alignment.CenterVertically,

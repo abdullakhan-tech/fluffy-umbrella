@@ -36,6 +36,12 @@ class ProviderRouteTest {
     }
 
     @Test
+    fun pythonCompanionRouteHasExpectedAttributes() {
+        assertEquals("companion-server", ProviderRoute.PYTHON_COMPANION.modelName)
+        assertEquals(ProviderRoute.PYTHON_COMPANION, ProviderRoute.fromId("python_companion"))
+    }
+
+    @Test
     fun everyRouteHasAnIdAndModelName() {
         assertTrue(ProviderRoute.entries.all { it.id.isNotBlank() && it.modelName.isNotBlank() })
         assertFalse(ProviderRoute.entries.map { it.id }.toSet().size < ProviderRoute.entries.size)

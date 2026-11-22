@@ -138,6 +138,12 @@ enum class ProviderRoute(
         title = "GEMINI 3.1 FLASH-LITE",
         modelName = "gemini-3.1-flash-lite",
         description = "High-efficiency Gemini 3.1 Flash-Lite for crisp, rapid answers."
+    ),
+    PYTHON_COMPANION(
+        id = "python_companion",
+        title = "PYTHON AI COMPANION",
+        modelName = "companion-server",
+        description = "High-speed local/remote Python FastAPI server with session memory & agent tools."
     );
 
     companion object {

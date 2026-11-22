@@ -188,6 +188,7 @@ object ZaytharIcons {
         ProviderRoute.CARBON -> Icons.Rounded.Memory
         ProviderRoute.NEON -> Icons.Rounded.PrecisionManufacturing
         ProviderRoute.FLASH_LITE_31 -> Icons.Rounded.FlashOn
+        ProviderRoute.PYTHON_COMPANION -> Icons.Rounded.Code
     }
 
     fun forEngine(engine: ZaytharEngineId): ImageVector = when (engine) {
