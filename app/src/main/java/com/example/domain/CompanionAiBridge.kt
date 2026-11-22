@@ -55,7 +55,7 @@ object CompanionAiBridge {
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Log.w(TAG, "Companion streaming encountered error, attempting direct chat fallback", e)
+                Log.w(TAG, "Companion streaming failed (${e.javaClass.simpleName}); trying direct chat fallback.")
             }
 
             if (!streamSuccess) {
@@ -77,7 +77,7 @@ object CompanionAiBridge {
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            Log.w(TAG, "Companion backend unavailable, falling back to core Gemini models", e)
+            Log.w(TAG, "Companion backend unavailable (${e.javaClass.simpleName}); using core Gemini fallback.")
             false
         }
     }
