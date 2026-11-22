@@ -67,12 +67,13 @@ class CompanionBackendClient(
         val scheme = uri.scheme?.lowercase()
         val host = uri.host?.lowercase()
         val localDevelopmentHosts = setOf("localhost", "127.0.0.1", "::1", "10.0.2.2")
+        require(!host.isNullOrBlank()) { "A backend host is required." }
         val secure = scheme == "https"
         val permittedDebugLoopback = BuildConfig.DEBUG && scheme == "http" && host in localDevelopmentHosts
         require(secure || permittedDebugLoopback) {
             "The companion backend must use HTTPS. HTTP is allowed only for debug loopback development."
         }
-        require(!uri.userInfo.let { !it.isNullOrBlank() }) {
+        require(uri.userInfo.isNullOrBlank()) {
             "Backend URLs must not embed usernames or passwords."
         }
         return normalized
