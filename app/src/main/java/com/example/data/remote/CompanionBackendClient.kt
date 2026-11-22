@@ -1,6 +1,10 @@
 package com.example.data.remote
 
-import android.util.Log
+import android.net.Uri
+import com.example.BuildConfig
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -56,8 +60,34 @@ class CompanionBackendClient(
     private val defaultBaseUrl: String = "http://10.0.2.2:8000"
 ) {
 
-    private fun normalizeUrl(baseUrl: String): String =
-        baseUrl.trim().trimEnd('/')
+    internal fun normalizeUrl(baseUrl: String): String {
+        val normalized = baseUrl.trim().trimEnd('/')
+        val uri = Uri.parse(normalized)
+        val scheme = uri.scheme?.lowercase()
+        val host = uri.host?.lowercase()
+        val localDevelopmentHosts = setOf("localhost", "127.0.0.1", "::1", "10.0.2.2")
+        require(!host.isNullOrBlank()) { "A backend host is required." }
+        val secure = scheme == "https"
+        val permittedDebugLoopback = BuildConfig.DEBUG && scheme == "http" && host in localDevelopmentHosts
+        require(secure || permittedDebugLoopback) {
+            "The companion backend must use HTTPS. HTTP is allowed only for debug loopback development."
+        }
+        require(uri.userInfo.isNullOrBlank()) {
+            "Backend URLs must not embed usernames or passwords."
+        }
+        return normalized
+    }
+
+    private suspend fun applyFirebaseAuthHeaders(connection: HttpURLConnection) {
+        val user = FirebaseAuth.getInstance().currentUser
+            ?: error("Sign in to Zaythar AI before using the companion backend.")
+        val idToken = user.getIdToken(false).await().token
+            ?: error("Firebase authentication token is unavailable.")
+        val appCheckToken = FirebaseAppCheck.getInstance().getAppCheckToken(false).await().token
+            ?: error("Firebase App Check attestation is unavailable.")
+        connection.setRequestProperty("Authorization", "Bearer $idToken")
+        connection.setRequestProperty("X-Firebase-AppCheck", appCheckToken)
+    }
 
     suspend fun checkHealth(baseUrl: String = defaultBaseUrl): Result<CompanionHealth> =
         withContext(Dispatchers.IO) {
@@ -136,6 +166,8 @@ class CompanionBackendClient(
                 setRequestProperty("Accept", "application/json")
             }
 
+            applyFirebaseAuthHeaders(conn)
+
             val payload = JSONObject().apply {
                 val msgArray = JSONArray()
                 messages.forEach { m ->
@@ -155,8 +187,7 @@ class CompanionBackendClient(
                 OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
                 val code = conn.responseCode
                 if (code != HttpURLConnection.HTTP_OK) {
-                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                    error("Chat failed: $err")
+                    error("Chat failed with HTTP $code")
                 }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
@@ -190,6 +221,8 @@ class CompanionBackendClient(
             setRequestProperty("Accept", "text/event-stream")
         }
 
+        applyFirebaseAuthHeaders(conn)
+
         val payload = JSONObject().apply {
             val msgArray = JSONArray()
             messages.forEach { m ->
@@ -208,8 +241,7 @@ class CompanionBackendClient(
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
             val code = conn.responseCode
             if (code != HttpURLConnection.HTTP_OK) {
-                val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                throw IllegalStateException("Stream request failed with HTTP $code: $err")
+                throw IllegalStateException("Stream request failed with HTTP $code")
             }
 
             val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
@@ -251,6 +283,8 @@ class CompanionBackendClient(
                 setRequestProperty("Accept", "application/json")
             }
 
+            applyFirebaseAuthHeaders(conn)
+
             val payload = JSONObject().apply {
                 put("task", task)
                 if (!context.isNullOrBlank()) put("context", context)
@@ -261,8 +295,7 @@ class CompanionBackendClient(
                 OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
                 val code = conn.responseCode
                 if (code != HttpURLConnection.HTTP_OK) {
-                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-                    error("Agent task failed: $err")
+                    error("Agent task failed with HTTP $code")
                 }
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)

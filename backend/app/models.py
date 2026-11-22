@@ -1,9 +1,13 @@
-"""Data validation models enforcing input/output boundaries (Rule 5)."""
-
+"""Strict request and response models enforcing input boundaries."""
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class StrictInputModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 class ChatRole(str, Enum):
@@ -12,30 +16,34 @@ class ChatRole(str, Enum):
     ASSISTANT = "assistant"
 
 
-class ChatMessage(BaseModel):
-    role: ChatRole = Field(..., description="Role of the sender")
+class ChatMessage(StrictInputModel):
+    role: ChatRole = Field(..., description="The sender role")
     content: str = Field(..., min_length=1, max_length=4000, description="Message text")
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp of the message",
-    )
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class ChatRequest(BaseModel):
-    messages: List[ChatMessage] = Field(..., min_length=1, max_length=50, description="Conversation history")
-    provider: Optional[str] = Field(default="auto", description="Preferred AI provider")
-    model: Optional[str] = Field(default=None, max_length=60, description="Specific model override")
-    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
-    max_tokens: int = Field(default=1024, ge=1, le=4096, description="Maximum tokens")
-    session_id: Optional[str] = Field(default=None, max_length=100, description="Optional session identifier for history")
+class ChatRequest(StrictInputModel):
+    messages: List[ChatMessage] = Field(..., min_length=1, max_length=50)
+    provider: Optional[str] = Field(default="auto", max_length=20)
+    model: Optional[str] = Field(default=None, max_length=60, pattern=r"^[A-Za-z0-9._:-]+$")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=1024, ge=1, le=4096)
+    session_id: Optional[str] = Field(default=None, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
+
+    @field_validator("messages")
+    @classmethod
+    def reject_client_system_messages(cls, messages: List[ChatMessage]) -> List[ChatMessage]:
+        if any(message.role == ChatRole.SYSTEM for message in messages):
+            raise ValueError("System messages are reserved for server policy.")
+        return messages
 
 
 class ChatResponse(BaseModel):
-    reply: str = Field(..., description="Generated assistant response")
-    provider_used: str = Field(..., description="The AI provider that fulfilled the request")
-    model_used: str = Field(..., description="The model that produced the reply")
-    status: str = Field(default="success", description="Status indicator")
-    session_id: Optional[str] = Field(default=None, description="Active session ID if tracked")
+    reply: str
+    provider_used: str
+    model_used: str
+    status: str = "success"
+    session_id: Optional[str] = None
 
 
 class ToolType(str, Enum):
@@ -45,45 +53,44 @@ class ToolType(str, Enum):
     GENERAL = "general"
 
 
-class AgentTaskRequest(BaseModel):
-    task: str = Field(..., min_length=1, max_length=2000, description="Task instruction for the AI agent")
-    context: Optional[str] = Field(default="", max_length=4000, description="Optional supporting context")
-    tool_hint: Optional[ToolType] = Field(default=None, description="Explicit tool hint if known")
+class AgentTaskRequest(StrictInputModel):
+    task: str = Field(..., min_length=1, max_length=2000)
+    context: Optional[str] = Field(default="", max_length=4000)
+    tool_hint: Optional[ToolType] = None
 
 
 class AgentTaskResponse(BaseModel):
-    task: str = Field(..., description="Original task query")
-    status: str = Field(..., description="Execution status")
-    summary: str = Field(..., description="Executive summary of the agent outcome")
-    tool_used: str = Field(default="none", description="Name of the deterministic tool executed")
-    tool_result: Optional[Dict[str, Any]] = Field(default=None, description="Structured tool output data")
-    actions_taken: List[str] = Field(default_factory=list, description="Step-by-step actions executed")
+    task: str
+    status: str
+    summary: str
+    tool_used: str = "none"
+    tool_result: Optional[Dict[str, Any]] = None
+    actions_taken: List[str] = Field(default_factory=list)
 
 
 class SessionSummary(BaseModel):
-    session_id: str = Field(..., description="Unique session ID")
-    message_count: int = Field(..., description="Number of stored messages")
-    created_at: datetime = Field(..., description="Session creation timestamp")
-    last_active: datetime = Field(..., description="Last message timestamp")
+    session_id: str
+    message_count: int
+    created_at: datetime
+    last_active: datetime
 
 
-class SessionChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=4000, description="User prompt message")
-    provider: Optional[str] = Field(default="auto", description="Preferred AI provider")
-    model: Optional[str] = Field(default=None, max_length=60, description="Specific model override")
-    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
+class SessionChatRequest(StrictInputModel):
+    message: str = Field(..., min_length=1, max_length=4000)
+    provider: Optional[str] = Field(default="auto", max_length=20)
+    model: Optional[str] = Field(default=None, max_length=60, pattern=r"^[A-Za-z0-9._:-]+$")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
 
 
 class OrbVisualState(BaseModel):
-    """Animation parameters for client-side Orb UI rendering (Rule 1)."""
-    state: str = Field(..., description="Visual animation state: idle, listening, processing, speaking")
-    pulse_rate_hz: float = Field(default=1.0, ge=0.1, le=10.0, description="Orb pulse frequency")
-    glow_color_hex: str = Field(default="#00D2FF", description="Primary glow hex color for Compose Canvas")
-    active_connections: int = Field(default=1, ge=0, description="Current active client connections")
+    state: str
+    pulse_rate_hz: float = Field(default=1.0, ge=0.1, le=10.0)
+    glow_color_hex: str = Field(default="#00D2FF", pattern=r"^#[0-9A-Fa-f]{6}$")
+    active_connections: int = Field(default=1, ge=0, le=1000)
 
 
 class HealthResponse(BaseModel):
-    status: str = Field(default="healthy")
+    status: str = "healthy"
     app: str
     version: str
     environment: str
