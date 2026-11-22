@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app import security
+from app.config import settings
 from app.main import app
 from app.services.rate_limit import rate_limiter
 
@@ -265,6 +266,22 @@ def test_authenticated_api_enforces_ip_rate_limit(client, monkeypatch):
     assert first.status_code == 200
     second = client.get("/api/v1/sessions", headers=auth_headers("bob"))
     assert second.status_code == 429
+
+
+
+def test_request_body_limit_rejects_declared_and_chunked_payloads(client, monkeypatch):
+    monkeypatch.setattr(settings, "max_request_body_bytes", 10)
+    headers = {**auth_headers("alice"), "Content-Type": "application/json"}
+
+    declared = client.post("/api/v1/chat", headers=headers, content=b'{"message":"too large"}')
+    assert declared.status_code == 413
+
+    chunked = client.post(
+        "/api/v1/chat",
+        headers=headers,
+        content=iter([b'{"message":', b'"chunked body too large"}']),
+    )
+    assert chunked.status_code == 413
 
 
 def test_public_orb_hint_does_not_expose_global_session_count(client):
