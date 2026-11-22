@@ -289,3 +289,56 @@ def test_public_orb_hint_does_not_expose_global_session_count(client):
     data = response.json()
     assert data["state"] == "idle"
     assert data["active_connections"] == 1
+
+
+def test_long_term_memory_crud_is_durable_and_owner_scoped(client, monkeypatch, tmp_path):
+    from app.services.memory_service import memory_service
+
+    monkeypatch.setattr(memory_service, "db_path", tmp_path / "memory.sqlite3")
+    alice = auth_headers("alice")
+    bob = auth_headers("bob")
+
+    created = client.post(
+        "/api/v1/memories",
+        headers=alice,
+        json={"content": "User prefers concise Jarvis-style voice replies.", "tags": ["voice", "preferences"]},
+    )
+    assert created.status_code == 201
+    saved = created.json()
+    memory_id = saved["memory_id"]
+
+    alice_list = client.get("/api/v1/memories?q=Jarvis", headers=alice)
+    assert alice_list.status_code == 200
+    assert any(item["memory_id"] == memory_id for item in alice_list.json())
+
+    bob_list = client.get("/api/v1/memories", headers=bob)
+    assert bob_list.status_code == 200
+    assert all(item["memory_id"] != memory_id for item in bob_list.json())
+
+    # Re-open the SQLite store to prove the record is not only held in process memory.
+    awaitable = memory_service.list("alice", query="voice", limit=10)
+    import asyncio
+    persisted = asyncio.run(awaitable)
+    assert any(item["memory_id"] == memory_id for item in persisted)
+
+    bob_delete = client.delete(f"/api/v1/memories/{memory_id}", headers=bob)
+    assert bob_delete.status_code == 200
+    assert bob_delete.json()["deleted"] is False
+
+    alice_delete = client.delete(f"/api/v1/memories/{memory_id}", headers=alice)
+    assert alice_delete.status_code == 200
+    assert alice_delete.json()["deleted"] is True
+
+
+def test_memory_api_requires_authentication(client):
+    response = client.get("/api/v1/memories")
+    assert response.status_code == 401
+
+
+def test_memory_api_rejects_invalid_payload(client):
+    response = client.post(
+        "/api/v1/memories",
+        headers=auth_headers("alice"),
+        json={"content": "", "unexpected": "field"},
+    )
+    assert response.status_code == 422
