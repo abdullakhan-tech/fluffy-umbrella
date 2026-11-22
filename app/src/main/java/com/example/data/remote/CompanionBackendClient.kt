@@ -17,6 +17,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 private const val TAG = "CompanionBackendClient"
 private const val CONNECT_TIMEOUT_MS = 6000
@@ -54,6 +55,14 @@ data class CompanionAgentTaskResponse(
     val toolUsed: String,
     val summary: String,
     val executionTimeMs: Double
+)
+
+data class CompanionMemory(
+    val memoryId: String,
+    val content: String,
+    val tags: List<String>,
+    val createdAt: String,
+    val updatedAt: String
 )
 
 class CompanionBackendClient(
@@ -310,4 +319,102 @@ class CompanionBackendClient(
             }
         }
     }
+
+    private fun parseMemory(json: JSONObject): CompanionMemory {
+        val tagsJson = json.optJSONArray("tags") ?: JSONArray()
+        val tags = (0 until tagsJson.length()).mapNotNull { index ->
+            tagsJson.optString(index).takeIf { it.isNotBlank() }
+        }
+        return CompanionMemory(
+            memoryId = json.optString("memory_id"),
+            content = json.optString("content"),
+            tags = tags,
+            createdAt = json.optString("created_at"),
+            updatedAt = json.optString("updated_at")
+        )
+    }
+
+    suspend fun saveMemory(
+        baseUrl: String = defaultBaseUrl,
+        content: String,
+        tags: List<String> = emptyList()
+    ): Result<CompanionMemory> = withContext(Dispatchers.IO) {
+        runCatching {
+            val conn = (URL("${normalizeUrl(baseUrl)}/api/v1/memories").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Accept", "application/json")
+            }
+            applyFirebaseAuthHeaders(conn)
+            val payload = JSONObject().apply {
+                put("content", content)
+                put("tags", JSONArray(tags))
+            }
+            try {
+                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload.toString()) }
+                if (conn.responseCode != HttpURLConnection.HTTP_CREATED) {
+                    error("Memory save failed with HTTP ${conn.responseCode}")
+                }
+                parseMemory(JSONObject(conn.inputStream.bufferedReader().use { it.readText() }))
+            } finally {
+                conn.disconnect()
+            }
+        }
+    }
+
+    suspend fun searchMemories(
+        baseUrl: String = defaultBaseUrl,
+        query: String = "",
+        limit: Int = 20
+    ): Result<List<CompanionMemory>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val encodedQuery = URLEncoder.encode(query, Charsets.UTF_8.name())
+            val safeLimit = limit.coerceIn(1, 50)
+            val target = "${normalizeUrl(baseUrl)}/api/v1/memories?q=$encodedQuery&limit=$safeLimit"
+            val conn = (URL(target).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                setRequestProperty("Accept", "application/json")
+            }
+            applyFirebaseAuthHeaders(conn)
+            try {
+                if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                    error("Memory search failed with HTTP ${conn.responseCode}")
+                }
+                val array = JSONArray(conn.inputStream.bufferedReader().use { it.readText() })
+                (0 until array.length()).map { index -> parseMemory(array.getJSONObject(index)) }
+            } finally {
+                conn.disconnect()
+            }
+        }
+    }
+
+    suspend fun deleteMemory(
+        baseUrl: String = defaultBaseUrl,
+        memoryId: String
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            require(memoryId.matches(Regex("^[a-f0-9]{32}$"))) { "Invalid memory identifier." }
+            val conn = (URL("${normalizeUrl(baseUrl)}/api/v1/memories/$memoryId").openConnection() as HttpURLConnection).apply {
+                requestMethod = "DELETE"
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                setRequestProperty("Accept", "application/json")
+            }
+            applyFirebaseAuthHeaders(conn)
+            try {
+                if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                    error("Memory delete failed with HTTP ${conn.responseCode}")
+                }
+                JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optBoolean("deleted")
+            } finally {
+                conn.disconnect()
+            }
+        }
+    }
+
 }
