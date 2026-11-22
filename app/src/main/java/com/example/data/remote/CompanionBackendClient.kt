@@ -61,7 +61,7 @@ class CompanionBackendClient(
     private val defaultBaseUrl: String = "http://10.0.2.2:8000"
 ) {
 
-    private fun normalizeUrl(baseUrl: String): String {
+    internal fun normalizeUrl(baseUrl: String): String {
         val normalized = baseUrl.trim().trimEnd('/')
         val uri = Uri.parse(normalized)
         val scheme = uri.scheme?.lowercase()
