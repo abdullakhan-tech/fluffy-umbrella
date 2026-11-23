@@ -1,14 +1,27 @@
 package com.example.ui.screens
 
+import android.Manifest
 import android.content.ClipData
+import android.content.pm.PackageManager
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Bundle
 import android.net.Uri
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.view.CameraController
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,9 +48,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,8 +65,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.domain.CameraActivationPolicy
 import com.example.domain.CameraVisionResult
+import com.example.domain.buildCameraVisionChatContext
 import com.example.domain.UiState
 import com.example.domain.VisionMode
 import com.example.ui.components.CyberActionButton
@@ -66,6 +85,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -73,7 +93,8 @@ fun CameraEyesScreen(
     visionState: UiState<CameraVisionResult>,
     onAnalyzeImage: (Bitmap?, String, VisionMode) -> Unit,
     onToast: (String) -> Unit,
-    onSaveToRag: (String) -> Unit = {}
+    onSaveToRag: (String) -> Unit = {},
+    onSendToChat: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
@@ -81,8 +102,129 @@ fun CameraEyesScreen(
 
     var selectedMode by remember { mutableStateOf(VisionMode.SCENE) }
     var prompt by remember { mutableStateOf("") }
+    var isVoicePromptListening by remember { mutableStateOf(false) }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var pendingCaptureUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraEnabled by remember { mutableStateOf(false) }
+    var useFrontCamera by remember { mutableStateOf(false) }
+    var cameraInitialized by remember { mutableStateOf(false) }
+    var frontCameraAvailable by remember { mutableStateOf(false) }
+    var cameraPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val speechRecognizer = remember {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else {
+            null
+        }
+    }
+    DisposableEffect(speechRecognizer) {
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) { isVoicePromptListening = true }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { isVoicePromptListening = false }
+            override fun onError(error: Int) {
+                isVoicePromptListening = false
+                onToast("Voice prompt capture was unavailable or cancelled.")
+            }
+            override fun onResults(results: Bundle?) {
+                isVoicePromptListening = false
+                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (!spoken.isNullOrBlank()) {
+                    prompt = spoken.take(2000)
+                    onToast("Voice question captured. Review it before analysis.")
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+        onDispose {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        }
+    }
+
+    fun startVoicePromptCapture() {
+        val recognizer = speechRecognizer
+        if (recognizer == null) {
+            onToast("Voice recognition is not supported on this device.")
+            return
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+        }
+        isVoicePromptListening = true
+        runCatching { recognizer.startListening(intent) }.onFailure {
+            isVoicePromptListening = false
+            onToast("Could not start voice question capture.")
+        }
+    }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) startVoicePromptCapture()
+        else onToast("Microphone permission is needed for voice questions.")
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraController = remember(context) {
+        LifecycleCameraController(context).apply {
+            cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+            setEnabledUseCases(CameraController.IMAGE_CAPTURE)
+        }
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        cameraPermissionGranted = granted
+        cameraEnabled = granted
+        if (!granted) onToast("Camera permission was denied. Camera Eyes remains off.")
+    }
+
+    DisposableEffect(cameraController, lifecycleOwner, cameraEnabled, cameraPermissionGranted) {
+        var disposed = false
+        if (CameraActivationPolicy.shouldBindCamera(cameraEnabled, cameraPermissionGranted)) {
+            cameraController.bindToLifecycle(lifecycleOwner)
+            cameraController.initializationFuture.addListener(
+                {
+                    if (!disposed) {
+                        cameraInitialized = true
+                        frontCameraAvailable = runCatching {
+                            cameraController.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
+                        }.getOrDefault(false)
+                    }
+                },
+                ContextCompat.getMainExecutor(context)
+            )
+        } else {
+            cameraInitialized = false
+            frontCameraAvailable = false
+            useFrontCamera = false
+            cameraController.unbind()
+        }
+        onDispose {
+            disposed = true
+            cameraController.unbind()
+        }
+    }
+
+    fun setCameraEnabled(enabled: Boolean) {
+        if (!enabled) {
+            cameraEnabled = false
+            return
+        }
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        cameraPermissionGranted = granted
+        if (granted) cameraEnabled = true else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
 
     fun loadScaledBitmap(uri: Uri) {
         scope.launch {
@@ -103,26 +245,31 @@ fun CameraEyesScreen(
         }
     }
 
-    val takePictureLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        val uri = pendingCaptureUri
-        if (success && uri != null) {
-            loadScaledBitmap(uri)
-        } else if (!success) {
-            onToast("Camera capture cancelled.")
+    fun captureLiveFrame() {
+        if (!CameraActivationPolicy.shouldBindCamera(cameraEnabled, cameraPermissionGranted)) {
+            onToast("Turn Camera Eyes on and grant camera permission before capturing a frame.")
+            return
         }
-    }
-
-    fun launchCamera() {
         runCatching {
-            val dir = File(context.cacheDir, "camera_eyes").apply { mkdirs() }
-            val file = File(dir, "capture_${System.currentTimeMillis()}.jpg")
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            pendingCaptureUri = uri
-            takePictureLauncher.launch(uri)
+            val directory = File(context.cacheDir, "camera_eyes").apply { mkdirs() }
+            val file = File(directory, "frame_${System.currentTimeMillis()}.jpg")
+            val output = ImageCapture.OutputFileOptions.Builder(file).build()
+            cameraController.takePicture(
+                output,
+                ContextCompat.getMainExecutor(context),
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(result: ImageCapture.OutputFileResults) {
+                        loadScaledBitmap(Uri.fromFile(file))
+                        onToast("Frame captured. Select ANALYZE when ready.")
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        onToast("Camera capture failed. Check permission and try again.")
+                    }
+                }
+            )
         }.onFailure {
-            onToast("No camera app available on this device. Use Pick Photo instead.")
+            onToast("Camera could not capture a frame. Turn Camera Eyes off and on to retry.")
         }
     }
 
@@ -150,8 +297,32 @@ fun CameraEyesScreen(
             CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
                 CyberCardHeader(
                     title = "VISUAL INPUT VIEWPORT",
-                    badge = if (selectedBitmap != null) "FRAME LOCKED" else "AWAITING OPTICS"
+                    badge = if (cameraEnabled && cameraPermissionGranted) "LIVE OPTICS" else if (selectedBitmap != null) "FRAME LOCKED" else "OPTICS OFF"
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = if (cameraEnabled && cameraPermissionGranted) "CAMERA EYES ONLINE" else "CAMERA EYES OFFLINE",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (cameraEnabled && cameraPermissionGranted) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = if (cameraEnabled) "Live preview active on this screen only" else "No camera preview or capture is running",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = cameraEnabled && cameraPermissionGranted,
+                        onCheckedChange = ::setCameraEnabled,
+                        modifier = Modifier.testTag("camera_eyes_power_switch")
+                    )
+                }
 
                 Box(
                     modifier = Modifier
@@ -161,30 +332,44 @@ fun CameraEyesScreen(
                         .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    val bmp = selectedBitmap
-                    if (bmp != null) {
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "Captured or selected image for Camera Eyes vision analysis",
-                            contentScale = ContentScale.Fit,
+                    if (cameraEnabled && cameraPermissionGranted) {
+                        AndroidView(
+                            factory = { viewContext ->
+                                PreviewView(viewContext).apply {
+                                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                    controller = cameraController
+                                }
+                            },
+                            update = { it.controller = cameraController },
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            CyberIconBadge(
-                                icon = Icons.Rounded.Visibility,
-                                contentDescription = null,
-                                sizeDp = 56.dp,
-                                iconSizeDp = 28.dp
+                        val bmp = selectedBitmap
+                        if (bmp != null) {
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "Captured or selected image for Camera Eyes vision analysis",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
                             )
-                            Text(
-                                text = "Capture a live photo or select an image via Android Photo Picker",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        } else {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CyberIconBadge(
+                                    icon = Icons.Rounded.Visibility,
+                                    contentDescription = null,
+                                    sizeDp = 56.dp,
+                                    iconSizeDp = 28.dp
+                                )
+                                Text(
+                                    text = "Turn Camera Eyes on to start a permission-controlled live preview",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -195,8 +380,9 @@ fun CameraEyesScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     CyberActionButton(
-                        text = "CAPTURE PHOTO",
-                        onClick = ::launchCamera,
+                        text = "CAPTURE FRAME",
+                        onClick = ::captureLiveFrame,
+                        enabled = cameraEnabled && cameraPermissionGranted,
                         modifier = Modifier.weight(1f),
                         testTag = "camera_capture_button"
                     )
@@ -211,6 +397,39 @@ fun CameraEyesScreen(
                         testTag = "photo_picker_button"
                     )
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                CyberSecondaryButton(
+                    text = if (useFrontCamera) "SWITCH TO REAR CAMERA" else "SWITCH TO FRONT CAMERA",
+                    onClick = {
+                        val nextUsesFrontCamera = !useFrontCamera
+                        val targetSelector = if (nextUsesFrontCamera) {
+                            CameraSelector.DEFAULT_FRONT_CAMERA
+                        } else {
+                            CameraSelector.DEFAULT_BACK_CAMERA
+                        }
+                        if (!CameraActivationPolicy.canSwitchToCamera(
+                                cameraEnabled = cameraEnabled,
+                                hasCameraPermission = cameraPermissionGranted,
+                                targetCameraAvailable = !nextUsesFrontCamera || frontCameraAvailable
+                            )
+                        ) {
+                            onToast("Front camera is not available on this device.")
+                        } else {
+                            runCatching {
+                                cameraController.cameraSelector = targetSelector
+                            }.onSuccess {
+                                useFrontCamera = nextUsesFrontCamera
+                            }.onFailure {
+                                onToast("Unable to switch camera lens on this device.")
+                            }
+                        }
+                    },
+                    enabled = cameraEnabled && cameraPermissionGranted && cameraInitialized &&
+                        (useFrontCamera || frontCameraAvailable),
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "camera_lens_switch_button"
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
@@ -268,6 +487,26 @@ fun CameraEyesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("vision_prompt_input")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                CyberSecondaryButton(
+                    text = if (isVoicePromptListening) "LISTENING — TAP TO STOP" else "SPEAK VISION QUESTION",
+                    onClick = {
+                        if (isVoicePromptListening) {
+                            speechRecognizer?.stopListening()
+                        } else if (ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            startVoicePromptCapture()
+                        } else {
+                            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "voice_vision_prompt_button"
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -334,6 +573,21 @@ fun CameraEyesScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
+                        CyberSecondaryButton(
+                            text = "SEND VISUAL CONTEXT TO CHAT",
+                            onClick = {
+                                onSendToChat(
+                                    buildCameraVisionChatContext(
+                                        modeTitle = res.mode.title,
+                                        modelUsed = res.modelUsed,
+                                        analysis = res.analysis
+                                    )
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = "send_vision_to_chat_button"
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         CyberSecondaryButton(
                             text = "SAVE ANALYSIS TO RAG MEMORY",
                             onClick = {
