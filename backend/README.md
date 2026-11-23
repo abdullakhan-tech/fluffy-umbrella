@@ -6,7 +6,7 @@ FastAPI companion service for the Zaythar AI Android app. The API verifies Fireb
 
 - `/health`, `/`, and `/api/v1/status` are public health endpoints.
 - Chat, streaming, agent-task, and session endpoints require `Authorization: Bearer <Firebase ID token>`.
-- Protected routes also require `X-Firebase-AppCheck: <App Check token>` by default.
+- Protected routes also require `X-Firebase-AppCheck: <App Check token>` by default. Set `APP_CHECK_ALLOWED_APP_IDS` to a comma-separated allowlist of exact Firebase App IDs to reject valid tokens minted for other registered apps in the same project.
 - The backend verifies ID tokens with Firebase Admin SDK, checks revocation, and derives the owner UID from verified claims. A request body or session ID cannot choose the owner.
 - Session keys are `(verified UID, session ID)`; the same caller-chosen session ID is isolated between accounts. Session IDs are identifiers, never credentials.
 - Request bodies are capped at 256 KiB by default, including chunked requests. Strict Pydantic models reject unknown fields, client-supplied system messages, malformed IDs, oversized strings, and unknown tool names.
