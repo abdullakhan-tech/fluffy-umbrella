@@ -23,7 +23,7 @@ Do not publish exploitable vulnerabilities, credentials, access tokens, private 
 ## Python companion API
 
 - All chat, stream, agent-task, and session routes require a Firebase ID token verified by Firebase Admin SDK with revocation checking.
-- Protected routes also require a Firebase App Check token by default.
+- Protected routes also require a Firebase App Check token by default. Configure `APP_CHECK_ALLOWED_APP_IDS` with exact Firebase App IDs when a deployment should accept only selected client apps.
 - Owner identity is derived only from verified token claims. Client-supplied owner IDs are rejected by strict request models.
 - Session storage is namespaced by verified UID and caller-provided session ID; session IDs are not credentials and cannot cross account boundaries.
 - ASGI middleware caps complete request bodies at the configured limit (256 KiB by default), including chunked bodies. Strict Pydantic models also cap field sizes and reject unknown fields, client-supplied system messages, and unknown tool names.
