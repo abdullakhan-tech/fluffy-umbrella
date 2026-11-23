@@ -23,7 +23,7 @@ from app.services.agent_tools import (
     execute_text_summarizer,
     execute_think_tool,
 )
-from app.services.codebase_analysis import analyze_source\nfrom app.services.codebase_analysis import analyze_source
+from app.services.codebase_analysis import analyze_source
 from app.services.memory_service import memory_service
 from app.services.persona_service import persona_service
 from app.services.security_service import security_scanner
