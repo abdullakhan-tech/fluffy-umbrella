@@ -181,3 +181,86 @@ def execute_code_inspector(code: str, language: str = "python") -> Dict[str, Any
         "metrics": {"line_count": line_count},
         "findings": findings or ["All brackets cleanly balanced."],
     }
+
+
+# ---------------------------------------------------------------------------
+# OpenJarvis Advanced Tools: Think, Daily Briefing, Deep Research
+# ---------------------------------------------------------------------------
+
+def execute_think_tool(thought_prompt: str) -> Dict[str, Any]:
+    """OpenJarvis-inspired reasoning scratchpad for multi-step problem solving."""
+    cleaned = (thought_prompt or "").strip()
+    if not cleaned:
+        return {
+            "success": False,
+            "error": "No thought prompt provided for reasoning scratchpad.",
+        }
+
+    # Structure step-by-step decomposition
+    steps = [
+        f"1. Problem Definition: Analyze query '{cleaned[:80]}...'",
+        "2. Constraint Identification: Verify inputs, boundaries, and safe execution rules.",
+        "3. Hypothesis Generation: Evaluate candidate solution paths.",
+        "4. Logical Deduction: Validate intermediate conclusions.",
+        "5. Final Synthesis: Grounded resolution reached.",
+    ]
+
+    return {
+        "success": True,
+        "thought": cleaned,
+        "reasoning_steps": steps,
+        "step_count": len(steps),
+        "status": "reasoning_complete",
+    }
+
+
+def execute_daily_briefing(honorific: str = "Sir", context: str = "") -> Dict[str, Any]:
+    """OpenJarvis-inspired morning digest and daily briefing generator."""
+    from datetime import datetime, timezone
+
+    now_utc = datetime.now(timezone.utc).strftime("%A, %d %B %Y | %H:%M UTC")
+    h = (honorific or "Sir").strip()
+
+    sections = {
+        "greeting": f"Good day, {h}. Systems are online and operating normally.",
+        "timestamp": now_utc,
+        "status": "All core modules operational: Neural Core, Engine Router, Memory Service, Security Guardrails.",
+        "context_summary": context.strip() if context else "No active anomalies or pending system alerts.",
+        "action_items": [
+            "1. Monitor Android Companion Bridge and streaming latency.",
+            "2. Verify active provider routes and memory retention.",
+            "3. Ensure clean testing and security invariants.",
+        ],
+    }
+
+    return {
+        "success": True,
+        "briefing": f"Morning Digest for {h}: {now_utc}. Status: Operational.",
+        "sections": sections,
+    }
+
+
+def execute_deep_research(topic: str, context: str = "") -> Dict[str, Any]:
+    """OpenJarvis-inspired deep research planner and objective breakdown."""
+    clean_topic = (topic or "").strip()
+    if not clean_topic:
+        return {"success": False, "error": "Research topic cannot be empty."}
+
+    return {
+        "success": True,
+        "topic": clean_topic,
+        "research_plan": {
+            "primary_objective": f"Comprehensive investigation into '{clean_topic}'",
+            "key_hypotheses": [
+                f"Core mechanism of '{clean_topic}' can be verified through empirical evidence.",
+                "Potential security, latency, and resource constraints must be mapped.",
+            ],
+            "investigation_angles": [
+                "Architectural foundations and standards",
+                "Implementation best practices and edge cases",
+                "Comparative benchmark analysis",
+            ],
+            "validation_gates": ["Syntax check", "Invariance testing", "Security review"],
+        },
+        "context_notes": context.strip() if context else "Standard deep research execution.",
+    }

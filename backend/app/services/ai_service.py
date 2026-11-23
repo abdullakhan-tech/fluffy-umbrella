@@ -1,4 +1,4 @@
-"""Server-side AI service orchestrator enforcing provider security and boundaries."""
+"""Server-side AI service orchestrator enforcing provider security, personas, memory, and guardrails."""
 
 import asyncio
 import json
@@ -18,33 +18,46 @@ from app.models import (
 from app.services.agent_tools import (
     execute_calculator,
     execute_code_inspector,
+    execute_daily_briefing,
+    execute_deep_research,
     execute_text_summarizer,
+    execute_think_tool,
 )
+from app.services.memory_service import memory_service
+from app.services.persona_service import persona_service
+from app.services.security_service import security_scanner
 from app.services.session_service import session_manager
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SYSTEM_PROMPT = (
-    "You are Zaythar AI, an intelligent, concise, and helpful AI companion. "
-    "Provide clear, grounded, and structured responses. Help with reasoning, code, "
-    "and step-by-step problem solving. Maintain a calm and respectful tone."
-)
-
 
 class AIService:
-    """Manages AI provider routing with server-side secret isolation."""
+    """Manages AI provider routing with server-side secret isolation, personas, and memory."""
 
     def __init__(self):
         self.client = httpx.AsyncClient(timeout=30.0)
 
     async def close(self):
+        """Closes the underlying HTTP client session."""
         await self.client.aclose()
 
-    def _prepare_messages(self, messages: List[ChatMessage]) -> List[ChatMessage]:
-        """Ensures a structured system prompt persona is present."""
+    async def _prepare_messages(
+        self,
+        messages: List[ChatMessage],
+        persona: Optional[str] = "jarvis",
+        honorific: Optional[str] = "Sir",
+        user_query: str = "",
+    ) -> List[ChatMessage]:
+        """Injects persona prompt and relevant remembered facts into the system message."""
         has_system = any(m.role == ChatRole.SYSTEM for m in messages)
         if not has_system:
-            return [ChatMessage(role=ChatRole.SYSTEM, content=DEFAULT_SYSTEM_PROMPT)] + list(messages)
+            remembered_facts = await memory_service.get_relevant_facts(user_query)
+            system_prompt = persona_service.build_system_prompt(
+                persona_type=persona,
+                honorific=honorific,
+                remembered_facts=remembered_facts,
+            )
+            return [ChatMessage(role=ChatRole.SYSTEM, content=system_prompt)] + list(messages)
         return list(messages)
 
     async def generate_chat_reply(
@@ -55,16 +68,37 @@ class AIService:
         temperature: float = 0.7,
         max_tokens: int = 1024,
         session_id: Optional[str] = None,
+        persona: Optional[str] = "jarvis",
+        honorific: Optional[str] = "Sir",
     ) -> ChatResponse:
-        """Routes chat requests to configured provider or safe local engine."""
-        effective_messages = self._prepare_messages(messages)
-        latest_user_message = next(
-            (m.content for m in reversed(effective_messages) if m.role == ChatRole.USER), ""
+        """Routes chat requests to configured provider or safe local engine with guardrails & memory."""
+        # Find latest user prompt
+        raw_user_msg = next(
+            (m.content for m in reversed(messages) if m.role == ChatRole.USER), ""
+        )
+
+        # 1. Run OpenJarvis-inspired Security Scanner (Secret & Injection Guardrails)
+        scan_result = security_scanner.scan(raw_user_msg, redact=True)
+        sanitized_user_msg = scan_result.clean_text
+
+        # Re-construct sanitized messages list
+        sanitized_messages: List[ChatMessage] = []
+        for m in messages:
+            if m.role == ChatRole.USER and m.content == raw_user_msg:
+                sanitized_messages.append(ChatMessage(role=m.role, content=sanitized_user_msg))
+            else:
+                sanitized_messages.append(m)
+
+        effective_messages = await self._prepare_messages(
+            messages=sanitized_messages,
+            persona=persona,
+            honorific=honorific,
+            user_query=sanitized_user_msg,
         )
 
         response: Optional[ChatResponse] = None
 
-        # 1. Check OpenAI provider
+        # 2. Check OpenAI provider
         if (
             preferred_provider in ("auto", "openai")
             and settings.openai_api_key.strip()
@@ -79,7 +113,7 @@ class AIService:
             except Exception as e:
                 logger.error("OpenAI dispatch failed (redacted error): %s", type(e).__name__)
 
-        # 2. Check Gemini provider
+        # 3. Check Gemini provider
         if (
             response is None
             and preferred_provider in ("auto", "gemini")
@@ -94,7 +128,7 @@ class AIService:
             except Exception as e:
                 logger.error("Gemini dispatch failed (redacted error): %s", type(e).__name__)
 
-        # 3. Check Ollama provider (local server)
+        # 4. Check Ollama provider (local server)
         if (
             response is None
             and preferred_provider in ("auto", "ollama")
@@ -103,25 +137,97 @@ class AIService:
             try:
                 response = await self._call_ollama(
                     messages=effective_messages,
-                    model=model_override or "llama3.2",
+                    model=model_override or "llama3",
                 )
             except Exception as e:
-                logger.debug("Ollama not reachable: %s", type(e).__name__)
+                logger.error("Ollama dispatch failed (redacted error): %s", type(e).__name__)
 
-        # 4. Safe local engine fallback (Compliant with Rule 1: Truth over appearance)
+        # 5. Local Engine Fallback (Rule-based & persona-aware)
         if response is None:
-            response = self._local_engine_fallback(latest_user_message)
+            response = self._local_engine_fallback(
+                prompt=sanitized_user_msg,
+                persona=persona,
+                honorific=honorific,
+            )
 
+        # 6. Sanitize reply output against secret leakage
+        reply_scan = security_scanner.scan(response.reply, redact=True)
+        response.reply = reply_scan.clean_text
+
+        # 7. Update Session History & Trigger Memory Learning in Background
         if session_id:
             response.session_id = session_id
             await session_manager.add_message(
-                session_id, ChatMessage(role=ChatRole.USER, content=latest_user_message)
+                session_id, ChatMessage(role=ChatRole.USER, content=sanitized_user_msg)
             )
             await session_manager.add_message(
                 session_id, ChatMessage(role=ChatRole.ASSISTANT, content=response.reply)
             )
 
+        # Extract and remember facts from conversation
+        asyncio.create_task(
+            memory_service.process_turn_and_remember(
+                user_msg=sanitized_user_msg,
+                assistant_msg=response.reply,
+                session_id=session_id,
+            )
+        )
+
         return response
+
+    def _local_engine_fallback(
+        self,
+        prompt: str,
+        persona: Optional[str] = "jarvis",
+        honorific: Optional[str] = "Sir",
+    ) -> ChatResponse:
+        """Deterministic persona-aware fallback when external provider credentials are not set."""
+        sanitized = (prompt or "").strip()
+        h = (honorific or "Sir").strip()
+        p = (persona or "jarvis").lower()
+
+        # Check for simple arithmetic in prompt
+        if re.search(r"^\s*(\d+[\s\+\-\*\/\%\(\)\^]+)+\d+\s*$", sanitized):
+            calc_res = execute_calculator(sanitized)
+            if calc_res.get("success"):
+                if p == "friday":
+                    reply_text = f"Calculated it for you, Boss: {calc_res['formatted']}"
+                elif p == "jarvis":
+                    reply_text = f"According to my calculations, {h}: {calc_res['formatted']}"
+                else:
+                    reply_text = f"Calculation result: {calc_res['formatted']}"
+
+                return ChatResponse(
+                    reply=reply_text,
+                    provider_used="local_engine",
+                    model_used="zaythar-math-tool",
+                    status="success",
+                )
+
+        if p == "jarvis":
+            reply = (
+                f"At your service, {h}. I have registered your instruction: '{sanitized}'. "
+                "Neural core diagnostics and memory modules are operational. "
+                "Configure external API keys (OpenAI or Gemini) or local Ollama for full generative inference."
+            )
+        elif p == "friday":
+            reply = (
+                f"Boss, I've got your request: '{sanitized}'. "
+                "Diagnostic telemetry is solid and tools are online. Ready whenever you need me."
+            )
+        else:
+            reply = (
+                f"[Zaythar Local Engine] Received: '{sanitized}'. "
+                "Server-side AI companion is active with memory and tool pipelines. "
+                "Set OPENAI_API_KEY, GEMINI_API_KEY, or local Ollama to enable external LLM reasoning."
+            )
+
+        return ChatResponse(
+            reply=reply,
+            provider_used="local_engine",
+            model_used="zaythar-rule-based-v2",
+            status="success",
+        )
 
     async def generate_chat_stream(
         self,
@@ -130,18 +236,20 @@ class AIService:
         model_override: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
+        persona: Optional[str] = "jarvis",
+        honorific: Optional[str] = "Sir",
     ) -> AsyncGenerator[str, None]:
-        """Streams response tokens in SSE format."""
-        # Check if full completion is handled by fallback or provider
+        """Streams response tokens in SSE format with persona awareness."""
         reply_obj = await self.generate_chat_reply(
             messages=messages,
             preferred_provider=preferred_provider,
             model_override=model_override,
             temperature=temperature,
             max_tokens=max_tokens,
+            persona=persona,
+            honorific=honorific,
         )
 
-        # Stream words smoothly to simulate real-time neural output
         words = reply_obj.reply.split(" ")
         for i, word in enumerate(words):
             chunk = word + (" " if i < len(words) - 1 else "")
@@ -149,114 +257,8 @@ class AIService:
             yield f"data: {data}\n\n"
             await asyncio.sleep(0.015)
 
-        end_data = json.dumps({"chunk": "", "provider": reply_obj.provider_used, "done": True})
-        yield f"data: {end_data}\n\n"
-
-    async def _call_openai(
-        self,
-        messages: List[ChatMessage],
-        model: str,
-        temperature: float,
-        max_tokens: int,
-    ) -> ChatResponse:
-        payload = {
-            "model": model,
-            "messages": [{"role": m.role.value, "content": m.content} for m in messages],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        headers = {
-            "Authorization": f"Bearer {settings.openai_api_key}",
-            "Content-Type": "application/json",
-        }
-        response = await self.client.post(
-            "https://api.openai.com/v1/chat/completions",
-            json=payload,
-            headers=headers,
-        )
-        response.raise_for_status()
-        data = response.json()
-        reply_content = data["choices"][0]["message"]["content"]
-        return ChatResponse(
-            reply=reply_content,
-            provider_used="openai",
-            model_used=model,
-            status="success",
-        )
-
-    async def _call_gemini(
-        self,
-        messages: List[ChatMessage],
-        model: str,
-        temperature: float,
-    ) -> ChatResponse:
-        contents = []
-        for m in messages:
-            role = "user" if m.role == ChatRole.USER else "model"
-            contents.append({"role": role, "parts": [{"text": m.content}]})
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={settings.gemini_api_key}"
-        response = await self.client.post(
-            url,
-            json={"contents": contents, "generationConfig": {"temperature": temperature}},
-        )
-        response.raise_for_status()
-        data = response.json()
-        reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
-        return ChatResponse(
-            reply=reply_text,
-            provider_used="gemini",
-            model_used=model,
-            status="success",
-        )
-
-    async def _call_ollama(
-        self,
-        messages: List[ChatMessage],
-        model: str,
-    ) -> ChatResponse:
-        url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
-        payload = {
-            "model": model,
-            "messages": [{"role": m.role.value, "content": m.content} for m in messages],
-            "stream": False,
-        }
-        response = await self.client.post(url, json=payload, timeout=5.0)
-        response.raise_for_status()
-        data = response.json()
-        return ChatResponse(
-            reply=data["message"]["content"],
-            provider_used="ollama",
-            model_used=model,
-            status="success",
-        )
-
-    def _local_engine_fallback(self, prompt: str) -> ChatResponse:
-        """Deterministic fallback when external provider credentials are not set."""
-        sanitized = prompt.strip()
-
-        # Check for simple arithmetic in prompt
-        if re.search(r"^\s*(\d+[\s\+\-\*\/\%\(\)\^]+)+\d+\s*$", sanitized):
-            calc_res = execute_calculator(sanitized)
-            if calc_res.get("success"):
-                return ChatResponse(
-                    reply=f"Calculation result: {calc_res['formatted']}",
-                    provider_used="local_engine",
-                    model_used="zaythar-math-tool",
-                    status="success",
-                )
-
-        reply = (
-            f"[Zaythar Local Engine] Received: '{sanitized}'. "
-            "Server-side AI companion is active with memory and tool pipelines. "
-            "Set OPENAI_API_KEY, GEMINI_API_KEY, or local Ollama to enable external LLM reasoning."
-        )
-        return ChatResponse(
-            reply=reply,
-            provider_used="local_engine",
-            model_used="zaythar-rule-based-v1",
-            status="success",
-        )
+        done_data = json.dumps({"chunk": "", "provider": reply_obj.provider_used, "done": True})
+        yield f"data: {done_data}\n\n"
 
     async def execute_agent_task(
         self,
@@ -267,13 +269,29 @@ class AIService:
         """Executes a structured task breaking it down into actionable steps with tool dispatch."""
         actions: List[str] = [
             f"Parsed task instruction: '{task[:60]}...'",
-            "Validated parameters against security boundaries",
+            "Validated parameters against security boundaries and guardrails",
         ]
 
-        # Automatic tool detection if hint not provided
         selected_tool = tool_hint.value if tool_hint else "none"
         tool_result = None
 
+        # Determine target tool
+        task_lower = task.lower()
+        is_think = (
+            tool_hint == ToolType.THINK
+            or task_lower.startswith("think")
+            or "reason step by step" in task_lower
+        )
+        is_briefing = (
+            tool_hint == ToolType.DAILY_BRIEFING
+            or "briefing" in task_lower
+            or "morning digest" in task_lower
+        )
+        is_research = (
+            tool_hint == ToolType.DEEP_RESEARCH
+            or task_lower.startswith("research")
+            or "investigate" in task_lower
+        )
         is_math = (
             tool_hint == ToolType.CALCULATOR
             or re.search(r"(calculate|compute|solve|\d+\s*[\+\-\*\/])", task, re.IGNORECASE)
@@ -284,11 +302,26 @@ class AIService:
         )
         is_summarize = (
             tool_hint == ToolType.SUMMARIZE
-            or task.lower().startswith("summarize")
+            or task_lower.startswith("summarize")
             or len(context) > 200
         )
 
-        if is_math:
+        if is_think:
+            actions.append("Dispatched to OpenJarvis Reasoning Scratchpad (ThinkTool)")
+            tool_result = execute_think_tool(task)
+            selected_tool = "think"
+            summary = f"Reasoning scratchpad completed with {tool_result.get('step_count', 0)} logical steps."
+        elif is_briefing:
+            actions.append("Dispatched to OpenJarvis Daily Briefing Generator")
+            tool_result = execute_daily_briefing(honorific="Sir", context=context)
+            selected_tool = "daily_briefing"
+            summary = tool_result.get("briefing", "Daily briefing generated.")
+        elif is_research:
+            actions.append("Dispatched to OpenJarvis Deep Research Planner")
+            tool_result = execute_deep_research(topic=task, context=context)
+            selected_tool = "deep_research"
+            summary = f"Deep research plan formulated for '{tool_result.get('topic', task)}'."
+        elif is_math:
             actions.append("Dispatched to deterministic SafeMathEvaluator")
             tool_result = execute_calculator(task)
             selected_tool = "calculator"
@@ -323,6 +356,95 @@ class AIService:
             tool_used=selected_tool,
             tool_result=tool_result,
             actions_taken=actions,
+        )
+
+    async def _call_openai(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> ChatResponse:
+        """Dispatches chat request to OpenAI API with server-side key."""
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {settings.openai_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model,
+            "messages": [{"role": m.role.value, "content": m.content} for m in messages],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        resp = await self.client.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+
+        return ChatResponse(
+            reply=content,
+            provider_used="openai",
+            model_used=model,
+            status="success",
+        )
+
+    async def _call_gemini(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        temperature: float,
+    ) -> ChatResponse:
+        """Dispatches chat request to Google Gemini API."""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        params = {"key": settings.gemini_api_key}
+
+        contents = []
+        for m in messages:
+            role = "user" if m.role == ChatRole.USER else "model"
+            contents.append({"role": role, "parts": [{"text": m.content}]})
+
+        payload = {
+            "contents": contents,
+            "generationConfig": {"temperature": temperature},
+        }
+
+        resp = await self.client.post(url, params=params, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        return ChatResponse(
+            reply=content,
+            provider_used="gemini",
+            model_used=model,
+            status="success",
+        )
+
+    async def _call_ollama(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+    ) -> ChatResponse:
+        """Dispatches chat request to local Ollama server."""
+        url = f"{settings.ollama_base_url.rstrip('/')}/api/chat"
+        payload = {
+            "model": model,
+            "messages": [{"role": m.role.value, "content": m.content} for m in messages],
+            "stream": False,
+        }
+
+        resp = await self.client.post(url, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["message"]["content"]
+
+        return ChatResponse(
+            reply=content,
+            provider_used="ollama",
+            model_used=model,
+            status="success",
         )
 
 

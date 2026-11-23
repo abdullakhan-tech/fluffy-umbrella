@@ -123,7 +123,9 @@ class CompanionBackendClient(
         provider: String = "auto",
         model: String? = null,
         temperature: Float = 0.7f,
-        sessionId: String? = null
+        sessionId: String? = null,
+        persona: String? = null,
+        honorific: String? = null
     ): Result<CompanionChatResponse> = withContext(Dispatchers.IO) {
         runCatching {
             val targetUrl = "${normalizeUrl(baseUrl)}/api/v1/chat"
@@ -149,6 +151,8 @@ class CompanionBackendClient(
                 if (!model.isNullOrBlank()) put("model", model)
                 put("temperature", temperature.toDouble())
                 if (!sessionId.isNullOrBlank()) put("session_id", sessionId)
+                if (!persona.isNullOrBlank()) put("persona", persona)
+                if (!honorific.isNullOrBlank()) put("honorific", honorific)
             }
 
             try {
@@ -178,7 +182,9 @@ class CompanionBackendClient(
         messages: List<CompanionChatMessage>,
         provider: String = "auto",
         model: String? = null,
-        temperature: Float = 0.7f
+        temperature: Float = 0.7f,
+        persona: String? = null,
+        honorific: String? = null
     ): Flow<String> = flow {
         val targetUrl = "${normalizeUrl(baseUrl)}/api/v1/chat/stream"
         val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
@@ -202,6 +208,8 @@ class CompanionBackendClient(
             put("provider", provider)
             if (!model.isNullOrBlank()) put("model", model)
             put("temperature", temperature.toDouble())
+            if (!persona.isNullOrBlank()) put("persona", persona)
+            if (!honorific.isNullOrBlank()) put("honorific", honorific)
         }
 
         try {

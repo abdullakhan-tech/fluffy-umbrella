@@ -1,36 +1,60 @@
-# Zaythar AI — Python Companion Backend
+# Zaythar AI — Python Companion Backend (with OpenJarvis Core Engine)
 
-This directory contains the Python AI companion service for **Zaythar AI** (`fluffy-umbrella`). It provides a server-side AI execution boundary, keeping provider API credentials off mobile devices and exposing authenticated REST endpoints for the Android client.
+This directory contains the Python AI companion service for **Zaythar AI** (`fluffy-umbrella`), enhanced with core architectural capabilities adapted from **OpenJarvis** (cleanly integrated for high-performance and lightweight deployment).
 
-## Features
+It provides a secure, server-side AI execution boundary, keeping provider API credentials off mobile devices and exposing authenticated REST endpoints for the Android client.
 
-- **FastAPI Framework**: High-performance, async REST API with automatic OpenAPI / Swagger documentation (`/docs`).
-- **Server-Side Security**: External AI API keys (OpenAI, Gemini, Ollama) remain server-side and are never committed or distributed to mobile devices (Rules 2 & 3).
-- **Session Memory**: In-memory session manager for tracking conversational context across turns.
-- **Deterministic Agent Tools**: Built-in safe tools for AST math evaluation, text summarization, and syntax code inspection (Rules 1 & 4).
-- **Real-Time Streaming**: Server-Sent Events (SSE) `/api/v1/chat/stream` for real-time word-by-word streaming.
-- **Orb UI State**: `/api/v1/orb/animation-state` provides visual state and pulse frequency hints for the Android Jetpack Compose Orb Canvas.
-- **Strict Input Validation**: Pydantic models validate all incoming requests, character limits, and message histories before dispatch (Rule 5).
-- **Local Fallback Engine**: If no external provider keys are configured, the service operates gracefully via a safe local engine without crashing (Rule 1).
-- **Redacted Error Handling**: Provider errors and internal stack traces are redacted before reaching clients (Rule 9).
-- **Container Ready**: Includes production-ready `Dockerfile` and automated `pytest` test suite.
+## Core Features & OpenJarvis Innovations
+
+- **AI Personas (OpenJarvis)**:
+  - **JARVIS**: Crisp, loyal, dry-witted AI chief of staff. Factual, concise, addressing the user respectfully as "Sir".
+  - **FRIDAY**: Warm, tactical, supportive, and direct operational companion addressing the user as "Boss".
+  - **Zaythar Core**: Balanced, analytical AI companion focused on engineering and problem solving.
+  - Endpoints: `GET /api/v1/personas`, `GET /api/v1/personas/{id}`.
+- **Durable Memory & Fact Extraction (OpenJarvis)**:
+  - Persistent, bounded fact store (`backend/data/facts.json`) retaining key user preferences, identity, goals, and technical context across conversations.
+  - Automatic background fact extraction from conversational dialogue turns.
+  - Endpoints: `GET /api/v1/memory/facts`, `POST /api/v1/memory/facts`, `DELETE /api/v1/memory/facts/{id}`.
+- **Security Guardrails (OpenJarvis)**:
+  - **Secret Scanner**: Real-time detection and automatic redaction of sensitive credentials (OpenAI/Anthropic keys, AWS, GitHub tokens, Slack, Stripe, database URIs).
+  - **Prompt Injection Defense**: Detection of prompt overrides, identity spoofing, and code/shell injection patterns.
+  - Endpoint: `POST /api/v1/security/scan`.
+- **Advanced Agent Tools**:
+  - `think`: OpenJarvis-inspired reasoning scratchpad for multi-step logical deduction.
+  - `daily_briefing`: Morning digest with timestamp, system telemetry, memory review, and priority items.
+  - `deep_research`: Structured research planner breaking complex topics into hypotheses, investigation angles, and validation gates.
+  - `calculator`: Deterministic AST-based math evaluation.
+  - `code_inspect`: Safe AST syntax inspection and balance verification.
+  - `summarize`: Keyword extraction and text summarization.
+  - Endpoint: `POST /api/v1/agent/task`.
+- **Real-Time Streaming**:
+  - Server-Sent Events (SSE) `/api/v1/chat/stream` for real-time word-by-word streaming to Android.
+- **Orb Animation Telemetry**:
+  - `/api/v1/orb/animation-state` provides visual state, pulse rate, and glow color hints for the Jetpack Compose glowing Orb canvas.
+- **Local Fallback Engine**:
+  - If no external provider keys are configured, the service operates gracefully via a safe local engine without crashing (Rule 1).
+- **Automated Test Suite**:
+  - Complete `pytest` suite with 20 passing unit and integration tests.
 
 ## Architecture
 
 ```
 fluffy-umbrella/
 ├── app/                  # Native Android Application (Kotlin + Jetpack Compose)
-└── backend/              # Python Companion Backend (FastAPI)
+└── backend/              # Python Companion Backend (FastAPI + OpenJarvis)
     ├── app/
     │   ├── config.py     # Environment settings & CORS configuration
     │   ├── main.py       # FastAPI application and route definitions
     │   ├── models.py     # Pydantic request/response schemas
     │   └── services/
-    │       ├── ai_service.py     # AI provider orchestrator & streaming
-    │       ├── agent_tools.py    # Math evaluator, code inspector, text summarizer
-    │       └── session_service.py # Bounded in-memory session manager
+    │       ├── ai_service.py       # AI provider orchestrator & streaming
+    │       ├── agent_tools.py      # Think, briefing, research, math, code, summary
+    │       ├── memory_service.py   # Durable fact store & heuristic extractor
+    │       ├── persona_service.py  # Jarvis, Friday & Zaythar system prompts
+    │       ├── security_service.py # Secret & prompt injection scanner
+    │       └── session_service.py  # Bounded in-memory session manager
     ├── tests/
-    │   └── test_api.py   # Automated pytest suite (11 unit tests)
+    │   └── test_api.py   # Automated pytest suite (20 unit tests)
     ├── Dockerfile
     ├── requirements.txt
     └── .env.example
@@ -38,20 +62,16 @@ fluffy-umbrella/
 
 ## Quick Start
 
-### 1. Prerequisites
-- Python 3.10+
-- Virtual environment (recommended)
-
-### 2. Setup & Installation
+### 1. Setup & Installation
 
 ```bash
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configuration
+### 2. Configuration
 
 Copy the example environment file:
 
@@ -59,7 +79,7 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Configure your server-side keys in `.env` (optional for local testing):
+Configure optional server-side provider keys in `.env`:
 ```env
 PORT=8000
 HOST=0.0.0.0
@@ -69,17 +89,15 @@ GEMINI_API_KEY=your_key_here
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-### 4. Running the Server
+### 3. Running the Server
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The interactive API documentation is available at:
-- Swagger UI: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
+The interactive API documentation is available at `http://localhost:8000/docs`.
 
-### 5. Running Tests
+### 4. Running Tests
 
 ```bash
 PYTHONPATH=. pytest -v
@@ -91,67 +109,18 @@ PYTHONPATH=. pytest -v
 |---|---|---|
 | `GET` | `/health` | Service health status check |
 | `GET` | `/api/v1/status` | API version and runtime status |
-| `POST` | `/api/v1/chat` | Chat completion with provider routing & session tracking |
-| `POST` | `/api/v1/chat/stream` | Server-Sent Events (SSE) streaming token output |
+| `GET` | `/api/v1/personas` | List available personas (Jarvis, Friday, Zaythar) |
+| `GET` | `/api/v1/personas/{id}` | Retrieve details for a specific persona |
+| `GET` | `/api/v1/memory/facts` | List remembered durable user facts |
+| `POST` | `/api/v1/memory/facts` | Manually record a context fact |
+| `DELETE` | `/api/v1/memory/facts/{id}` | Delete a specific remembered fact |
+| `DELETE` | `/api/v1/memory/facts` | Clear all remembered memory facts |
+| `POST` | `/api/v1/security/scan` | Scan text for secrets & prompt injection |
+| `POST` | `/api/v1/chat` | Chat completion with persona, memory, & guardrails |
+| `POST` | `/api/v1/chat/stream` | Real-time Server-Sent Events (SSE) token stream |
 | `GET` | `/api/v1/sessions` | List active conversation sessions |
-| `GET` | `/api/v1/sessions/{id}` | Retrieve history for a given session |
+| `GET` | `/api/v1/sessions/{id}` | Retrieve history for a session |
 | `DELETE` | `/api/v1/sessions/{id}` | Clear conversation history for a session |
-| `POST` | `/api/v1/sessions/{id}/chat` | Session-aware chat with automatic context history |
+| `POST` | `/api/v1/sessions/{id}/chat` | Session-aware chat with persona & memory |
 | `GET` | `/api/v1/orb/animation-state` | Visual animation hints for Android Compose Orb UI |
-| `POST` | `/api/v1/agent/task` | Structured agent task execution with smart tool dispatch |
-
-### Example Chat Request
-```json
-POST /api/v1/chat
-Content-Type: application/json
-
-{
-  "messages": [
-    {"role": "user", "content": "What are my upcoming tasks?"}
-  ],
-  "provider": "auto",
-  "temperature": 0.7
-}
-```
-
-### Example Agent Task with Safe Tool Execution
-```json
-POST /api/v1/agent/task
-Content-Type: application/json
-
-{
-  "task": "calculate 25 * (4 + 6)",
-  "tool_hint": "calculator"
-}
-```
-
-Response:
-```json
-{
-  "task": "calculate 25 * (4 + 6)",
-  "status": "completed",
-  "summary": "Calculated result: 250",
-  "tool_used": "calculator",
-  "tool_result": {
-    "success": true,
-    "expression": "calculate 25 * (4 + 6)",
-    "result": 250,
-    "formatted": "250"
-  },
-  "actions_taken": [
-    "Parsed task instruction: 'calculate 25 * (4 + 6)...'",
-    "Validated parameters against security boundaries",
-    "Dispatched to deterministic SafeMathEvaluator",
-    "Recorded tool outcome: calculator"
-  ]
-}
-```
-
-## Docker Support
-
-Build and run with Docker:
-
-```bash
-docker build -t zaythar-backend .
-docker run -p 8000:8000 --env-file .env zaythar-backend
-```
+| `POST` | `/api/v1/agent/task` | Agent task execution (think, briefing, research, math, code, summarize) |

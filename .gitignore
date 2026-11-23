@@ -49,3 +49,6 @@ backend/env/
 *.pyc
 *.pyo
 *.pyd
+
+# Backend runtime data
+backend/data/*.json

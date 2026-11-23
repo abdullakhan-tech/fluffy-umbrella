@@ -1,8 +1,8 @@
-"""FastAPI application entrypoint for Zaythar AI Companion Backend."""
+"""FastAPI application entrypoint for Zaythar AI Companion Backend with OpenJarvis features."""
 
 from contextlib import asynccontextmanager
 import logging
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,12 +15,20 @@ from app.models import (
     ChatMessage,
     ChatRequest,
     ChatResponse,
+    FactCreateRequest,
+    FactRecord,
     HealthResponse,
     OrbVisualState,
+    PersonaInfo,
+    SecurityScanRequest,
+    SecurityScanResponse,
     SessionChatRequest,
     SessionSummary,
 )
 from app.services.ai_service import ai_service
+from app.services.memory_service import memory_service
+from app.services.persona_service import persona_service
+from app.services.security_service import security_scanner
 from app.services.session_service import session_manager
 
 logging.basicConfig(
@@ -41,7 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.version,
-    description="Python AI Companion Server for Zaythar AI (fluffy-umbrella)",
+    description="Python AI Companion Server for Zaythar AI (fluffy-umbrella) with OpenJarvis Core Features",
     lifespan=lifespan,
 )
 
@@ -71,6 +79,14 @@ async def root():
         "app": settings.app_name,
         "version": settings.version,
         "status": "online",
+        "features": [
+            "personas (jarvis, friday, zaythar)",
+            "memory-store (persistent fact extraction)",
+            "security-guardrails (secret & injection scanner)",
+            "agent-tools (think, briefing, research, math, code, summarize)",
+            "realtime-sse-streaming",
+            "orb-visual-state",
+        ],
         "docs_url": "/docs",
     }
 
@@ -95,9 +111,78 @@ async def api_status():
     )
 
 
+# ---------------------------------------------------------------------------
+# Persona Endpoints (OpenJarvis Core Feature)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/personas", response_model=List[PersonaInfo], summary="List available AI personas")
+async def list_personas():
+    """Returns available AI personas (Jarvis, Friday, Zaythar)."""
+    return persona_service.list_personas()
+
+
+@app.get("/api/v1/personas/{persona_id}", response_model=PersonaInfo, summary="Get details for a persona")
+async def get_persona(persona_id: str):
+    """Returns metadata and style characteristics for the requested persona."""
+    info = persona_service.get_persona_info(persona_id)
+    if not info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Persona '{persona_id}' not found.")
+    return info
+
+
+# ---------------------------------------------------------------------------
+# Memory & Fact Store Endpoints (OpenJarvis Core Feature)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/memory/facts", response_model=List[FactRecord], summary="List stored persistent facts")
+async def list_facts(limit: int = 50):
+    """Returns remembered facts extracted from interactions or added explicitly."""
+    return await memory_service.list_facts(limit=limit)
+
+
+@app.post("/api/v1/memory/facts", response_model=FactRecord, summary="Explicitly record a new fact")
+async def add_fact(request: FactCreateRequest):
+    """Allows manual recording of key user preferences or context facts."""
+    return await memory_service.add_fact(
+        content=request.content,
+        category=request.category,
+        source="manual",
+    )
+
+
+@app.delete("/api/v1/memory/facts/{fact_id}", summary="Delete a specific remembered fact")
+async def delete_fact(fact_id: str):
+    """Removes a specific fact from memory."""
+    deleted = await memory_service.delete_fact(fact_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Fact '{fact_id}' not found.")
+    return {"fact_id": fact_id, "deleted": True}
+
+
+@app.delete("/api/v1/memory/facts", summary="Clear all stored memory facts")
+async def clear_all_facts():
+    """Wipes memory store back to empty state."""
+    count = await memory_service.clear_all()
+    return {"cleared_facts_count": count}
+
+
+# ---------------------------------------------------------------------------
+# Security Guardrails Endpoints (OpenJarvis Core Feature)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/security/scan", response_model=SecurityScanResponse, summary="Scan text for secrets and injection")
+async def scan_security(request: SecurityScanRequest):
+    """Runs OpenJarvis-inspired secret scanner and prompt injection guardrails."""
+    return security_scanner.scan(request.text, redact=request.redact)
+
+
+# ---------------------------------------------------------------------------
+# Chat & Real-Time Streaming Endpoints
+# ---------------------------------------------------------------------------
+
 @app.post("/api/v1/chat", response_model=ChatResponse, summary="Chat completion endpoint")
 async def chat_completion(request: ChatRequest):
-    """Processes conversational messages and returns an AI-generated completion."""
+    """Processes conversational messages and returns an AI-generated completion with persona and guardrails."""
     try:
         response = await ai_service.generate_chat_reply(
             messages=request.messages,
@@ -106,6 +191,8 @@ async def chat_completion(request: ChatRequest):
             temperature=request.temperature,
             max_tokens=request.max_tokens,
             session_id=request.session_id,
+            persona=request.persona,
+            honorific=request.honorific,
         )
         return response
     except Exception as e:
@@ -118,7 +205,7 @@ async def chat_completion(request: ChatRequest):
 
 @app.post("/api/v1/chat/stream", summary="Real-time SSE token streaming")
 async def chat_stream(request: ChatRequest):
-    """Streams completion tokens over Server-Sent Events (SSE)."""
+    """Streams completion tokens over Server-Sent Events (SSE) with persona support."""
     try:
         return StreamingResponse(
             ai_service.generate_chat_stream(
@@ -127,6 +214,8 @@ async def chat_stream(request: ChatRequest):
                 model_override=request.model,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
+                persona=request.persona,
+                honorific=request.honorific,
             ),
             media_type="text/event-stream",
         )
@@ -173,6 +262,8 @@ async def session_chat(session_id: str, request: SessionChatRequest):
         model_override=request.model,
         temperature=request.temperature,
         session_id=session_id,
+        persona=request.persona,
+        honorific=request.honorific,
     )
     return response
 
