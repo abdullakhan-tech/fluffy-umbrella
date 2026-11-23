@@ -33,3 +33,8 @@ A native Android (Kotlin + Jetpack Compose) command center powered by **Google S
 - **AI & Security**: `com.google.firebase:firebase-ai` + `FirebaseAppCheck` (`DebugAppCheckProviderFactory` in debug builds, `RecaptchaAppCheckProviderFactory` when `recaptcha_site_key` is configured in release builds).
 - **Python Companion Backend & Android Bridge**: FastAPI companion server (`backend/`) with session memory, SSE streaming (`/api/v1/chat/stream`), Orb visual state hints, and deterministic agent tools, seamlessly connected to Android via `CompanionBackendClient`, `CompanionAiBridge`, and selectable `PYTHON_COMPANION` provider route with automatic fallback.
 - **Local Preferences**: Jetpack DataStore Preferences for client-only UI theme, accent, motion, cognitive tuning, Google Search/Maps grounding, and model route settings.
+
+
+## Local code intelligence (optional developer tooling)
+
+This repository includes an optional [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) project MCP configuration for local coding agents. It provides a persistent local code knowledge graph, symbol/dependency exploration, and change-impact context. It is developer-workstation tooling, not an Android runtime dependency. See [docs/CODEBASE_MEMORY_MCP.md](docs/CODEBASE_MEMORY_MCP.md) for installation, setup, security, and limitations. Local `.codebase-memory/` index data is Git-ignored.
