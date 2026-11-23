@@ -23,7 +23,7 @@ from app.services.agent_tools import (
     execute_text_summarizer,
     execute_think_tool,
 )
-from app.services.memory_service import memory_service
+from app.services.codebase_analysis import analyze_source\nfrom app.services.memory_service import memory_service
 from app.services.persona_service import persona_service
 from app.services.security_service import security_scanner
 from app.services.session_service import session_manager
@@ -277,7 +277,7 @@ class AIService:
 
         # Determine target tool
         task_lower = task.lower()
-        is_think = (
+        is_codebase_analysis = tool_hint == ToolType.CODEBASE_ANALYZE\n        is_think = (
             tool_hint == ToolType.THINK
             or task_lower.startswith("think")
             or "reason step by step" in task_lower
