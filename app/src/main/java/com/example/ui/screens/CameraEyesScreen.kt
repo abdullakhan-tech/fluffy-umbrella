@@ -106,7 +106,7 @@ fun CameraEyesScreen(
     val cameraController = remember(context) {
         LifecycleCameraController(context).apply {
             cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-            setEnabledUseCases(CameraController.PREVIEW or CameraController.IMAGE_CAPTURE)
+            setEnabledUseCases(CameraController.IMAGE_CAPTURE)
         }
     }
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
