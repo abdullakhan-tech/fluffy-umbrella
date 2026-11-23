@@ -28,6 +28,7 @@ import com.example.ui.screens.CodeCopilotScreen
 import com.example.ui.screens.KnowledgeBaseScreen
 import com.example.ui.screens.NeuralBrainScreen
 import com.example.ui.screens.OverviewScreen
+import com.example.ui.screens.PersonaBuilderScreen
 import com.example.ui.screens.PluginHubScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.PromptNexusScreen
@@ -370,5 +371,36 @@ class ZaytharUiAndLogicTest {
         composeRule.onNodeWithText("● GUEST MODE · LOCAL DEVICE SESSION").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("sign_out_button").performScrollTo().performClick()
         assertTrue(exitedGuest)
+    }
+    @Test
+    fun personaBuilderScreen_switchesActivePersonaAndHonorific() {
+        var prefs by mutableStateOf(ZaytharPreferences(selectedPersona = "jarvis", honorific = "Sir"))
+
+        composeRule.setContent {
+            ZaytharTheme {
+                PersonaBuilderScreen(
+                    prefs = prefs,
+                    onUpdatePrefs = { transform -> prefs = transform(prefs) },
+                    onToast = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        // Switch to Friday
+        composeRule.onNodeWithTag("persona_select_friday").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals("friday", prefs.selectedPersona)
+        assertEquals("Boss", prefs.honorific)
+
+        // Switch honorific to Chief
+        composeRule.onNodeWithTag("honorific_option_chief").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals("Chief", prefs.honorific)
+
+        // Switch to Zaythar Core
+        composeRule.onNodeWithTag("persona_select_zaythar").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertEquals("zaythar", prefs.selectedPersona)
     }
 }

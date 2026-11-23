@@ -104,4 +104,32 @@ class CompanionBackendClientTest {
         assertEquals("companion-server", route.modelName)
         assertTrue(route.title.contains("PYTHON"))
     }
+    @Test
+    fun zaytharPreferences_hasDefaultJarvisPersonaAndHonorific() {
+        val prefs = com.example.data.local.ZaytharPreferences()
+        assertEquals("jarvis", prefs.selectedPersona)
+        assertEquals("Sir", prefs.honorific)
+
+        val updated = prefs.copy(selectedPersona = "friday", honorific = "Boss")
+        assertEquals("friday", updated.selectedPersona)
+        assertEquals("Boss", updated.honorific)
+    }
+
+    @Test
+    fun chatPayloadWithPersona_serializesProperly() {
+        val payload = JSONObject().apply {
+            put("messages", org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", "Good morning")
+                })
+            })
+            put("provider", "auto")
+            put("persona", "jarvis")
+            put("honorific", "Sir")
+        }
+
+        assertEquals("jarvis", payload.getString("persona"))
+        assertEquals("Sir", payload.getString("honorific"))
+    }
 }

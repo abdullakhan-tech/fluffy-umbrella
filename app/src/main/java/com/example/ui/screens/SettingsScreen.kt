@@ -23,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,20 +31,13 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -58,160 +49,8 @@ import com.example.ui.components.CyberSectionTitle
 import com.example.ui.components.TelemetryBar
 import com.example.ui.theme.AccentSwatches
 import com.example.ui.theme.LocalCyberColors
-import com.example.ui.theme.SpaceGroteskFontFamily
 import com.example.ui.theme.ThemeMode
 
-@Composable
-fun PersonaBuilderScreen(
-    prefs: ZaytharPreferences,
-    onUpdatePrefs: ((ZaytharPreferences) -> ZaytharPreferences) -> Unit,
-    onToast: (String) -> Unit
-) {
-    val cyber = LocalCyberColors.current
-    val styles = listOf(
-        "Balanced & helpful",
-        "Professional & concise",
-        "Friendly & expressive",
-        "Technical & analytical"
-    )
-    var styleMenuExpanded by remember { mutableStateOf(false) }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            CyberSectionTitle(
-                eyebrow = "IDENTITY MATRIX",
-                titlePrefix = "AI Persona",
-                titleAccent = "Builder"
-            )
-        }
-
-        item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(140.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(cyber.accent.copy(alpha = 0.4f), cyber.panelGlass)
-                                )
-                            )
-                            .border(2.5.dp, cyber.accent, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Z",
-                            fontFamily = SpaceGroteskFontFamily,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = Color.White
-                        )
-                    }
-                    Text(
-                        text = "ZAYTHAR NEURAL",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Text(
-                        text = "Adaptive personal intelligence · ${prefs.personaStyle}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "● SYSTEM ACTIVE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = cyber.cyberGreen
-                    )
-                }
-            }
-        }
-
-        item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(title = "PERSONALITY PARAMETERS")
-
-                CyberSliderRow(
-                    label = "Empathy ratio",
-                    value = prefs.empathyRatio,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(empathyRatio = v) } }
-                )
-                CyberSliderRow(
-                    label = "Cognitive capacity",
-                    value = prefs.cognitiveCapacity,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(cognitiveCapacity = v) } }
-                )
-                CyberSliderRow(
-                    label = "Adaptability",
-                    value = prefs.adaptability,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(adaptability = v) } }
-                )
-                CyberSliderRow(
-                    label = "Creativity",
-                    value = prefs.personaCreativity,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(personaCreativity = v) } }
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "ASSISTANT PERSONALITY",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Box {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .minimumInteractiveComponentSize()
-                            .clickable { styleMenuExpanded = true }
-                            .testTag("persona_style_dropdown"),
-                        shape = MaterialTheme.shapes.small,
-                        color = cyber.panelElevated,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Text(
-                            text = prefs.personaStyle,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.padding(14.dp)
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = styleMenuExpanded,
-                        onDismissRequest = { styleMenuExpanded = false }
-                    ) {
-                        styles.forEach { style ->
-                            DropdownMenuItem(
-                                text = { Text(style) },
-                                onClick = {
-                                    onUpdatePrefs { it.copy(personaStyle = style) }
-                                    styleMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                CyberActionButton(
-                    text = "INITIALIZE PERSONA",
-                    onClick = { onToast("Persona preferences saved and applied to future chats.") },
-                    modifier = Modifier.fillMaxWidth(),
-                    testTag = "initialize_persona_button"
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
 fun SettingsScreen(
     prefs: ZaytharPreferences,
     onUpdatePrefs: ((ZaytharPreferences) -> ZaytharPreferences) -> Unit,
@@ -415,7 +254,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun CyberSliderRow(
+internal fun CyberSliderRow(
     label: String,
     value: Float,
     onValueChange: (Float) -> Unit
@@ -450,7 +289,7 @@ private fun CyberSliderRow(
 }
 
 @Composable
-private fun CyberToggleRow(
+internal fun CyberToggleRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit

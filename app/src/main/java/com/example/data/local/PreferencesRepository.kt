@@ -54,7 +54,9 @@ data class ZaytharPreferences(
     val lastActiveSessionUid: String = "",
     val lastActiveSessionId: String = "",
     val companionBackendUrl: String = "http://10.0.2.2:8000",
-    val useCompanionBackend: Boolean = false
+    val useCompanionBackend: Boolean = false,
+    val selectedPersona: String = "jarvis",
+    val honorific: String = "Sir"
 )
 
 class PreferencesRepository(private val context: Context) {
@@ -88,6 +90,8 @@ class PreferencesRepository(private val context: Context) {
         val LAST_ACTIVE_SESSION_ID = stringPreferencesKey("last_active_session_id")
         val COMPANION_BACKEND_URL = stringPreferencesKey("companion_backend_url")
         val USE_COMPANION_BACKEND = booleanPreferencesKey("use_companion_backend")
+        val SELECTED_PERSONA = stringPreferencesKey("selected_persona")
+        val HONORIFIC = stringPreferencesKey("honorific")
     }
 
     private fun mapPreferences(prefs: Preferences): ZaytharPreferences {
@@ -125,7 +129,9 @@ class PreferencesRepository(private val context: Context) {
             lastActiveSessionUid = prefs[Keys.LAST_ACTIVE_SESSION_UID] ?: "",
             lastActiveSessionId = prefs[Keys.LAST_ACTIVE_SESSION_ID] ?: "",
             companionBackendUrl = prefs[Keys.COMPANION_BACKEND_URL] ?: "http://10.0.2.2:8000",
-            useCompanionBackend = prefs[Keys.USE_COMPANION_BACKEND] ?: false
+            useCompanionBackend = prefs[Keys.USE_COMPANION_BACKEND] ?: false,
+            selectedPersona = prefs[Keys.SELECTED_PERSONA] ?: "jarvis",
+            honorific = prefs[Keys.HONORIFIC] ?: "Sir"
         )
     }
 
@@ -183,6 +189,8 @@ class PreferencesRepository(private val context: Context) {
                 prefs[Keys.LAST_ACTIVE_SESSION_ID] = next.lastActiveSessionId
                 prefs[Keys.COMPANION_BACKEND_URL] = next.companionBackendUrl
                 prefs[Keys.USE_COMPANION_BACKEND] = next.useCompanionBackend
+                prefs[Keys.SELECTED_PERSONA] = next.selectedPersona
+                prefs[Keys.HONORIFIC] = next.honorific
             }
         } catch (e: CancellationException) {
             throw e

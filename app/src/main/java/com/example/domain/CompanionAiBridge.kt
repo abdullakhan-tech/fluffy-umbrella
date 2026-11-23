@@ -32,7 +32,9 @@ object CompanionAiBridge {
                 val stream = client.streamChatMessage(
                     baseUrl = prefs.companionBackendUrl,
                     messages = companionMessages,
-                    temperature = temperature
+                    temperature = temperature,
+                    persona = prefs.selectedPersona,
+                    honorific = prefs.honorific
                 )
                 val accumulated = StringBuilder()
                 stream.collect { token ->
@@ -62,7 +64,9 @@ object CompanionAiBridge {
                 val direct = client.sendChatMessage(
                     baseUrl = prefs.companionBackendUrl,
                     messages = companionMessages,
-                    temperature = temperature
+                    temperature = temperature,
+                    persona = prefs.selectedPersona,
+                    honorific = prefs.honorific
                 )
                 if (direct.isSuccess) {
                     val resp = direct.getOrThrow()
