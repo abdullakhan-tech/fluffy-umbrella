@@ -282,6 +282,9 @@ internal fun ZaytharNavHost(
                 onToast = viewModel::emitToast,
                 onSaveToRag = { note ->
                     workspaceViewModel.addMemoryNote(note, viewModel::emitToast)
+                },
+                onSendToChat = { visualContext ->
+                    viewModel.sendChatMessage(visualContext)
                 }
             )
         }

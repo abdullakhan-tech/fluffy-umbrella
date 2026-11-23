@@ -86,7 +86,8 @@ fun CameraEyesScreen(
     visionState: UiState<CameraVisionResult>,
     onAnalyzeImage: (Bitmap?, String, VisionMode) -> Unit,
     onToast: (String) -> Unit,
-    onSaveToRag: (String) -> Unit = {}
+    onSaveToRag: (String) -> Unit = {},
+    onSendToChat: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
@@ -485,6 +486,18 @@ fun CameraEyesScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
+                        CyberSecondaryButton(
+                            text = "SEND VISUAL CONTEXT TO CHAT",
+                            onClick = {
+                                onSendToChat(
+                                    "[CAMERA EYES · ${res.mode.title}]\\n" +
+                                        "User-approved visual analysis from ${res.modelUsed}:\\n${res.analysis}".take(11_900)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = "send_vision_to_chat_button"
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         CyberSecondaryButton(
                             text = "SAVE ANALYSIS TO RAG MEMORY",
                             onClick = {
