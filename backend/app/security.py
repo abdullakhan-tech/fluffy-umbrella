@@ -73,10 +73,17 @@ async def require_authenticated_user(
         if not app_check_token:
             raise HTTPException(status_code=403, detail="App Check attestation required.")
         try:
-            verify_app_check_token(app_check_token)
+            app_check_claims = verify_app_check_token(app_check_token)
         except Exception as exc:
             logger.warning("Firebase App Check verification failed (%s)", type(exc).__name__)
             raise HTTPException(status_code=403, detail="App Check attestation rejected.") from None
+
+        allowed_app_ids = settings.app_check_allowed_app_ids_list
+        if allowed_app_ids:
+            verified_app_id = app_check_claims.get("app_id") or app_check_claims.get("sub")
+            if not isinstance(verified_app_id, str) or verified_app_id not in allowed_app_ids:
+                logger.warning("Firebase App Check token belongs to an unapproved app")
+                raise HTTPException(status_code=403, detail="App Check application is not allowed.")
 
     client_ip = request.client.host if request.client else "unknown"
     await rate_limiter.enforce(uid, client_ip)
