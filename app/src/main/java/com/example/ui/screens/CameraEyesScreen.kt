@@ -5,9 +5,14 @@ import android.content.ClipData
 import android.content.pm.PackageManager
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Bundle
 import android.net.Uri
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -80,6 +85,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -96,6 +102,7 @@ fun CameraEyesScreen(
 
     var selectedMode by remember { mutableStateOf(VisionMode.SCENE) }
     var prompt by remember { mutableStateOf("") }
+    var isVoicePromptListening by remember { mutableStateOf(false) }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var cameraEnabled by remember { mutableStateOf(false) }
     var useFrontCamera by remember { mutableStateOf(false) }
@@ -107,6 +114,65 @@ fun CameraEyesScreen(
                 PackageManager.PERMISSION_GRANTED
         )
     }
+    val speechRecognizer = remember {
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else {
+            null
+        }
+    }
+    DisposableEffect(speechRecognizer) {
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) { isVoicePromptListening = true }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { isVoicePromptListening = false }
+            override fun onError(error: Int) {
+                isVoicePromptListening = false
+                onToast("Voice prompt capture was unavailable or cancelled.")
+            }
+            override fun onResults(results: Bundle?) {
+                isVoicePromptListening = false
+                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (!spoken.isNullOrBlank()) {
+                    prompt = spoken.take(2000)
+                    onToast("Voice question captured. Review it before analysis.")
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+        onDispose {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        }
+    }
+
+    fun startVoicePromptCapture() {
+        val recognizer = speechRecognizer
+        if (recognizer == null) {
+            onToast("Voice recognition is not supported on this device.")
+            return
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+        }
+        isVoicePromptListening = true
+        runCatching { recognizer.startListening(intent) }.onFailure {
+            isVoicePromptListening = false
+            onToast("Could not start voice question capture.")
+        }
+    }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) startVoicePromptCapture()
+        else onToast("Microphone permission is needed for voice questions.")
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraController = remember(context) {
         LifecycleCameraController(context).apply {
@@ -421,6 +487,26 @@ fun CameraEyesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("vision_prompt_input")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                CyberSecondaryButton(
+                    text = if (isVoicePromptListening) "LISTENING — TAP TO STOP" else "SPEAK VISION QUESTION",
+                    onClick = {
+                        if (isVoicePromptListening) {
+                            speechRecognizer?.stopListening()
+                        } else if (ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            startVoicePromptCapture()
+                        } else {
+                            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "voice_vision_prompt_button"
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
