@@ -124,3 +124,8 @@ PYTHONPATH=. pytest -v
 | `POST` | `/api/v1/sessions/{id}/chat` | Session-aware chat with persona & memory |
 | `GET` | `/api/v1/orb/animation-state` | Visual animation hints for Android Compose Orb UI |
 | `POST` | `/api/v1/agent/task` | Agent task execution (think, briefing, research, math, code, summarize) |
+
+
+## Static codebase analysis agent
+
+The `/api/v1/agent/task` endpoint supports `tool_hint: "codebase_analyze"`. Supply a Python, Kotlin, or Gradle source snippet in `context` (maximum 20,000 characters). The analyzer inventories Python imports and syntax or Kotlin/Gradle imports and declared dependencies. It never executes source or reads repository paths. See [CODEBASE_ANALYSIS_AGENT.md](../docs/CODEBASE_ANALYSIS_AGENT.md) for request examples and limitations.
