@@ -1,6 +1,6 @@
 # Camera Eyes
 
-Camera Eyes uses Android CameraX for an in-app rear-camera preview.
+Camera Eyes uses Android CameraX for an in-app front/rear camera preview.
 
 ## Privacy and operation
 - Camera preview is **off by default**.
@@ -12,7 +12,8 @@ Camera Eyes uses Android CameraX for an in-app rear-camera preview.
 - Captured frames are stored in the app cache; this feature does not start background recording or continuous frame uploads.
 
 ## Current capabilities
-- Live local camera preview and explicit still-frame capture.
+- Live local front/rear camera preview, lens switching, and explicit still-frame capture.
+- Lens switching is available only while Camera Eyes is enabled and camera permission is granted.
 - Existing scene description, OCR, code/UI inspection, and object-identification prompts.
 - Existing optional save-to-RAG action for the returned text analysis.
 

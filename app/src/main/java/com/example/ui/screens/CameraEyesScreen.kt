@@ -96,6 +96,7 @@ fun CameraEyesScreen(
     var prompt by remember { mutableStateOf("") }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var cameraEnabled by remember { mutableStateOf(false) }
+    var useFrontCamera by remember { mutableStateOf(false) }
     var cameraPermissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -308,6 +309,28 @@ fun CameraEyesScreen(
                         testTag = "photo_picker_button"
                     )
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                CyberSecondaryButton(
+                    text = if (useFrontCamera) "SWITCH TO REAR CAMERA" else "SWITCH TO FRONT CAMERA",
+                    onClick = {
+                        val nextUsesFrontCamera = !useFrontCamera
+                        runCatching {
+                            cameraController.cameraSelector = if (nextUsesFrontCamera) {
+                                CameraSelector.DEFAULT_FRONT_CAMERA
+                            } else {
+                                CameraSelector.DEFAULT_BACK_CAMERA
+                            }
+                        }.onSuccess {
+                            useFrontCamera = nextUsesFrontCamera
+                        }.onFailure {
+                            onToast("Unable to switch camera lens on this device.")
+                        }
+                    },
+                    enabled = cameraEnabled && cameraPermissionGranted,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "camera_lens_switch_button"
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
