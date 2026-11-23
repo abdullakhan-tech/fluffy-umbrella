@@ -65,6 +65,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.domain.CameraActivationPolicy
 import com.example.domain.CameraVisionResult
+import com.example.domain.buildCameraVisionChatContext
 import com.example.domain.UiState
 import com.example.domain.VisionMode
 import com.example.ui.components.CyberActionButton
@@ -490,8 +491,11 @@ fun CameraEyesScreen(
                             text = "SEND VISUAL CONTEXT TO CHAT",
                             onClick = {
                                 onSendToChat(
-                                    ("[CAMERA EYES · ${res.mode.title}]\n" +
-                                        "User-approved visual analysis from ${res.modelUsed}:\n${res.analysis}").take(11_900)
+                                    buildCameraVisionChatContext(
+                                        modeTitle = res.mode.title,
+                                        modelUsed = res.modelUsed,
+                                        analysis = res.analysis
+                                    )
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
