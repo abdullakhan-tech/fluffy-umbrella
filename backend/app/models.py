@@ -65,6 +65,7 @@ class ToolType(str, Enum):
     THINK = "think"
     DAILY_BRIEFING = "daily_briefing"
     DEEP_RESEARCH = "deep_research"
+    CODEBASE_ANALYZE = "codebase_analyze"
     GENERAL = "general"
 
 
