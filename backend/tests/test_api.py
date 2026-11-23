@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app import security
+from app.config import settings
 from app.main import app
 from app.services.rate_limit import rate_limiter
 
@@ -289,3 +290,30 @@ def test_public_orb_hint_does_not_expose_global_session_count(client):
     data = response.json()
     assert data["state"] == "idle"
     assert data["active_connections"] == 1
+
+
+def test_app_check_allowlist_rejects_a_different_registered_app(client, monkeypatch):
+    monkeypatch.setattr(settings, "app_check_allowed_app_ids", "expected-android-app")
+    monkeypatch.setattr(
+        security,
+        "verify_app_check_token",
+        lambda token: {"app_id": "other-registered-app", "sub": "other-registered-app"},
+    )
+
+    response = client.get("/api/v1/sessions", headers=auth_headers("alice"))
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "App Check application is not allowed."
+
+
+def test_app_check_allowlist_accepts_the_verified_subject_claim(client, monkeypatch):
+    monkeypatch.setattr(settings, "app_check_allowed_app_ids", "expected-android-app,secondary-app")
+    monkeypatch.setattr(
+        security,
+        "verify_app_check_token",
+        lambda token: {"sub": "expected-android-app"},
+    )
+
+    response = client.get("/api/v1/sessions", headers=auth_headers("alice"))
+
+    assert response.status_code == 200
