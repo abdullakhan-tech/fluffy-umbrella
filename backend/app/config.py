@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     # Firebase Admin uses Application Default Credentials / workload identity.
     firebase_project_id: str = ""
     app_check_required: bool = True
+    # Optional exact Firebase App IDs allowed to use protected API routes.
+    app_check_allowed_app_ids: str = ""
 
     # Process-local limits are defense in depth, not a distributed quota.
     rate_limit_user_per_minute: int = 60
@@ -28,6 +30,14 @@ class Settings(BaseSettings):
     default_ai_provider: str = "fallback"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def app_check_allowed_app_ids_list(self) -> List[str]:
+        return list(dict.fromkeys(
+            app_id.strip()
+            for app_id in self.app_check_allowed_app_ids.split(",")
+            if app_id.strip()
+        ))
 
     @property
     def cors_origins_list(self) -> List[str]:
