@@ -279,7 +279,7 @@ class AIService:
         # Determine target tool
         task_lower = task.lower()
         is_codebase_analysis = tool_hint == ToolType.CODEBASE_ANALYZE
-        is_codebase_analysis = tool_hint == ToolType.CODEBASE_ANALYZE\n        is_think = (
+        is_think = (
             tool_hint == ToolType.THINK
             or task_lower.startswith("think")
             or "reason step by step" in task_lower
