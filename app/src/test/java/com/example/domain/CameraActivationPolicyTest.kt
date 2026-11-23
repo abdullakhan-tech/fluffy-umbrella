@@ -19,4 +19,20 @@ class CameraActivationPolicyTest {
     fun cameraBindsOnlyWhenEnabledAndPermissionGranted() {
         assertTrue(CameraActivationPolicy.shouldBindCamera(cameraEnabled = true, hasCameraPermission = true))
     }
+
+    @Test
+    fun lensSwitchRequiresCameraEnabledPermissionAndAvailableTarget() {
+        assertTrue(CameraActivationPolicy.canSwitchToCamera(true, true, true))
+    }
+
+    @Test
+    fun lensSwitchIsBlockedWhenTargetCameraIsMissing() {
+        assertFalse(CameraActivationPolicy.canSwitchToCamera(true, true, false))
+    }
+
+    @Test
+    fun lensSwitchIsBlockedWhenCameraIsOffOrPermissionIsMissing() {
+        assertFalse(CameraActivationPolicy.canSwitchToCamera(false, true, true))
+        assertFalse(CameraActivationPolicy.canSwitchToCamera(true, false, true))
+    }
 }

@@ -97,6 +97,8 @@ fun CameraEyesScreen(
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var cameraEnabled by remember { mutableStateOf(false) }
     var useFrontCamera by remember { mutableStateOf(false) }
+    var cameraInitialized by remember { mutableStateOf(false) }
+    var frontCameraAvailable by remember { mutableStateOf(false) }
     var cameraPermissionGranted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -119,12 +121,30 @@ fun CameraEyesScreen(
     }
 
     DisposableEffect(cameraController, lifecycleOwner, cameraEnabled, cameraPermissionGranted) {
+        var disposed = false
         if (CameraActivationPolicy.shouldBindCamera(cameraEnabled, cameraPermissionGranted)) {
             cameraController.bindToLifecycle(lifecycleOwner)
+            cameraController.initializationFuture.addListener(
+                {
+                    if (!disposed) {
+                        cameraInitialized = true
+                        frontCameraAvailable = runCatching {
+                            cameraController.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)
+                        }.getOrDefault(false)
+                    }
+                },
+                ContextCompat.getMainExecutor(context)
+            )
         } else {
+            cameraInitialized = false
+            frontCameraAvailable = false
+            useFrontCamera = false
             cameraController.unbind()
         }
-        onDispose { cameraController.unbind() }
+        onDispose {
+            disposed = true
+            cameraController.unbind()
+        }
     }
 
     fun setCameraEnabled(enabled: Boolean) {
@@ -315,19 +335,30 @@ fun CameraEyesScreen(
                     text = if (useFrontCamera) "SWITCH TO REAR CAMERA" else "SWITCH TO FRONT CAMERA",
                     onClick = {
                         val nextUsesFrontCamera = !useFrontCamera
-                        runCatching {
-                            cameraController.cameraSelector = if (nextUsesFrontCamera) {
-                                CameraSelector.DEFAULT_FRONT_CAMERA
-                            } else {
-                                CameraSelector.DEFAULT_BACK_CAMERA
+                        val targetSelector = if (nextUsesFrontCamera) {
+                            CameraSelector.DEFAULT_FRONT_CAMERA
+                        } else {
+                            CameraSelector.DEFAULT_BACK_CAMERA
+                        }
+                        if (!CameraActivationPolicy.canSwitchToCamera(
+                                cameraEnabled = cameraEnabled,
+                                hasCameraPermission = cameraPermissionGranted,
+                                targetCameraAvailable = !nextUsesFrontCamera || frontCameraAvailable
+                            )
+                        ) {
+                            onToast("Front camera is not available on this device.")
+                        } else {
+                            runCatching {
+                                cameraController.cameraSelector = targetSelector
+                            }.onSuccess {
+                                useFrontCamera = nextUsesFrontCamera
+                            }.onFailure {
+                                onToast("Unable to switch camera lens on this device.")
                             }
-                        }.onSuccess {
-                            useFrontCamera = nextUsesFrontCamera
-                        }.onFailure {
-                            onToast("Unable to switch camera lens on this device.")
                         }
                     },
-                    enabled = cameraEnabled && cameraPermissionGranted,
+                    enabled = cameraEnabled && cameraPermissionGranted && cameraInitialized &&
+                        (useFrontCamera || frontCameraAvailable),
                     modifier = Modifier.fillMaxWidth(),
                     testTag = "camera_lens_switch_button"
                 )

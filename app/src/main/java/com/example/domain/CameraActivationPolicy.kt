@@ -8,4 +8,10 @@ package com.example.domain
 internal object CameraActivationPolicy {
     fun shouldBindCamera(cameraEnabled: Boolean, hasCameraPermission: Boolean): Boolean =
         cameraEnabled && hasCameraPermission
+
+    fun canSwitchToCamera(
+        cameraEnabled: Boolean,
+        hasCameraPermission: Boolean,
+        targetCameraAvailable: Boolean
+    ): Boolean = cameraEnabled && hasCameraPermission && targetCameraAvailable
 }

@@ -13,7 +13,7 @@ Camera Eyes uses Android CameraX for an in-app front/rear camera preview.
 
 ## Current capabilities
 - Live local front/rear camera preview, lens switching, and explicit still-frame capture.
-- Lens switching is available only while Camera Eyes is enabled and camera permission is granted.
+- Lens switching is available only while Camera Eyes is enabled, permission is granted, and CameraX initialization confirms the target lens exists. Devices without a front camera keep the switch disabled.
 - Existing scene description, OCR, code/UI inspection, and object-identification prompts.
 - Existing optional save-to-RAG action for the returned text analysis.
 
