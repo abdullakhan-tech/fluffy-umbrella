@@ -70,7 +70,7 @@ class ToolType(str, Enum):
 
 class AgentTaskRequest(BaseModel):
     task: str = Field(..., min_length=1, max_length=2000, description="Task instruction for the AI agent")
-    context: Optional[str] = Field(default="", max_length=4000, description="Optional supporting context")
+    context: Optional[str] = Field(default="", max_length=20000, description="Optional supporting context; source snippets are analyzed as data and never executed")
     tool_hint: Optional[ToolType] = Field(default=None, description="Explicit tool hint if known")
 
 
