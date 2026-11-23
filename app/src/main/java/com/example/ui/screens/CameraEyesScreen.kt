@@ -490,8 +490,8 @@ fun CameraEyesScreen(
                             text = "SEND VISUAL CONTEXT TO CHAT",
                             onClick = {
                                 onSendToChat(
-                                    "[CAMERA EYES · ${res.mode.title}]\\n" +
-                                        "User-approved visual analysis from ${res.modelUsed}:\\n${res.analysis}".take(11_900)
+                                    ("[CAMERA EYES · ${res.mode.title}]\n" +
+                                        "User-approved visual analysis from ${res.modelUsed}:\n${res.analysis}").take(11_900)
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
