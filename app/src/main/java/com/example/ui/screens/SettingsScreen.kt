@@ -34,6 +34,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,8 @@ import com.example.ui.theme.AccentSwatches
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.ThemeMode
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 fun SettingsScreen(
     prefs: ZaytharPreferences,
     onUpdatePrefs: ((ZaytharPreferences) -> ZaytharPreferences) -> Unit,
