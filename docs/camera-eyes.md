@@ -15,6 +15,7 @@ Camera Eyes uses Android CameraX for an in-app front/rear camera preview.
 - Live local front/rear camera preview, lens switching, and explicit still-frame capture.
 - Lens switching is available only while Camera Eyes is enabled, permission is granted, and CameraX initialization confirms the target lens exists. Devices without a front camera keep the switch disabled.
 - Existing scene description, OCR, code/UI inspection, and object-identification prompts.
+- Permission-gated **Speak Vision Question** uses Android speech recognition to fill the optional prompt; the user reviews it and taps Analyze. Microphone capture is not started automatically and is released when leaving the screen.
 - Explicit **Send Visual Context to Chat** action forwards the returned analysis into the normal chat pipeline only after the user taps it.
 - Existing optional save-to-RAG action for the returned text analysis.
 
