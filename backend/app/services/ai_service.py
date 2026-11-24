@@ -172,7 +172,7 @@ class AIService:
                         "chunk": "", "provider": provider, "done": True,
                         "error": "Provider stream interrupted",
                     })
-                    yield f"data: {payload}\\n\\n"
+                    yield f"data: {payload}\n\n"
                     return
 
         fallback = self._local_engine_fallback(
@@ -185,7 +185,7 @@ class AIService:
     @staticmethod
     def _sse(chunk: str, provider: str, done: bool) -> str:
         payload = json.dumps({"chunk": chunk, "provider": provider, "done": done})
-        return f"data: {payload}\\n\\n"
+        return f"data: {payload}\n\n"
 
     async def _stream_openai(
         self, messages: List[ChatMessage], model: str,
