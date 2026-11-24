@@ -2,16 +2,23 @@
 
 **Purpose:** canonical entry point for the supplied desktop/mobile UI references, implementation map, feature inventory and verification checklist.
 
+## Original reference screenshots
+
+These are the two original UI reference assets already supplied to this repository. They are linked directly from their existing files — no recreated, substituted or duplicate images.
+
+- **Reference A:** [Open original image](../../public/assets/aistudio/file_000000001ce8821197b271341d7b38e6_dc6e9588.png)
+
+  ![Original Zaythar AI UI reference A](../../public/assets/aistudio/file_000000001ce8821197b271341d7b38e6_dc6e9588.png)
+
+- **Reference B:** [Open original image](../../public/assets/aistudio/file_00000000f718821188e48dc2073c5ccf_57cc39c1.jpg)
+
+  ![Original Zaythar AI UI reference B](../../public/assets/aistudio/file_00000000f718821188e48dc2073c5ccf_57cc39c1.jpg)
+
 ## Included artifacts
 - `UI_ARTIFACTS_OVERVIEW.md` — detailed screen-by-screen and feature-by-feature guide.
 - `../REFERENCE_UI_SPEC.md` — visual design specification and integration boundaries.
 - `../../website/app.html`, `app.css`, `app.js` — original responsive web workspace implementation.
 - Android Compose screens under `../../app/src/main/java/com/example/ui/` — native mobile implementation.
-
-## Reference-image interpretation
-- Two identical desktop screenshots: main chat, provider selector and Settings/Appearance panel.
-- One multi-screen overview: desktop workspace, settings, voice, model selector, tools, projects, GPT/personas, search, library, Canvas and Code Interpreter.
-- These images are references, not screenshots captured from a running build. They must not be described as proof of feature completion.
 
 ## Feature inventory
 
