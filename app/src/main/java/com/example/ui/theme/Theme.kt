@@ -64,7 +64,8 @@ val AccentSwatches = listOf(
     0xFFBB6CFFL to "Violet",
     0xFF39D9DBL to "Cyan",
     0xFFE6B84CL to "Amber",
-    0xFF8DA4FFL to "Cobalt"
+    0xFF8DA4FFL to "Cobalt",
+    0xFFF1F3F7L to "Pearl White"
 )
 
 data class CyberExtraColors(
@@ -176,13 +177,17 @@ fun ZaytharTheme(
     content: @Composable () -> Unit
 ) {
     val accent = Color(accentHex)
+    // Bright white accents need a darker Material primary on light surfaces to preserve contrast.
+    val schemeAccent = if (!darkTheme && (accent.red + accent.green + accent.blue) / 3f > 0.82f) {
+        Color(0xFF46505E)
+    } else accent
     // Neutral titanium highlight keeps the red/black interface metallic rather than neon-only.
     val accentSoft = lerp(accent, Color(0xFFD9DEE7), 0.48f)
     val green = Color(0xFF68E5B2)
 
     val colorScheme = if (darkTheme) {
         darkColorScheme(
-            primary = accent,
+            primary = schemeAccent,
             onPrimary = Color.White,
             primaryContainer = lerp(accent, Color(0xFF08090D), 0.72f),
             onPrimaryContainer = Color.White,
@@ -205,9 +210,9 @@ fun ZaytharTheme(
         lightColorScheme(
             primary = accent,
             onPrimary = Color.White,
-            primaryContainer = lerp(accent, Color.White, 0.82f),
+            primaryContainer = lerp(schemeAccent, Color.White, 0.82f),
             onPrimaryContainer = Color(0xFF1A2029),
-            secondary = lerp(accent, Color(0xFF1A2029), 0.15f),
+            secondary = lerp(schemeAccent, Color(0xFF1A2029), 0.15f),
             onSecondary = Color.White,
             tertiary = Color(0xFF17694D),
             onTertiary = Color.White,
