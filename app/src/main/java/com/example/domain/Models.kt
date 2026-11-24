@@ -435,7 +435,8 @@ sealed interface UiState<out T> {
     data class Streaming(
         val partialText: String,
         val searchQueries: List<String> = emptyList(),
-        val webSources: List<GroundedWebSource> = emptyList()
+        val webSources: List<GroundedWebSource> = emptyList(),
+        val partialThoughts: String = ""
     ) : UiState<Nothing>
     data class Success<T>(val data: T) : UiState<T>
     data class Error(val message: String) : UiState<Nothing>

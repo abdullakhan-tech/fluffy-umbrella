@@ -34,36 +34,48 @@ internal class AiVisionAndMediaEngine(
             }
         }
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-        val modelName = "gemini-3.8-flash"
-        val visionModel = ai.generativeModel(
-            modelName = modelName,
-            generationConfig = generationConfig { temperature = 0.4f },
-            systemInstruction = content {
-                text(
-                    "You are Zaythar Camera Eyes multimodal vision core. ${mode.instruction} " +
-                        "Never invent text or details not visible in the image. Reply clearly in $language."
+        val candidates = listOf("gemini-3.8-flash", "gemini-3.5-flash-lite")
+        val langHint = if (prefs.autoMirrorLanguage) {
+            "Reply naturally in the user's language (defaulting to $language if unclear)."
+        } else {
+            "Reply clearly in $language."
+        }
+        var lastError: Exception? = null
+        for (modelName in candidates) {
+            try {
+                val visionModel = ai.generativeModel(
+                    modelName = modelName,
+                    generationConfig = generationConfig { temperature = 0.4f },
+                    systemInstruction = content {
+                        text(
+                            "You are Zaythar Camera Eyes multimodal vision core. ${mode.instruction} " +
+                                "Never invent text or details not visible in the image. $langHint"
+                        )
+                    }
                 )
+                val inputContent = content {
+                    image(bitmap)
+                    text(userPrompt)
+                }
+                val response = withTimeout(MEDIA_TIMEOUT_MS) {
+                    visionModel.generateContent(inputContent)
+                }
+                val resultText = response.text.orEmpty().trim()
+                if (resultText.isNotBlank()) {
+                    return CameraVisionResult(
+                        mode = mode,
+                        prompt = userPrompt,
+                        analysis = resultText,
+                        modelUsed = modelName
+                    )
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
             }
-        )
-
-        val inputContent = content {
-            image(bitmap)
-            text(userPrompt)
         }
-
-        val response = withTimeout(MEDIA_TIMEOUT_MS) {
-            visionModel.generateContent(inputContent)
-        }
-        val resultText = response.text.orEmpty().trim()
-        if (resultText.isBlank()) {
-            throw IllegalStateException("Camera Eyes returned an empty vision analysis.")
-        }
-        return CameraVisionResult(
-            mode = mode,
-            prompt = userPrompt,
-            analysis = resultText,
-            modelUsed = modelName
-        )
+        throw lastError ?: IllegalStateException("Camera Eyes returned an empty vision analysis.")
     }
 
     suspend fun generateStudioConcept(
@@ -75,21 +87,32 @@ internal class AiVisionAndMediaEngine(
         val cleaned = prompt.trim()
         require(cleaned.isNotEmpty()) { "Enter a creative prompt first." }
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-        val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
-        val studioModel = ai.generativeModel(
-            modelName = modelName,
-            generationConfig = generationConfig { temperature = 0.8f },
-            systemInstruction = content {
-                text(
-                    "You are Zaythar Media Studio Creative Director. Produce a detailed production-ready $outputType " +
-                        "in $style style in $language. Include visual composition, lighting, camera framing, color palette, and shot-by-shot cues."
+        val candidates = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
+        var lastError: Exception? = null
+        for (modelName in candidates) {
+            try {
+                val studioModel = ai.generativeModel(
+                    modelName = modelName,
+                    generationConfig = generationConfig { temperature = 0.8f },
+                    systemInstruction = content {
+                        text(
+                            "You are Zaythar Media Studio Creative Director. Produce a detailed production-ready $outputType " +
+                                "in $style style in $language. Include visual composition, lighting, camera framing, color palette, and shot-by-shot cues."
+                        )
+                    }
                 )
+                val res = withTimeout(MEDIA_TIMEOUT_MS) {
+                    studioModel.generateContent("Concept: $cleaned\nOutput format: $outputType\nStyle: $style")
+                }
+                val text = res.text.orEmpty().trim()
+                if (text.isNotBlank()) return text
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
             }
-        )
-        val res = withTimeout(MEDIA_TIMEOUT_MS) {
-            studioModel.generateContent("Concept: $cleaned\nOutput format: $outputType\nStyle: $style")
         }
-        return res.text.orEmpty().trim().ifBlank { "No creative concept returned." }
+        throw lastError ?: IllegalStateException("No creative concept returned.")
     }
 
     suspend fun generateStudioImage(

@@ -57,24 +57,22 @@ val RajdhaniFontFamily = FontFamily(
 )
 
 val AccentSwatches = listOf(
-    0xFFFF3155L to "Crimson",
+    0xFFFF2647L to "Crimson",
     0xFFFF623DL to "Ember",
-    0xFF8B102BL to "Dark Red",
-    0xFFC4CBD6L to "Titanium",
     0xFFBB6CFFL to "Violet",
     0xFF39D9DBL to "Cyan",
+    0xFF2ED573L to "Emerald",
     0xFFE6B84CL to "Amber",
-    0xFF8DA4FFL to "Cobalt",
-    0xFFF1F3F7L to "Pearl White"
+    0xFF8DA4FFL to "Cobalt"
 )
 
 data class CyberExtraColors(
-    val accent: Color = Color(0xFFFF3155),
-    val accentSoft: Color = Color(0xFFFF6477),
+    val accent: Color = Color(0xFFFF2647),
+    val accentSoft: Color = Color(0xFFFF647D),
     val cyberGreen: Color = Color(0xFF68E5B2),
-    val panelGlass: Color = Color(0xFF101319),
-    val panelElevated: Color = Color(0xFF151A22),
-    val gridLine: Color = Color(0x0DFFFFFF),
+    val panelGlass: Color = Color(0xFF0D0F15),
+    val panelElevated: Color = Color(0xFF141821),
+    val gridLine: Color = Color(0x0AFFFFFF),
     val glowStrength: Float = 0.72f,
     val metalSpecularity: Float = 0.65f,
     val contrastStrength: Float = 0.80f,
@@ -89,42 +87,42 @@ val ZaytharTypography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 38.sp,
-        letterSpacing = 1.sp
+        letterSpacing = 0.6.sp
     ),
     headlineMedium = TextStyle(
         fontFamily = SpaceGroteskFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 30.sp,
-        letterSpacing = 0.8.sp
+        letterSpacing = 0.5.sp
     ),
     headlineSmall = TextStyle(
         fontFamily = SpaceGroteskFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
         lineHeight = 26.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.4.sp
     ),
     titleLarge = TextStyle(
         fontFamily = SpaceGroteskFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.6.sp
+        letterSpacing = 0.4.sp
     ),
     titleMedium = TextStyle(
         fontFamily = SpaceGroteskFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.8.sp
+        letterSpacing = 0.5.sp
     ),
     titleSmall = TextStyle(
         fontFamily = RajdhaniFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 13.sp,
         lineHeight = 18.sp,
-        letterSpacing = 1.2.sp
+        letterSpacing = 1.0.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = RajdhaniFontFamily,
@@ -149,60 +147,56 @@ val ZaytharTypography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 1.2.sp
+        letterSpacing = 1.1.sp
     ),
     labelSmall = TextStyle(
         fontFamily = RajdhaniFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 10.sp,
         lineHeight = 14.sp,
-        letterSpacing = 1.5.sp
+        letterSpacing = 1.3.sp
     )
 )
 
 val ZaytharShapes = Shapes(
-    small = RoundedCornerShape(4.dp),
-    medium = RoundedCornerShape(6.dp),
-    large = RoundedCornerShape(8.dp)
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp)
 )
 
 @Composable
 fun ZaytharTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     darkTheme: Boolean = themeMode.resolveIsDark(isSystemInDarkTheme()),
-    accentHex: Long = 0xFFFF3155L,
+    accentHex: Long = 0xFFFF2647L,
     glowStrength: Float = 0.72f,
     metalSpecularity: Float = 0.65f,
     contrastStrength: Float = 0.80f,
     content: @Composable () -> Unit
 ) {
-    val accent = Color(accentHex)
-    // Bright white accents need a darker Material primary on light surfaces to preserve contrast.
-    val schemeAccent = if (!darkTheme && (accent.red + accent.green + accent.blue) / 3f > 0.82f) {
-        Color(0xFF46505E)
-    } else accent
-    // Neutral titanium highlight keeps the red/black interface metallic rather than neon-only.
-    val accentSoft = lerp(accent, Color(0xFFD9DEE7), 0.48f)
+    val normalizedHex = if (accentHex == 0xFFFF3155L) 0xFFFF2647L else accentHex
+    val accent = Color(normalizedHex)
+    val accentSoft = lerp(accent, Color.White, 0.25f)
     val green = Color(0xFF68E5B2)
 
     val colorScheme = if (darkTheme) {
         darkColorScheme(
-            primary = schemeAccent,
+            primary = accent,
             onPrimary = Color.White,
-            primaryContainer = lerp(accent, Color(0xFF08090D), 0.72f),
+            primaryContainer = lerp(accent, Color(0xFF06070B), 0.72f),
             onPrimaryContainer = Color.White,
             secondary = accentSoft,
-            onSecondary = Color(0xFF08090D),
+            onSecondary = Color(0xFF06070B),
             tertiary = green,
-            onTertiary = Color(0xFF08090D),
-            background = Color(0xFF08090D),
-            onBackground = Color(0xFFEDF0F5),
-            surface = Color(0xFF101319),
-            onSurface = Color(0xFFEDF0F5),
-            surfaceVariant = Color(0xFF151A22),
-            onSurfaceVariant = Color(0xFF87909D),
-            outline = Color(0xFF343B47),
-            outlineVariant = Color(0xFF414957),
+            onTertiary = Color(0xFF06070B),
+            background = Color(0xFF06070B),
+            onBackground = Color(0xFFF1F3F8),
+            surface = Color(0xFF0D0F15),
+            onSurface = Color(0xFFF1F3F8),
+            surfaceVariant = Color(0xFF141821),
+            onSurfaceVariant = Color(0xFF939AA8),
+            outline = Color(0xFF282E3B),
+            outlineVariant = Color(0xFF363E4F),
             error = Color(0xFFFF526B),
             onError = Color.White
         )
@@ -210,20 +204,20 @@ fun ZaytharTheme(
         lightColorScheme(
             primary = accent,
             onPrimary = Color.White,
-            primaryContainer = lerp(schemeAccent, Color.White, 0.82f),
+            primaryContainer = lerp(accent, Color.White, 0.82f),
             onPrimaryContainer = Color(0xFF1A2029),
-            secondary = lerp(schemeAccent, Color(0xFF1A2029), 0.15f),
+            secondary = lerp(accent, Color(0xFF1A2029), 0.15f),
             onSecondary = Color.White,
             tertiary = Color(0xFF17694D),
             onTertiary = Color.White,
-            background = Color(0xFFE7E9ED),
-            onBackground = Color(0xFF1A2029),
-            surface = Color(0xFFF8F9FB),
-            onSurface = Color(0xFF1A2029),
-            surfaceVariant = Color(0xFFEDF0F4),
+            background = Color(0xFFF0F2F6),
+            onBackground = Color(0xFF141821),
+            surface = Color(0xFFFFFFFF),
+            onSurface = Color(0xFF141821),
+            surfaceVariant = Color(0xFFE9EDF3),
             onSurfaceVariant = Color(0xFF535D6B),
-            outline = Color(0xFFC1C7D0),
-            outlineVariant = Color(0xFFA8B0BC),
+            outline = Color(0xFFC5CCD6),
+            outlineVariant = Color(0xFFADB6C4),
             error = Color(0xFFC62840),
             onError = Color.White
         )
@@ -233,9 +227,9 @@ fun ZaytharTheme(
         accent = accent,
         accentSoft = accentSoft,
         cyberGreen = if (darkTheme) green else Color(0xFF17694D),
-        panelGlass = if (darkTheme) Color(0xFF0D1016) else Color(0xFFF8F9FB),
-        panelElevated = if (darkTheme) Color(0xFF191D26) else Color(0xFFFFFFFF),
-        gridLine = if (darkTheme) Color(0x0BFFFFFF) else Color(0x0E1A2029),
+        panelGlass = if (darkTheme) Color(0xFF0D0F15) else Color(0xFFFFFFFF),
+        panelElevated = if (darkTheme) Color(0xFF141821) else Color(0xFFF7F9FC),
+        gridLine = if (darkTheme) Color(0x08FFFFFF) else Color(0x0B1A2029),
         glowStrength = glowStrength,
         metalSpecularity = metalSpecularity,
         contrastStrength = contrastStrength,

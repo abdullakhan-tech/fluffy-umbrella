@@ -152,6 +152,10 @@ object SmartEngineRouter {
         "nearby", "directions to", "google maps", "restaurant near", "coffee shop",
         "places near", "navigate to", "route to", "hotel near", "museum in"
     )
+    private val guidanceEmpathyKeywords = listOf(
+        "feel", "feeling", "mood", "sad", "stressed", "anxious", "overwhelmed",
+        "advice", "guide", "help me", "udaas", "pareshan", "dil", "samjhao", "batao", "solve"
+    )
 
     fun classifyPrompt(
         rawPrompt: String,
@@ -265,6 +269,14 @@ object SmartEngineRouter {
                 complexityLabel = "DEEP REASONING",
                 confidencePercent = 87,
                 rationale = "High-complexity prompt; routing to Gemini 4 Argon with 3.8 Flash fallback."
+            )
+            guidanceEmpathyKeywords.any { it in lower } -> SmartRouteDecision(
+                engine = ZaytharEngineId.NEURAL_CHAT,
+                recommendedRoute = ProviderRoute.FLASH,
+                candidateModels = listOf("gemini-3.8-flash", "gemini-3.5-flash-lite"),
+                complexityLabel = "EMPATHETIC & GUIDANCE",
+                confidencePercent = 90,
+                rationale = "Personal guidance or problem-solving intent detected; routing to Gemini 3.8 Flash."
             )
             wordCount <= 8 && "http" !in lower && "?" !in prompt -> SmartRouteDecision(
                 engine = ZaytharEngineId.NEURAL_CHAT,

@@ -41,6 +41,7 @@ data class ChatMessage(
     val webSourceTitles: List<String> = emptyList(),
     val searchQueries: List<String> = emptyList(),
     val searchEntryPointHtml: String = "",
+    val thoughtSummary: String = "",
     val isPending: Boolean = false
 ) {
     val author: MessageAuthor

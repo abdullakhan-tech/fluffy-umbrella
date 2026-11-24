@@ -27,8 +27,10 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -37,9 +39,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.domain.UiState
 import com.example.ui.components.CyberGridBackground
 import com.example.ui.components.CyberSidebar
 import com.example.ui.components.CyberTopBar
+import com.example.ui.screens.ToolsHubSheet
 import com.example.ui.theme.LocalCyberColors
 import kotlinx.coroutines.launch
 
@@ -56,6 +60,16 @@ fun ZaytharApp(
     val uptimeSeconds by viewModel.uptimeSeconds.collectAsStateWithLifecycle()
     val clockText by viewModel.clockText.collectAsStateWithLifecycle()
     val firebaseReady by viewModel.firebaseReady.collectAsStateWithLifecycle()
+    val chatSessionsState by viewModel.chatSessionsState.collectAsStateWithLifecycle()
+    val activeSessionId by viewModel.activeSessionId.collectAsStateWithLifecycle()
+    val userProfileState by viewModel.userProfileState.collectAsStateWithLifecycle()
+
+    val recentSessions = (chatSessionsState as? UiState.Success)?.data.orEmpty()
+    val operatorName = (userProfileState as? UiState.Success)
+        ?.data?.operatorName
+        ?.takeIf { it.isNotBlank() }
+        ?: userDisplayName?.takeIf { it.isNotBlank() }
+        ?: prefs.operatorName
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -65,6 +79,7 @@ fun ZaytharApp(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showToolsSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.toastEvents.collect { msg ->
@@ -83,6 +98,16 @@ fun ZaytharApp(
         scope.launch { drawerState.close() }
     }
 
+    fun startNewChatFromSidebar() {
+        viewModel.createNewChatSession("New Nexus Thread")
+        navigateTo(ZaytharRoutes.ASSISTANT)
+    }
+
+    fun openSessionFromSidebar(sessionId: String) {
+        viewModel.selectChatSession(sessionId)
+        navigateTo(ZaytharRoutes.ASSISTANT)
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isExpanded = maxWidth >= 840.dp
 
@@ -98,7 +123,14 @@ fun ZaytharApp(
                             .width(248.dp)
                             .fillMaxHeight()
                             .statusBarsPadding()
-                            .navigationBarsPadding()
+                            .navigationBarsPadding(),
+                        recentSessions = recentSessions,
+                        activeSessionId = activeSessionId,
+                        operatorName = operatorName,
+                        isGuest = isGuest,
+                        onNewChatClick = ::startNewChatFromSidebar,
+                        onSelectSession = ::openSessionFromSidebar,
+                        onOpenSettings = { navigateTo(ZaytharRoutes.SETTINGS) }
                     )
                     Scaffold(
                         modifier = Modifier.weight(1f),
@@ -116,7 +148,9 @@ fun ZaytharApp(
                                 onMenuClick = {},
                                 onToggleMotion = viewModel::toggleMotion3d,
                                 onToggleTheme = viewModel::toggleTheme,
-                                themeMode = prefs.themeMode
+                                themeMode = prefs.themeMode,
+                                onOpenSearch = { navigateTo(ZaytharRoutes.SEARCH) },
+                                onOpenTools = { showToolsSheet = true }
                             )
                         }
                     ) { innerPadding ->
@@ -159,7 +193,14 @@ fun ZaytharApp(
                                 .width(270.dp)
                                 .fillMaxHeight()
                                 .statusBarsPadding()
-                                .navigationBarsPadding()
+                                .navigationBarsPadding(),
+                            recentSessions = recentSessions,
+                            activeSessionId = activeSessionId,
+                            operatorName = operatorName,
+                            isGuest = isGuest,
+                            onNewChatClick = ::startNewChatFromSidebar,
+                            onSelectSession = ::openSessionFromSidebar,
+                            onOpenSettings = { navigateTo(ZaytharRoutes.SETTINGS) }
                         )
                     }
                 }
@@ -180,7 +221,9 @@ fun ZaytharApp(
                                 onMenuClick = { scope.launch { drawerState.open() } },
                                 onToggleMotion = viewModel::toggleMotion3d,
                                 onToggleTheme = viewModel::toggleTheme,
-                                themeMode = prefs.themeMode
+                                themeMode = prefs.themeMode,
+                                onOpenSearch = { navigateTo(ZaytharRoutes.SEARCH) },
+                                onOpenTools = { showToolsSheet = true }
                             )
                         },
                         bottomBar = {
@@ -248,5 +291,14 @@ fun ZaytharApp(
                 }
             }
         }
+    }
+
+    if (showToolsSheet) {
+        ToolsHubSheet(
+            webConnectEnabled = prefs.webConnectEnabled,
+            onToggleWebConnect = { viewModel.toggleWebConnect(!prefs.webConnectEnabled) },
+            onNavigate = ::navigateTo,
+            onDismiss = { showToolsSheet = false }
+        )
     }
 }

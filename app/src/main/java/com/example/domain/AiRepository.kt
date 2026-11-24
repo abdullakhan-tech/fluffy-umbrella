@@ -11,14 +11,16 @@ import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.PublicPreviewAPI
+import com.google.firebase.ai.type.TextPart
+import com.google.firebase.ai.type.ThinkingLevel
 import com.google.firebase.ai.type.Tool
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
+import com.google.firebase.ai.type.thinkingConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeout
-import java.time.LocalDate
 
 private const val TAG = "AiRepository"
 private const val AI_TIMEOUT_MS = 60_000L
@@ -28,7 +30,8 @@ sealed interface ChatStreamEvent {
         val accumulatedText: String,
         val modelLabel: String,
         val webSources: List<GroundedWebSource> = emptyList(),
-        val searchQueries: List<String> = emptyList()
+        val searchQueries: List<String> = emptyList(),
+        val accumulatedThoughts: String = ""
     ) : ChatStreamEvent
 
     data class Completed(
@@ -37,7 +40,8 @@ sealed interface ChatStreamEvent {
         val webSources: List<String> = emptyList(),
         val webSourceTitles: List<String> = emptyList(),
         val searchQueries: List<String> = emptyList(),
-        val searchEntryPointHtml: String = ""
+        val searchEntryPointHtml: String = "",
+        val thoughtSummary: String = ""
     ) : ChatStreamEvent
 }
 
@@ -88,11 +92,18 @@ class AiRepository(
         systemPrompt: String,
         temperature: Float,
         enableGoogleSearch: Boolean = false,
-        enableGoogleMaps: Boolean = false
+        enableGoogleMaps: Boolean = false,
+        thinkingLevel: ThinkingLevel? = null
     ) = ai.generativeModel(
         modelName = modelName,
         generationConfig = generationConfig {
             this.temperature = temperature
+            if (thinkingLevel != null) {
+                this.thinkingConfig = thinkingConfig {
+                    this.includeThoughts = true
+                    this.thinkingLevel = thinkingLevel
+                }
+            }
         },
         tools = buildGroundingTools(enableGoogleSearch, enableGoogleMaps),
         systemInstruction = content { text(systemPrompt) }
@@ -121,26 +132,21 @@ class AiRepository(
         recentHistory: List<FirestoreSessionMessage>,
         activePlugins: List<FirestorePluginConfig> = emptyList(),
         webConnectEnabled: Boolean = true,
-        mapsGroundingEnabled: Boolean = prefs.mapsGroundingEnabled
+        mapsGroundingEnabled: Boolean = prefs.mapsGroundingEnabled,
+        attachedImage: Bitmap? = null
     ): Flow<ChatStreamEvent> = flow {
         val enabledKeys = if (activePlugins.isEmpty()) {
-            setOf(
-                "calculator",
-                "utc_clock",
-                "unit_converter",
-                "json_inspector",
-                "web_grounding",
-                "crypto_hash_uuid",
-                "color_text_metrics"
-            )
+            ZaytharSystemPrompts.defaultPluginKeys
         } else {
             activePlugins.filter { it.enabled }.map { it.pluginKey }.toSet()
         }
 
-        val toolResult = LocalToolRouter.routeTool(message, enabledKeys)
-        if (toolResult != null) {
-            emit(ChatStreamEvent.Completed(toolResult.result, "plugin:${toolResult.tool}"))
-            return@flow
+        if (attachedImage == null) {
+            val toolResult = LocalToolRouter.routeTool(message, enabledKeys)
+            if (toolResult != null) {
+                emit(ChatStreamEvent.Completed(toolResult.result, "plugin:${toolResult.tool}"))
+                return@flow
+            }
         }
 
         val webEnabled = isWebGroundingActive(
@@ -159,7 +165,6 @@ class AiRepository(
             ""
         }
 
-        val language = SupportedLanguage.fromCode(prefs.languageCode)
         val ragBundle = retrieveRagBundle(
             query = message,
             recentHistory = recentHistory.takeLast(6),
@@ -167,46 +172,18 @@ class AiRepository(
         )
         val savedRagContext = ragBundle.toContextBlock(maxChars = 4800)
         val planHint = LocalToolRouter.reasoningHint(message)
-        val pluginDirectives = activePlugins
-            .filter { it.enabled && it.systemInstruction.isNotBlank() }
-            .joinToString("\n") { "- [${it.name}]: ${it.systemInstruction}" }
-
-        val systemPrompt = buildString {
-            append("You are Zaythar AI Neural Core, a safe, helpful, multilingual personal intelligence engine. ")
-            append(agent.chatInstruction)
-            append(" Reply in ${language.englishName}, unless the user explicitly requests another language. ")
-            append(
-                "Persona style: ${prefs.personaStyle}. " +
-                    "Empathy: ${prefs.empathyRatio.toInt()}/100; " +
-                    "analytical depth: ${prefs.cognitiveCapacity.toInt()}/100; " +
-                    "adaptability: ${prefs.adaptability.toInt()}/100; " +
-                    "creativity: ${prefs.personaCreativity.toInt()}/100. "
-            )
-            append("Treat these as tone preferences, not permission to ignore safety or accuracy. Be clear, practical, and honest. ")
-            append("Task approach: $planHint ")
-            if (webEnabled) {
-                append(
-                    "\nCurrent date: ${LocalDate.now()}. Google Search grounding is ACTIVE. " +
-                        "For current events, recent updates, prices, releases, live scores, weather, or any time-sensitive query, " +
-                        "use Google Search so your response reflects verified, up-to-date facts."
-                )
-            }
-            if (mapsGroundingEnabled) {
-                append(
-                    "\nGoogle Maps grounding is ACTIVE. When answering location, venue, dining, directions, " +
-                        "or local place queries, ground recommendations using Google Maps data and place details."
-                )
-            }
-            if (pluginDirectives.isNotBlank()) {
-                append("\nActive Plugin Directives:\n$pluginDirectives")
-            }
-            if (savedRagContext.isNotBlank()) {
-                append("\n$savedRagContext")
-            }
-            if (explicitContextBlock.isNotBlank()) {
-                append("\n$explicitContextBlock")
-            }
-        }
+        val systemPrompt = ZaytharSystemPrompts.buildChatSystemPrompt(
+            userMessage = message,
+            agent = agent,
+            prefs = prefs,
+            planHint = planHint,
+            webEnabled = webEnabled,
+            mapsGroundingEnabled = mapsGroundingEnabled,
+            activePlugins = activePlugins,
+            savedRagContext = savedRagContext,
+            explicitContextBlock = explicitContextBlock,
+            hasAttachedImage = attachedImage != null
+        )
 
         val historyContents: List<Content> = recentHistory
             .filter { it.text.isNotBlank() && it.text != "PROCESSING REQUEST…" }
@@ -217,30 +194,20 @@ class AiRepository(
             }
 
         val route = ProviderRoute.fromId(prefs.selectedProviderRoute)
-        val temperature = (0.35f + (prefs.creativityBias / 100f) * 0.65f).coerceIn(0.2f, 1.0f)
-
-        if (route == ProviderRoute.PYTHON_COMPANION) {
-            val handled = CompanionAiBridge.streamFromCompanion(prefs, message, recentHistory, temperature, this)
-            if (handled) return@flow
-        }
-
-        val candidateModels = when (route) {
-            ProviderRoute.AUTO -> {
-                val smart = SmartEngineRouter.classifyPrompt(message, enabledKeys)
-                smart.candidateModels
-                    .filterNot { it.startsWith("plugin:") || it == "gemini-nano-banana-2.1" }
-                    .ifEmpty { listOf("gemini-3.8-flash", "gemini-3.5-flash-lite") }
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForChat(route, message, enabledKeys)
+        val preferredThinkingLevel: ThinkingLevel? = if (prefs.thinkingEnabled) {
+            if (route in setOf(ProviderRoute.ARGON, ProviderRoute.CARBON, ProviderRoute.NEON) ||
+                prefs.cognitiveCapacity >= 80f
+            ) {
+                ThinkingLevel.HIGH
+            } else {
+                ThinkingLevel.MEDIUM
             }
-            ProviderRoute.HYBRID -> listOf("gemini-3.8-flash", "gemini-3.5-flash-lite")
-            ProviderRoute.FLASH -> listOf("gemini-3.8-flash")
-            ProviderRoute.ARGON -> listOf("gemini-4-argon", "gemini-3.8-flash")
-            ProviderRoute.LITE -> listOf("gemini-3.5-flash-lite")
-            ProviderRoute.HYDROGEN -> listOf("gemini-4-hydrogen", "gemini-3.8-flash")
-            ProviderRoute.CARBON -> listOf("gemini-4-carbon", "gemini-4-argon", "gemini-3.8-flash")
-            ProviderRoute.NEON -> listOf("gemini-4-neon", "gemini-3.8-flash")
-            ProviderRoute.FLASH_LITE_31 -> listOf("gemini-3.1-flash-lite", "gemini-3.5-flash-lite")
-            ProviderRoute.PYTHON_COMPANION -> listOf("gemini-3.8-flash", "gemini-3.5-flash-lite")
+        } else {
+            null
         }
+
+        val temperature = (0.35f + (prefs.creativityBias / 100f) * 0.65f).coerceIn(0.2f, 1.0f)
         var lastError: Exception? = null
 
         for (modelName in candidateModels) {
@@ -250,130 +217,169 @@ class AiRepository(
                 mapsGroundingEnabled -> listOf(false to true, false to false)
                 else -> listOf(false to false)
             }
+            val supportsThinkingHint = "lite" !in modelName.lowercase()
+            val thinkingAttempts: List<ThinkingLevel?> = if (preferredThinkingLevel != null && supportsThinkingHint) {
+                listOf(preferredThinkingLevel, null)
+            } else {
+                listOf(null)
+            }
+
             for ((useGoogleSearch, useGoogleMaps) in groundingAttempts) {
-                val accumulated = StringBuilder()
-                val collectedSources = linkedMapOf<String, GroundedWebSource>()
-                explicitSnippets.forEach { snippet ->
-                    collectedSources[snippet.url] = GroundedWebSource(
-                        title = snippet.title,
-                        url = snippet.url
-                    )
-                }
-                val collectedQueries = linkedSetOf<String>()
-                var searchEntryPointHtml = ""
                 val effectiveSystemPrompt = if (webEnabled && !useGoogleSearch && explicitContextBlock.isBlank()) {
                     val fallbackWeb = WebConnector.groundPromptWithInternet(message)
-                    fallbackWeb.snippets.forEach { snippet ->
-                        collectedSources[snippet.url] = GroundedWebSource(snippet.title, snippet.url)
-                    }
                     val block = fallbackWeb.toContextBlock()
                     if (block.isNotBlank()) "$systemPrompt\n$block" else systemPrompt
                 } else {
                     systemPrompt
                 }
-                try {
-                    withTimeout(AI_TIMEOUT_MS) {
-                        val model = buildModel(
-                            modelName = modelName,
-                            systemPrompt = effectiveSystemPrompt,
-                            temperature = temperature,
-                            enableGoogleSearch = useGoogleSearch,
-                            enableGoogleMaps = useGoogleMaps
-                        )
-                        val chat = model.startChat(history = historyContents)
-                        chat.sendMessageStream(message).collect { chunk ->
-                            val metadata = chunk.candidates.firstOrNull()?.groundingMetadata
-                            metadata?.webSearchQueries
-                                ?.map { it.trim() }
-                                ?.filter { it.isNotBlank() }
-                                ?.forEach { if (collectedQueries.size < 8) collectedQueries.add(it) }
-                            metadata?.groundingChunks?.forEach { gChunk ->
-                                val web = gChunk.web
-                                val uri = web?.uri?.trim().orEmpty()
-                                if (uri.startsWith("https://") || uri.startsWith("http://")) {
-                                    val title = web?.title?.trim().orEmpty()
-                                    val existing = collectedSources[uri]
-                                    if (collectedSources.size < 10 || existing != null) {
-                                        collectedSources[uri] = GroundedWebSource(
-                                            title = title.ifBlank { existing?.title.orEmpty() },
-                                            url = uri
+                val fallbackWebSnippets = if (webEnabled && !useGoogleSearch && explicitContextBlock.isBlank()) {
+                    WebConnector.groundPromptWithInternet(message).snippets
+                } else {
+                    emptyList()
+                }
+
+                for (thinkingLevel in thinkingAttempts) {
+                    val accumulated = StringBuilder()
+                    val accumulatedThoughts = StringBuilder()
+                    val collectedSources = linkedMapOf<String, GroundedWebSource>()
+                    (explicitSnippets + fallbackWebSnippets).forEach { snippet ->
+                        collectedSources[snippet.url] = GroundedWebSource(snippet.title, snippet.url)
+                    }
+                    val collectedQueries = linkedSetOf<String>()
+                    var searchEntryPointHtml = ""
+
+                    try {
+                        withTimeout(AI_TIMEOUT_MS) {
+                            val model = buildModel(
+                                modelName = modelName,
+                                systemPrompt = effectiveSystemPrompt,
+                                temperature = temperature,
+                                enableGoogleSearch = useGoogleSearch,
+                                enableGoogleMaps = useGoogleMaps,
+                                thinkingLevel = thinkingLevel
+                            )
+                            val chat = model.startChat(history = historyContents)
+                            val requestStream = if (attachedImage != null) {
+                                chat.sendMessageStream(
+                                    content {
+                                        image(attachedImage)
+                                        text(message)
+                                    }
+                                )
+                            } else {
+                                chat.sendMessageStream(message)
+                            }
+
+                            requestStream.collect { chunk ->
+                                val metadata = chunk.candidates.firstOrNull()?.groundingMetadata
+                                metadata?.webSearchQueries
+                                    ?.map { it.trim() }
+                                    ?.filter { it.isNotBlank() }
+                                    ?.forEach { if (collectedQueries.size < 8) collectedQueries.add(it) }
+                                metadata?.groundingChunks?.forEach { gChunk ->
+                                    val web = gChunk.web
+                                    val uri = web?.uri?.trim().orEmpty()
+                                    if (uri.startsWith("https://") || uri.startsWith("http://")) {
+                                        val title = web?.title?.trim().orEmpty()
+                                        val existing = collectedSources[uri]
+                                        if (collectedSources.size < 10 || existing != null) {
+                                            collectedSources[uri] = GroundedWebSource(
+                                                title = title.ifBlank { existing?.title.orEmpty() },
+                                                url = uri
+                                            )
+                                        }
+                                    }
+                                    val maps = gChunk.maps
+                                    val mapPlaceId = maps?.placeId?.trim().orEmpty()
+                                    val rawMapUri = maps?.uri?.trim().orEmpty()
+                                    val mapUri = when {
+                                        rawMapUri.startsWith("https://") || rawMapUri.startsWith("http://") -> rawMapUri
+                                        mapPlaceId.isNotBlank() -> "https://www.google.com/maps/search/?api=1&query_place_id=$mapPlaceId"
+                                        else -> ""
+                                    }
+                                    if (mapUri.isNotBlank() && (collectedSources.size < 10 || collectedSources.containsKey(mapUri))) {
+                                        val mapTitle = maps?.title?.trim().orEmpty().ifBlank { "Google Maps Place" }
+                                        collectedSources[mapUri] = GroundedWebSource(
+                                            title = "Maps: $mapTitle",
+                                            url = mapUri
                                         )
                                     }
                                 }
-                                val maps = gChunk.maps
-                                val mapPlaceId = maps?.placeId?.trim().orEmpty()
-                                val rawMapUri = maps?.uri?.trim().orEmpty()
-                                val mapUri = when {
-                                    rawMapUri.startsWith("https://") || rawMapUri.startsWith("http://") -> rawMapUri
-                                    mapPlaceId.isNotBlank() -> "https://www.google.com/maps/search/?api=1&query_place_id=$mapPlaceId"
-                                    else -> ""
+                                val rendered = metadata?.searchEntryPoint?.renderedContent?.trim().orEmpty()
+                                if (rendered.isNotBlank()) {
+                                    searchEntryPointHtml = rendered.take(24_000)
                                 }
-                                if (mapUri.isNotBlank() && (collectedSources.size < 10 || collectedSources.containsKey(mapUri))) {
-                                    val mapTitle = maps?.title?.trim().orEmpty().ifBlank { "Google Maps Place" }
-                                    collectedSources[mapUri] = GroundedWebSource(
-                                        title = "Maps: $mapTitle",
-                                        url = mapUri
+
+                                val thoughtDelta = chunk.thoughtSummary?.takeIf { it.isNotBlank() }
+                                    ?: chunk.candidates.firstOrNull()?.content?.parts
+                                        ?.filterIsInstance<TextPart>()
+                                        ?.filter { it.isThought }
+                                        ?.joinToString("") { it.text }
+                                        .orEmpty()
+                                if (thoughtDelta.isNotEmpty() && !accumulatedThoughts.endsWith(thoughtDelta)) {
+                                    accumulatedThoughts.append(thoughtDelta)
+                                }
+
+                                val chunkText = chunk.text.orEmpty()
+                                if (chunkText.isNotEmpty()) {
+                                    accumulated.append(chunkText)
+                                }
+
+                                if (chunkText.isNotEmpty() || thoughtDelta.isNotEmpty() ||
+                                    collectedQueries.isNotEmpty() || collectedSources.isNotEmpty()
+                                ) {
+                                    val liveLabel = when {
+                                        useGoogleMaps && useGoogleSearch -> "$modelName+search+maps"
+                                        useGoogleMaps -> "$modelName+maps"
+                                        useGoogleSearch -> "$modelName+search"
+                                        collectedSources.isNotEmpty() -> "$modelName+web"
+                                        else -> modelName
+                                    }
+                                    emit(
+                                        ChatStreamEvent.Chunk(
+                                            accumulatedText = accumulated.toString(),
+                                            modelLabel = liveLabel,
+                                            webSources = collectedSources.values.toList().take(10),
+                                            searchQueries = collectedQueries.toList(),
+                                            accumulatedThoughts = accumulatedThoughts.toString().trim()
+                                        )
                                     )
                                 }
-                            }
-                            val rendered = metadata?.searchEntryPoint?.renderedContent?.trim().orEmpty()
-                            if (rendered.isNotBlank()) {
-                                searchEntryPointHtml = rendered.take(24_000)
-                            }
-                            val chunkText = chunk.text.orEmpty()
-                            if (chunkText.isNotEmpty()) {
-                                accumulated.append(chunkText)
-                            }
-                            if (chunkText.isNotEmpty() || collectedQueries.isNotEmpty() || collectedSources.isNotEmpty()) {
-                                val liveLabel = when {
-                                    useGoogleMaps && useGoogleSearch -> "$modelName+search+maps"
-                                    useGoogleMaps -> "$modelName+maps"
-                                    useGoogleSearch -> "$modelName+search"
-                                    collectedSources.isNotEmpty() -> "$modelName+web"
-                                    else -> modelName
-                                }
-                                emit(
-                                    ChatStreamEvent.Chunk(
-                                        accumulatedText = accumulated.toString(),
-                                        modelLabel = liveLabel,
-                                        webSources = collectedSources.values.toList().take(10),
-                                        searchQueries = collectedQueries.toList()
-                                    )
-                                )
                             }
                         }
-                    }
-                    val finalText = accumulated.toString().trim()
-                    if (finalText.isBlank()) {
-                        throw IllegalStateException("Model returned an empty response.")
-                    }
-                    val finalSources = collectedSources.values.toList().take(10)
-                    val finalLabel = when {
-                        useGoogleMaps && useGoogleSearch -> "$modelName+search+maps"
-                        useGoogleMaps -> "$modelName+maps"
-                        useGoogleSearch && (collectedQueries.isNotEmpty() || finalSources.isNotEmpty() || searchEntryPointHtml.isNotBlank()) ->
-                            "$modelName+search"
-                        finalSources.isNotEmpty() -> "$modelName+web"
-                        else -> modelName
-                    }
-                    emit(
-                        ChatStreamEvent.Completed(
-                            finalText = finalText,
-                            modelLabel = finalLabel,
-                            webSources = finalSources.map { it.url },
-                            webSourceTitles = finalSources.map { it.title },
-                            searchQueries = collectedQueries.toList(),
-                            searchEntryPointHtml = searchEntryPointHtml
+                        val finalText = accumulated.toString().trim()
+                        if (finalText.isBlank()) {
+                            throw IllegalStateException("Model returned an empty response.")
+                        }
+                        val finalSources = collectedSources.values.toList().take(10)
+                        val finalLabel = when {
+                            useGoogleMaps && useGoogleSearch -> "$modelName+search+maps"
+                            useGoogleMaps -> "$modelName+maps"
+                            useGoogleSearch && (collectedQueries.isNotEmpty() || finalSources.isNotEmpty() || searchEntryPointHtml.isNotBlank()) ->
+                                "$modelName+search"
+                            finalSources.isNotEmpty() -> "$modelName+web"
+                            else -> modelName
+                        }
+                        emit(
+                            ChatStreamEvent.Completed(
+                                finalText = finalText,
+                                modelLabel = finalLabel,
+                                webSources = finalSources.map { it.url },
+                                webSourceTitles = finalSources.map { it.title },
+                                searchQueries = collectedQueries.toList(),
+                                searchEntryPointHtml = searchEntryPointHtml,
+                                thoughtSummary = accumulatedThoughts.toString().trim().take(4000)
+                            )
                         )
-                    )
-                    return@flow
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w(TAG, "Chat attempt failed on $modelName (search=$useGoogleSearch)", e)
-                    lastError = e
-                    if (accumulated.isNotEmpty()) {
+                        return@flow
+                    } catch (e: CancellationException) {
                         throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Chat attempt failed on $modelName (search=$useGoogleSearch, thinking=$thinkingLevel)", e)
+                        lastError = e
+                        if (accumulated.isNotEmpty()) {
+                            throw e
+                        }
                     }
                 }
             }

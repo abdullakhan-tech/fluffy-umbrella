@@ -100,6 +100,14 @@ fun OverviewScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            ZaytharHeroWelcomeBanner(onNavigate = onNavigate)
+        }
+
+        item {
+            VoiceChatBottomBar(onOpenVoiceChat = { onNavigate("voice_audio") })
+        }
+
+        item {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val wide = maxWidth >= 720.dp
                 if (wide) {

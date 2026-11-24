@@ -48,7 +48,7 @@ internal class AiWorkspaceCapabilities(
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
         val ragBundle = ragLoader(prompt, emptyList(), 8)
         val ragContextBlock = ragBundle.toContextBlock(maxChars = 5000)
-        val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
 
         val tripleSchema = Schema.obj(
             properties = mapOf(
@@ -59,7 +59,7 @@ internal class AiWorkspaceCapabilities(
         )
         val brainSchema = Schema.obj(
             properties = mapOf(
-                "summary" to Schema.string(description = "Comprehensive executive analysis in $language (supports Markdown)"),
+                "summary" to Schema.string(description = "Comprehensive executive analysis (supports Markdown)"),
                 "confidence" to Schema.integer(description = "Calibrated confidence score 0 to 100"),
                 "reasoningSteps" to Schema.array(
                     items = Schema.string(description = "Step-by-step cognitive synthesis phase"),
@@ -84,29 +84,6 @@ internal class AiWorkspaceCapabilities(
             )
         )
 
-        val structuredModel = ai.generativeModel(
-            modelName = modelName,
-            generationConfig = generationConfig {
-                temperature = 0.30f
-                responseMimeType = "application/json"
-                responseSchema = brainSchema
-            },
-            systemInstruction = content {
-                text(
-                    "You are Zaythar's principal cognitive intelligence: capable, calm, precise, proactive and candid. " +
-                        "Mode: ${mode.title}. ${mode.directive} " +
-                        "Use first-principles analysis, compare viable approaches, expose hidden dependencies, and prioritize the highest-impact actions. " +
-                        "Treat retrieved memory as evidence with provenance, not unquestionable truth; distinguish facts, assumptions and recommendations. " +
-                        "Never fabricate tool use, browsing, tests, access, memories or completed actions. State uncertainty and missing inputs explicitly. " +
-                        "For reasoningSteps provide concise, user-facing method summaries, not private chain-of-thought. " +
-                        "Give practical outputs with acceptance criteria, failure modes, rollback considerations and measurable verification where relevant. " +
-                        "Respect user privacy and least privilege; never recommend bypassing permissions or safeguards. " +
-                        "Ground findings in provided [RAG-#] knowledge when applicable without inventing facts. " +
-                        "Return strict JSON matching the schema in $language."
-                )
-            }
-        )
-
         val fullInput = buildString {
             append("MODE: ${mode.title}\n")
             if (ragContextBlock.isNotBlank()) {
@@ -118,11 +95,47 @@ internal class AiWorkspaceCapabilities(
             append("\nTARGET INPUT:\n$prompt")
         }
 
-        val response = withTimeout(WORKSPACE_TIMEOUT_MS) {
-            structuredModel.generateContent(fullInput)
+        val langDirective = if (prefs.autoMirrorLanguage) {
+            "Mirror the user's input language naturally (defaulting to $language if ambiguous)."
+        } else {
+            "Write in $language."
         }
-        val rawJson = response.text.orEmpty().trim()
-        if (rawJson.isBlank()) throw IllegalStateException("AI Brain returned an empty response.")
+        var rawJson = ""
+        var modelName = candidateModels.first()
+        var lastError: Exception? = null
+        for (candidate in candidateModels) {
+            try {
+                val structuredModel = ai.generativeModel(
+                    modelName = candidate,
+                    generationConfig = generationConfig {
+                        temperature = 0.30f
+                        responseMimeType = "application/json"
+                        responseSchema = brainSchema
+                    },
+                    systemInstruction = content {
+                        text(
+                            "You are Zaythar AI Brain Cognitive Core. Mode: ${mode.title}. ${mode.directive} " +
+                                "Ground findings in the provided [RAG-#] knowledge when applicable without inventing facts. " +
+                                "Return strict JSON matching the schema. $langDirective"
+                        )
+                    }
+                )
+                val response = withTimeout(WORKSPACE_TIMEOUT_MS) {
+                    structuredModel.generateContent(fullInput)
+                }
+                val text = response.text.orEmpty().trim()
+                if (text.isBlank()) throw IllegalStateException("AI Brain returned an empty response.")
+                rawJson = text
+                modelName = candidate
+                break
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(WORKSPACE_AI_TAG, "AI Brain attempt failed on $candidate", e)
+                lastError = e
+            }
+        }
+        if (rawJson.isBlank()) throw lastError ?: IllegalStateException("AI Brain returned an empty response.")
 
         val obj = JSONObject(rawJson)
         val summary = obj.optString("summary", "").trim().ifBlank { "Analysis complete." }
@@ -210,7 +223,7 @@ internal class AiWorkspaceCapabilities(
         require(cleanedTask.isNotEmpty() || existingCode.isNotBlank()) {
             "Enter a coding task or paste source code."
         }
-        val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
         val ragQuery = "$cleanedTask ${language.title} ${mode.title}".trim()
         val ragContext = ragLoader(ragQuery, emptyList(), 4).toContextBlock(maxChars = 2400)
 
@@ -238,24 +251,37 @@ internal class AiWorkspaceCapabilities(
             if (existingCode.isNotBlank()) append("SOURCE CODE (${language.title}):\n```${language.extension}\n${existingCode.take(10_000)}\n```")
         }
 
-        val accumulated = StringBuilder()
-        withTimeout(WORKSPACE_TIMEOUT_MS) {
-            val model = ai.generativeModel(
-                modelName = modelName,
-                generationConfig = generationConfig { temperature = 0.22f },
-                systemInstruction = content { text(systemPrompt) }
-            )
-            model.generateContentStream(input).collect { chunk ->
-                val txt = chunk.text.orEmpty()
-                if (txt.isNotEmpty()) {
-                    accumulated.append(txt)
-                    emit(ChatStreamEvent.Chunk(accumulated.toString(), modelName))
+        var lastError: Exception? = null
+        for (modelName in candidateModels) {
+            val accumulated = StringBuilder()
+            try {
+                withTimeout(WORKSPACE_TIMEOUT_MS) {
+                    val model = ai.generativeModel(
+                        modelName = modelName,
+                        generationConfig = generationConfig { temperature = 0.22f },
+                        systemInstruction = content { text(systemPrompt) }
+                    )
+                    model.generateContentStream(input).collect { chunk ->
+                        val txt = chunk.text.orEmpty()
+                        if (txt.isNotEmpty()) {
+                            accumulated.append(txt)
+                            emit(ChatStreamEvent.Chunk(accumulated.toString(), modelName))
+                        }
+                    }
                 }
+                val final = accumulated.toString().trim()
+                if (final.isBlank()) throw IllegalStateException("Code Copilot returned an empty response.")
+                emit(ChatStreamEvent.Completed(final, modelName))
+                return@flow
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(WORKSPACE_AI_TAG, "Code Copilot attempt failed on $modelName", e)
+                lastError = e
+                if (accumulated.isNotEmpty()) throw e
             }
         }
-        val final = accumulated.toString().trim()
-        if (final.isBlank()) throw IllegalStateException("Code Copilot returned an empty response.")
-        emit(ChatStreamEvent.Completed(final, modelName))
+        throw lastError ?: IllegalStateException("Code Copilot generation failed.")
     }
 
     suspend fun generateStudioConcept(
@@ -287,56 +313,52 @@ internal class AiWorkspaceCapabilities(
         }
 
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-        val modelName = ProviderRoute.fromId(prefs.selectedProviderRoute).modelName
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
+        val langDirective = if (prefs.autoMirrorLanguage) {
+            "Match the user's input language naturally (defaulting to $language if unclear)."
+        } else {
+            "Write in $language."
+        }
         val ragContext = ragLoader(task, emptyList(), 6).toContextBlock(maxChars = 4000)
 
         val deliverables = coroutineScope {
             uniqueAgents.map { role ->
                 async {
-                    try {
-                        val persona = when (role) {
-                            AgentRole.RESEARCH -> JarvisAgentOrchestrator.team.first { it.id == "athena" }
-                            AgentRole.CODING -> JarvisAgentOrchestrator.team.first { it.id == "forge" }
-                            AgentRole.ANALYSIS -> JarvisAgentOrchestrator.team.first { it.id == "oracle" }
-                            AgentRole.WRITING -> JarvisAgentOrchestrator.team.first { it.id == "echo" }
-                            AgentRole.CREATIVE -> JarvisAgentOrchestrator.team.first { it.id == "echo" }
-                            AgentRole.GENERAL -> JarvisAgentOrchestrator.team.first { it.id == "atlas" }
-                        }
-                        val specialistSystem = buildString {
-                            append("You are ${persona.name}, ${persona.title}, in Zaythar's specialist agent team. ")
-                            append("Personality: ${persona.personality} ")
-                            append("Operating principles: ${persona.operatingPrinciples.joinToString("; ")}. ")
-                            append(role.specialistPrompt)
-                            append(" Work only on the user's task. Do not claim actions you did not perform. ")
-                            append("Separate evidence, assumptions, recommendations and confidence. ")
-                            append("Write your deliverable in $language. ")
-                            append("Return a concise, structured deliverable with findings, risks, verification criteria and uncertainties.")
-                        }
-                        val contextBlock = if (ragContext.isNotBlank()) "$ragContext\n\n" else ""
-                        val response = withTimeout(WORKSPACE_TIMEOUT_MS) {
-                            ai.generativeModel(
-                                modelName = modelName,
-                                generationConfig = generationConfig { temperature = 0.60f },
-                                systemInstruction = content { text(specialistSystem) }
-                            ).generateContent(contextBlock + task)
-                        }
-                        val text = response.text.orEmpty().take(MAX_SPECIALIST_OUTPUT_CHARS)
-                        if (text.isBlank()) {
-                            SpecialistDeliverable(role, "failed", "Specialist returned an empty response.", modelName)
-                        } else {
-                            SpecialistDeliverable(role, "completed", text, modelName)
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.e(WORKSPACE_AI_TAG, "Specialist ${role.id} failed", e)
-                        SpecialistDeliverable(
-                            agent = role,
-                            status = "failed",
-                            output = e.localizedMessage ?: e.javaClass.simpleName,
-                            modelUsed = modelName
-                        )
+                    val specialistSystem = buildString {
+                        append("You are one specialist in Zaythar AI's multi-agent team. ")
+                        append(role.specialistPrompt)
+                        append(" Work only on the user's task. Do not claim actions you did not perform. ")
+                        append("$langDirective ")
+                        append("Return a concise, structured deliverable with findings, recommendations, and uncertainties.")
                     }
+                    val contextBlock = if (ragContext.isNotBlank()) "$ragContext\n\n" else ""
+                    var lastErr: Exception? = null
+                    for (candidate in candidateModels) {
+                        try {
+                            val response = withTimeout(WORKSPACE_TIMEOUT_MS) {
+                                ai.generativeModel(
+                                    modelName = candidate,
+                                    generationConfig = generationConfig { temperature = 0.60f },
+                                    systemInstruction = content { text(specialistSystem) }
+                                ).generateContent(contextBlock + task)
+                            }
+                            val text = response.text.orEmpty().take(MAX_SPECIALIST_OUTPUT_CHARS)
+                            if (text.isNotBlank()) {
+                                return@async SpecialistDeliverable(role, "completed", text, candidate)
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w(WORKSPACE_AI_TAG, "Specialist ${role.id} attempt failed on $candidate", e)
+                            lastErr = e
+                        }
+                    }
+                    SpecialistDeliverable(
+                        agent = role,
+                        status = "failed",
+                        output = lastErr?.localizedMessage ?: lastErr?.javaClass?.simpleName ?: "Specialist returned an empty response.",
+                        modelUsed = candidateModels.first()
+                    )
                 }
             }.awaitAll()
         }
@@ -351,12 +373,10 @@ internal class AiWorkspaceCapabilities(
             "[${item.agent.title.uppercase()} SPECIALIST]\n${item.output}"
         }
         val coordinatorSystem = buildString {
-            append("You are Zaythar's Jarvis Lead Coordinator: composed, accountable, context-aware and outcome-driven. ")
-            append("Synthesize specialist deliverables into one coherent answer and resolve contradictions explicitly. ")
-            append("Preserve useful detail, identify uncertainty, assign clear next steps and define observable completion checks. ")
-            append("Never invent verification or claim that code, a device action, or an external write was executed. ")
-            append("Flag any action that needs explicit user approval. Do not reveal private chain-of-thought. ")
-            append("Write in $language.")
+            append("You are Zaythar AI's lead coordinator. Synthesize specialist deliverables into one warm, clear, actionable answer. ")
+            append("Resolve contradictions explicitly, preserve useful detail, identify uncertainty, and give prioritized next steps. ")
+            append("Do not invent verification or claim that code was executed. ")
+            append(langDirective)
         }
         val coordinatorInput = buildString {
             append(ragContext.ifBlank { "RAG CONTEXT: (none)" })
@@ -366,15 +386,33 @@ internal class AiWorkspaceCapabilities(
             append(evidence)
         }
 
-        val synthesis = withTimeout(WORKSPACE_TIMEOUT_MS) {
-            ai.generativeModel(
-                modelName = modelName,
-                generationConfig = generationConfig { temperature = 0.50f },
-                systemInstruction = content { text(coordinatorSystem) }
-            ).generateContent(coordinatorInput)
+        var finalReply = ""
+        var coordinatorModelUsed = candidateModels.first()
+        var coordError: Exception? = null
+        for (candidate in candidateModels) {
+            try {
+                val synthesis = withTimeout(WORKSPACE_TIMEOUT_MS) {
+                    ai.generativeModel(
+                        modelName = candidate,
+                        generationConfig = generationConfig { temperature = 0.50f },
+                        systemInstruction = content { text(coordinatorSystem) }
+                    ).generateContent(coordinatorInput)
+                }
+                val txt = synthesis.text.orEmpty().trim()
+                if (txt.isNotBlank()) {
+                    finalReply = txt
+                    coordinatorModelUsed = candidate
+                    break
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(WORKSPACE_AI_TAG, "Coordinator synthesis failed on $candidate", e)
+                coordError = e
+            }
         }
-        val finalReply = synthesis.text.orEmpty().ifBlank {
-            "Coordinator returned no final response."
+        if (finalReply.isBlank()) {
+            throw coordError ?: IllegalStateException("Coordinator returned no final response.")
         }
 
         runCatching {
@@ -388,7 +426,7 @@ internal class AiWorkspaceCapabilities(
 
         return MultiAgentRunResult(
             reply = finalReply,
-            modelUsed = modelName,
+            modelUsed = coordinatorModelUsed,
             deliverables = deliverables,
             completedCount = completed.size,
             totalCount = uniqueAgents.size

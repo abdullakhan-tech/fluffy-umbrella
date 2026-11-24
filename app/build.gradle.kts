@@ -64,6 +64,10 @@ tasks.withType<Test> {
         "skipFirebaseTests",
         System.getProperty("skipFirebaseTests") ?: System.getenv("SKIP_FIREBASE_TESTS") ?: "false"
     )
+    val containerM2 = file("/home/appuser/.m2/repository")
+    if (containerM2.exists() && System.getProperty("user.home") == "/root") {
+        systemProperty("maven.repo.local", containerM2.absolutePath)
+    }
     testLogging {
         events("passed", "failed", "skipped")
     }

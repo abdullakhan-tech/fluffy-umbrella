@@ -21,8 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ViewInAr
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,6 +65,7 @@ fun CyberGridBackground(
     val bg = MaterialTheme.colorScheme.background
     val accent = cyber.accent
     val gridColor = cyber.gridLine
+    val glowFactor = (cyber.glowStrength / 100f).coerceIn(0.25f, 1.2f)
 
     Box(
         modifier = modifier
@@ -72,14 +75,24 @@ fun CyberGridBackground(
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            accent.copy(alpha = if (cyber.isDark) 0.16f else 0.08f),
+                            accent.copy(alpha = (if (cyber.isDark) 0.22f else 0.08f) * glowFactor),
                             Color.Transparent
                         ),
-                        center = Offset(size.width * 0.78f, 0f),
-                        radius = (size.maxDimension * 0.65f).coerceAtLeast(1f)
+                        center = Offset(size.width * 0.55f, size.height * 0.12f),
+                        radius = (size.maxDimension * 0.68f).coerceAtLeast(1f)
                     )
                 )
-                val step = 42.dp.toPx().coerceAtLeast(1f)
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            accent.copy(alpha = (if (cyber.isDark) 0.16f else 0.05f) * glowFactor),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.12f, size.height * 0.88f),
+                        radius = (size.maxDimension * 0.55f).coerceAtLeast(1f)
+                    )
+                )
+                val step = 44.dp.toPx().coerceAtLeast(1f)
                 var x = 0f
                 while (x < size.width) {
                     drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
@@ -103,22 +116,25 @@ fun CyberCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val cyber = LocalCyberColors.current
-    val borderColor = if (highlighted) cyber.accent else MaterialTheme.colorScheme.outlineVariant
+    val borderColor = if (highlighted) cyber.accent.copy(alpha = 0.78f) else MaterialTheme.colorScheme.outlineVariant
 
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
-        color = cyber.panelGlass,
+        color = cyber.panelGlass.copy(alpha = if (cyber.isDark) 0.94f else 0.98f),
         border = BorderStroke(if (highlighted) 1.5.dp else 1.dp, borderColor),
         tonalElevation = 2.dp
     ) {
         Box {
-            // Top-left glowing cyber accent bar
             Box(
                 modifier = Modifier
-                    .width(52.dp)
+                    .width(64.dp)
                     .height(2.5.dp)
-                    .background(cyber.accent)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(cyber.accent, cyber.accentSoft.copy(alpha = 0.25f))
+                        )
+                    )
             )
             Column(
                 modifier = Modifier.padding(18.dp),
@@ -324,14 +340,16 @@ fun CyberTopBar(
     onMenuClick: () -> Unit,
     onToggleMotion: () -> Unit,
     onToggleTheme: () -> Unit,
-    themeMode: ThemeMode = ThemeMode.SYSTEM
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onOpenSearch: (() -> Unit)? = null,
+    onOpenTools: (() -> Unit)? = null
 ) {
     val cyber = LocalCyberColors.current
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -382,7 +400,6 @@ fun CyberTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Status dot + clock on wider viewports
                 Row(
                     modifier = Modifier
                         .border(1.dp, cyber.cyberGreen.copy(alpha = 0.5f), MaterialTheme.shapes.small)
@@ -405,15 +422,33 @@ fun CyberTopBar(
                     )
                 }
 
+                if (onOpenSearch != null) {
+                    IconButton(
+                        onClick = onOpenSearch,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                            .testTag("topbar_search_button")
+                    ) {
+                        Icon(Icons.Rounded.Search, "Search chats, memories, and AI tools", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+                if (onOpenTools != null) {
+                    IconButton(
+                        onClick = onOpenTools,
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                            .testTag("topbar_tools_button")
+                    ) {
+                        Icon(Icons.Rounded.GridView, "Open AI tools and engines", tint = cyber.accentSoft)
+                    }
+                }
                 IconButton(
                     onClick = onToggleMotion,
                     modifier = Modifier
                         .minimumInteractiveComponentSize()
-                        .border(
-                            1.dp,
-                            if (motionEnabled) cyber.accent else MaterialTheme.colorScheme.outline,
-                            MaterialTheme.shapes.small
-                        )
+                        .border(1.dp, if (motionEnabled) cyber.accent else MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
                         .testTag("motion_toggle_button")
                 ) {
                     Icon(
@@ -422,7 +457,6 @@ fun CyberTopBar(
                         tint = if (motionEnabled) cyber.accentSoft else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
                 IconButton(
                     onClick = onToggleTheme,
                     modifier = Modifier
@@ -448,5 +482,5 @@ fun CyberTopBar(
 
 @Composable
 fun BrandMarkBox(modifier: Modifier = Modifier, sizeDp: Int = 40) {
-    ZaytharHexEmblem(modifier = modifier, size = sizeDp.dp)
+    ZaytharSpiralEmblem(modifier = modifier, size = sizeDp.dp)
 }

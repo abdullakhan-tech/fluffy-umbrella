@@ -1,9 +1,12 @@
 package com.example.ui.screens
 
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -13,22 +16,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.CameraAlt
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.PsychologyAlt
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,9 +37,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +55,9 @@ import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.theme.LocalCyberColors
 import com.example.ui.theme.ThemeMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -92,16 +95,44 @@ internal fun AssistantChatCard(
     onToggleSpeakReplies: (Boolean) -> Unit,
     onMicClick: () -> Unit,
     onSelectThemeMode: (ThemeMode) -> Unit = {},
+    thoughtTraces: Map<String, String> = emptyMap(),
+    attachedImage: Bitmap? = null,
+    onAttachImage: (Bitmap?) -> Unit = {},
+    onToggleThinking: (Boolean) -> Unit = {},
+    onSpeakMessage: ((String) -> Unit)? = null,
     onToast: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val cyber = LocalCyberColors.current
     val currentLanguage = SupportedLanguage.fromCode(prefs.languageCode)
     val rawMessages = (messagesState as? UiState.Success)?.data ?: emptyList()
-    val chatMessages = remember(rawMessages) { rawMessages.map { it.toChatMessage() } }
+    val chatMessages = remember(rawMessages, thoughtTraces) {
+        rawMessages.map { raw ->
+            val mapped = raw.toChatMessage()
+            val trace = thoughtTraces[mapped.id].orEmpty()
+            if (trace.isNotBlank()) mapped.copy(thoughtSummary = trace) else mapped
+        }
+    }
     val streamingState = chatUiState as? UiState.Streaming
     val streamingReply = streamingState?.partialText
-    var themeMenuExpanded by remember { mutableStateOf(false) }
+    val streamingThoughts = streamingState?.partialThoughts.orEmpty()
     var showClearSessionDialog by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val bmp = withContext(Dispatchers.IO) { decodeSampledChatBitmap(context, uri) }
+                if (bmp != null) {
+                    onAttachImage(bmp)
+                } else {
+                    onToast("Could not load selected image.")
+                }
+            }
+        }
+    }
 
     CyberCard(modifier = modifier) {
         CyberCardHeader(
@@ -253,6 +284,37 @@ internal fun AssistantChatCard(
             }
 
             Surface(
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .clickable { onToggleThinking(!prefs.thinkingEnabled) }
+                    .testTag("thinking_toggle_chip"),
+                shape = MaterialTheme.shapes.small,
+                color = if (prefs.thinkingEnabled) cyber.cyberGreen.copy(alpha = 0.16f) else cyber.panelElevated,
+                border = BorderStroke(
+                    1.dp,
+                    if (prefs.thinkingEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.outline
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PsychologyAlt,
+                        contentDescription = "Toggle AI Thinking Mode",
+                        tint = if (prefs.thinkingEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = if (prefs.thinkingEnabled) "THINK: ON" else "THINK: OFF",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (prefs.thinkingEnabled) cyber.cyberGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Surface(
                 modifier = Modifier.minimumInteractiveComponentSize().clickable { onToggleMapsGrounding(!prefs.mapsGroundingEnabled) }.testTag("maps_grounding_toggle"),
                 shape = MaterialTheme.shapes.small,
                 color = if (prefs.mapsGroundingEnabled) cyber.cyberGreen.copy(alpha = 0.16f) else cyber.panelElevated,
@@ -345,77 +407,10 @@ internal fun AssistantChatCard(
                 }
             }
 
-            Box {
-                Surface(
-                    modifier = Modifier
-                        .minimumInteractiveComponentSize()
-                        .clickable { themeMenuExpanded = true }
-                        .testTag("chat_theme_chip"),
-                    shape = MaterialTheme.shapes.small,
-                    color = cyber.panelElevated,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = when (prefs.themeMode) {
-                                ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
-                                ThemeMode.LIGHT -> Icons.Rounded.LightMode
-                                ThemeMode.DARK -> Icons.Rounded.DarkMode
-                            },
-                            contentDescription = "Select chat theme",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = when (prefs.themeMode) {
-                                ThemeMode.SYSTEM -> "THEME: AUTO"
-                                ThemeMode.LIGHT -> "THEME: LIGHT"
-                                ThemeMode.DARK -> "THEME: DARK"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-                DropdownMenu(
-                    expanded = themeMenuExpanded,
-                    onDismissRequest = { themeMenuExpanded = false }
-                ) {
-                    ThemeMode.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = { Text(mode.label) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = when (mode) {
-                                        ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
-                                        ThemeMode.LIGHT -> Icons.Rounded.LightMode
-                                        ThemeMode.DARK -> Icons.Rounded.DarkMode
-                                    },
-                                    contentDescription = null
-                                )
-                            },
-                            trailingIcon = if (prefs.themeMode == mode) {
-                                {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        contentDescription = "Selected",
-                                        tint = cyber.cyberGreen
-                                    )
-                                }
-                            } else null,
-                            modifier = Modifier.testTag("chat_theme_option_${mode.id}"),
-                            onClick = {
-                                onSelectThemeMode(mode)
-                                themeMenuExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
+            AssistantThemeDropdownChip(
+                themeMode = prefs.themeMode,
+                onSelectThemeMode = onSelectThemeMode
+            )
         }
 
         if (messagesState is UiState.Error) {
@@ -436,18 +431,23 @@ internal fun AssistantChatCard(
             streamingReply = streamingReply,
             streamingSearchQueries = streamingState?.searchQueries.orEmpty(),
             streamingWebSources = streamingState?.webSources.orEmpty(),
+            streamingThoughts = streamingThoughts,
+            attachedImage = attachedImage,
+            onClearAttachedImage = { onAttachImage(null) },
+            onSpeakMessage = onSpeakMessage,
             isInitialLoading = messagesState is UiState.Loading,
             operatorName = prefs.operatorName,
             placeholderText = if (prefs.webConnectEnabled) {
-                "Ask ${activeAgent.title} for live Google Search answers or paste an https:// URL…"
+                "Ask ${activeAgent.title} anything (Urdu, Roman Urdu, English) or attach a photo…"
             } else {
-                "Message ${activeAgent.title}…"
+                "Talk or ask ${activeAgent.title} anything…"
             },
-            emptyStateText = "Thread ready.\nAsk up-to-date questions with Google Search Grounding, or try \"120 km to mi\".",
-            loadingPromptText = if (prefs.webConnectEnabled) {
-                "SEARCHING GOOGLE & STREAMING…"
-            } else {
-                "PROCESSING REQUEST…"
+            emptyStateText = "Zaythar AI is ready.\nAsk any question, share what's on your mind, attach a photo, or say \"Mera mood off hai, guide karo\".",
+            loadingPromptText = when {
+                prefs.thinkingEnabled && prefs.webConnectEnabled -> "THINKING, SEARCHING & STREAMING…"
+                prefs.thinkingEnabled -> "THINKING DEEPLY…"
+                prefs.webConnectEnabled -> "SEARCHING GOOGLE & STREAMING…"
+                else -> "PROCESSING REQUEST…"
             },
             listState = listState,
             onToast = onToast,
@@ -464,7 +464,13 @@ internal fun AssistantChatCard(
                     onSelectAgent = onSelectAgent,
                     onSelectLanguage = onSelectLanguage,
                     onToggleSpeakReplies = onToggleSpeakReplies,
-                    onMicClick = onMicClick
+                    onMicClick = onMicClick,
+                    hasAttachedImage = attachedImage != null,
+                    onPickImageClick = {
+                        imagePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
                 )
             }
         )

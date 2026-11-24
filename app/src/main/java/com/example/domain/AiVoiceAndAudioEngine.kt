@@ -91,9 +91,7 @@ class LiveVoiceSessionManager(
         sessionJob?.cancel()
         sessionJob = scope.launch {
             try {
-                val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-                val systemPrompt = "You are Zaythar AI Live Voice Core. Speak naturally, concisely, and helpfully in $language. " +
-                    "Tone preference: ${prefs.personaStyle}. Never fabricate real-world actions or sensor readings."
+                val systemPrompt = ZaytharSystemPrompts.buildLiveVoiceSystemPrompt(prefs)
                 val config = liveGenerationConfig {
                     responseModality = ResponseModality.AUDIO
                     inputAudioTranscription = AudioTranscriptionConfig()

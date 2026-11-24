@@ -26,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -99,7 +100,8 @@ internal fun shareMessageViaIntent(
 internal fun ChatMessageBubble(
     msg: ChatMessage,
     operatorName: String,
-    onToast: (String) -> Unit
+    onToast: (String) -> Unit,
+    onSpeakMessage: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
@@ -156,6 +158,21 @@ internal fun ChatMessageBubble(
                             modifier = Modifier.weight(1f)
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!isUser && onSpeakMessage != null) {
+                                IconButton(
+                                    onClick = { onSpeakMessage(msg.text) },
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
+                                        .testTag("speak_message_${msg.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = "Read reply aloud",
+                                        tint = cyber.cyberGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                             IconButton(
                                 onClick = { copyMessageToClipboard(context, msg.text, onToast) },
                                 modifier = Modifier
@@ -183,6 +200,13 @@ internal fun ChatMessageBubble(
                                 )
                             }
                         }
+                    }
+                    if (!isUser && msg.thoughtSummary.isNotBlank()) {
+                        ThinkingTracePanel(
+                            thoughtText = msg.thoughtSummary,
+                            isLive = false,
+                            messageId = msg.id
+                        )
                     }
                     SelectionContainer {
                         if (isUser) {
@@ -219,7 +243,8 @@ internal fun ChatMessageBubble(
 internal fun StreamingChatBubble(
     liveText: String,
     searchQueries: List<String> = emptyList(),
-    webSources: List<GroundedWebSource> = emptyList()
+    webSources: List<GroundedWebSource> = emptyList(),
+    liveThoughts: String = ""
 ) {
     val cyber = LocalCyberColors.current
     Row(
@@ -243,14 +268,21 @@ internal fun StreamingChatBubble(
                 )
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = if (searchQueries.isNotEmpty() || webSources.isNotEmpty()) {
-                            "ZAYTHAR · GOOGLE SEARCH GROUNDING"
-                        } else {
-                            "ZAYTHAR · STREAMING"
+                        text = when {
+                            searchQueries.isNotEmpty() || webSources.isNotEmpty() -> "ZAYTHAR · GOOGLE SEARCH GROUNDING"
+                            liveThoughts.isNotBlank() -> "ZAYTHAR · THINKING & STREAMING"
+                            else -> "ZAYTHAR · STREAMING"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.cyberGreen
                     )
+                    if (liveThoughts.isNotBlank()) {
+                        ThinkingTracePanel(
+                            thoughtText = liveThoughts,
+                            isLive = true,
+                            messageId = "streaming"
+                        )
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     AiMarkdownContent(
                         markdown = liveText,
@@ -279,7 +311,9 @@ internal fun ChatComposerControls(
     onSelectAgent: (AgentRole) -> Unit,
     onSelectLanguage: (SupportedLanguage) -> Unit,
     onToggleSpeakReplies: (Boolean) -> Unit,
-    onMicClick: () -> Unit
+    onMicClick: () -> Unit,
+    hasAttachedImage: Boolean = false,
+    onPickImageClick: (() -> Unit)? = null
 ) {
     val cyber = LocalCyberColors.current
     Row(
@@ -348,6 +382,26 @@ internal fun ChatComposerControls(
                         }
                     )
                 }
+            }
+        }
+
+        if (onPickImageClick != null) {
+            IconButton(
+                onClick = onPickImageClick,
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .border(
+                        1.dp,
+                        if (hasAttachedImage) cyber.cyberGreen else MaterialTheme.colorScheme.outline,
+                        MaterialTheme.shapes.small
+                    )
+                    .testTag("attach_chat_image_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AddPhotoAlternate,
+                    contentDescription = "Attach photo to chat",
+                    tint = if (hasAttachedImage) cyber.cyberGreen else MaterialTheme.colorScheme.onSurface
+                )
             }
         }
 

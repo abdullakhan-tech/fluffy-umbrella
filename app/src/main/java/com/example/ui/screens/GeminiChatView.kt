@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -32,12 +33,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.domain.ChatMessage
 import com.example.domain.GroundedWebSource
 import com.example.ui.components.CyberActionButton
+import com.example.ui.components.ZaytharSpiralEmblem
 import com.example.ui.theme.LocalCyberColors
 
 @Composable
@@ -51,6 +57,10 @@ fun ColumnScope.GeminiChatView(
     streamingReply: String? = null,
     streamingSearchQueries: List<String> = emptyList(),
     streamingWebSources: List<GroundedWebSource> = emptyList(),
+    streamingThoughts: String = "",
+    attachedImage: Bitmap? = null,
+    onClearAttachedImage: () -> Unit = {},
+    onSpeakMessage: ((String) -> Unit)? = null,
     isInitialLoading: Boolean = false,
     operatorName: String = "OPERATOR 01",
     placeholderText: String = "Message Gemini…",
@@ -82,17 +92,28 @@ fun ColumnScope.GeminiChatView(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = cyber.accentSoft,
-                        modifier = Modifier.size(32.dp)
+                    ZaytharSpiralEmblem(size = 58.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = buildAnnotatedString {
+                            append("Hello, I'm ")
+                            withStyle(
+                                SpanStyle(
+                                    color = cyber.accent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            ) {
+                                append("Zaythar AI")
+                            }
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = emptyStateText,
                         style = MaterialTheme.typography.bodyMedium,
@@ -115,16 +136,18 @@ fun ColumnScope.GeminiChatView(
                         ChatMessageBubble(
                             msg = msg,
                             operatorName = operatorName,
-                            onToast = onToast
+                            onToast = onToast,
+                            onSpeakMessage = onSpeakMessage
                         )
                     }
 
-                    if (isGenerating || !streamingReply.isNullOrBlank()) {
+                    if (isGenerating || !streamingReply.isNullOrBlank() || streamingThoughts.isNotBlank()) {
                         item(key = "streaming_assistant_reply") {
                             StreamingChatBubble(
                                 liveText = streamingReply?.takeIf { it.isNotBlank() } ?: loadingPromptText,
                                 searchQueries = streamingSearchQueries,
-                                webSources = streamingWebSources
+                                webSources = streamingWebSources,
+                                liveThoughts = streamingThoughts
                             )
                         }
                     }
@@ -138,11 +161,18 @@ fun ColumnScope.GeminiChatView(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f))
-            .padding(10.dp),
+            .border(1.dp, cyber.accent.copy(alpha = 0.42f), MaterialTheme.shapes.large)
+            .background(cyber.panelGlass.copy(alpha = 0.92f), MaterialTheme.shapes.large)
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        if (attachedImage != null) {
+            AttachedChatImagePreview(
+                bitmap = attachedImage,
+                onClear = onClearAttachedImage
+            )
+        }
+
         OutlinedTextField(
             value = inputText,
             onValueChange = { if (it.length <= 12_000) onInputChange(it) },
@@ -159,7 +189,7 @@ fun ColumnScope.GeminiChatView(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(
                 onSend = {
-                    if (!isGenerating && inputText.isNotBlank()) {
+                    if (!isGenerating && (inputText.isNotBlank() || attachedImage != null)) {
                         onSendMessage(inputText)
                     }
                 }
@@ -181,7 +211,7 @@ fun ColumnScope.GeminiChatView(
             CyberActionButton(
                 text = if (isGenerating) "…" else "SEND",
                 onClick = { onSendMessage(inputText) },
-                enabled = !isGenerating && inputText.isNotBlank(),
+                enabled = !isGenerating && (inputText.isNotBlank() || attachedImage != null),
                 testTag = "send_chat_button"
             )
         }

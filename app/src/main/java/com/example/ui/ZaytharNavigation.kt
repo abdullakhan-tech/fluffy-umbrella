@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Layers
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PrecisionManufacturing
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.PsychologyAlt
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.runtime.Composable
@@ -24,7 +26,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.domain.ProviderRoute
 import com.example.domain.UiState
 import com.example.ui.components.ZaytharNavDestination
 import com.example.ui.screens.AssistantScreen
@@ -33,6 +34,7 @@ import com.example.ui.screens.CodeCopilotScreen
 import com.example.ui.screens.CollaborationScreen
 import com.example.ui.screens.EngineHubScreen
 import com.example.ui.screens.KnowledgeBaseScreen
+import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.ModelMatrixScreen
 import com.example.ui.screens.NeuralBrainScreen
 import com.example.ui.screens.OverviewScreen
@@ -40,6 +42,7 @@ import com.example.ui.screens.PersonaBuilderScreen
 import com.example.ui.screens.PluginHubScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.PromptNexusScreen
+import com.example.ui.screens.SearchHubScreen
 import com.example.ui.screens.SecurityScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.StudioScreen
@@ -63,13 +66,17 @@ object ZaytharRoutes {
     const val PROFILE = "profile"
     const val SECURITY = "security"
     const val VOICE_AUDIO = "voice_audio"
+    const val SEARCH = "search"
+    const val LIBRARY = "library"
 }
 
 internal val allZaytharDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.OVERVIEW, "Overview", "COMMAND", Icons.Rounded.Dashboard, "SYSTEM", "OVERVIEW"),
+    ZaytharNavDestination(ZaytharRoutes.SEARCH, "Search", "COMMAND", Icons.Rounded.Search, "SEARCH", "ZAYTHAR"),
+    ZaytharNavDestination(ZaytharRoutes.LIBRARY, "Library", "COMMAND", Icons.Rounded.FolderOpen, "ZAYTHAR", "LIBRARY"),
     ZaytharNavDestination(ZaytharRoutes.ENGINES, "AI Engine Hub", "COMMAND", Icons.Rounded.PrecisionManufacturing, "AI ENGINE", "NEXUS"),
     ZaytharNavDestination(ZaytharRoutes.ASSISTANT, "AI Assistant", "COMMAND", Icons.Rounded.ChatBubble, "AI", "ASSISTANT"),
-    ZaytharNavDestination(ZaytharRoutes.VOICE_AUDIO, "Voice & Audio", "COMMAND", Icons.Rounded.GraphicEq, "VOICE &", "AUDIO"),
+    ZaytharNavDestination(ZaytharRoutes.VOICE_AUDIO, "Voice Chat", "COMMAND", Icons.Rounded.GraphicEq, "VOICE &", "AUDIO"),
     ZaytharNavDestination(ZaytharRoutes.BRAIN, "AI Brain", "COMMAND", Icons.Rounded.PsychologyAlt, "NEURAL", "BRAIN"),
     ZaytharNavDestination(ZaytharRoutes.PERSONA, "Persona Builder", "COMMAND", Icons.Rounded.Psychology, "PERSONA", "BUILDER"),
     ZaytharNavDestination(ZaytharRoutes.SETTINGS, "AI Settings", "COMMAND", Icons.Rounded.Settings, "AI CORE", "SETTINGS"),
@@ -77,8 +84,8 @@ internal val allZaytharDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.PLUGINS, "Plugin Plug", "WORKSPACE", Icons.Rounded.Extension, "PLUGIN", "PLUG HUB"),
     ZaytharNavDestination(ZaytharRoutes.COLLABORATION, "Collaboration", "WORKSPACE", Icons.Rounded.Hub, "COLLABORATION", "NEXUS"),
     ZaytharNavDestination(ZaytharRoutes.MODELS, "Model Matrix", "WORKSPACE", Icons.Rounded.Layers, "AI MODEL", "MATRIX"),
-    ZaytharNavDestination(ZaytharRoutes.STUDIO, "Image & Video Studio", "WORKSPACE", Icons.Rounded.AutoAwesome, "MEDIA", "STUDIO"),
-    ZaytharNavDestination(ZaytharRoutes.CODE, "Code Copilot", "WORKSPACE", Icons.Rounded.Code, "CODE", "COPILOT"),
+    ZaytharNavDestination(ZaytharRoutes.STUDIO, "Image Generator", "WORKSPACE", Icons.Rounded.AutoAwesome, "MEDIA", "STUDIO"),
+    ZaytharNavDestination(ZaytharRoutes.CODE, "Code Interpreter", "WORKSPACE", Icons.Rounded.Code, "CODE", "COPILOT"),
     ZaytharNavDestination(ZaytharRoutes.PROMPTS, "Prompt Nexus", "WORKSPACE", Icons.AutoMirrored.Rounded.MenuBook, "PROMPT", "NEXUS"),
     ZaytharNavDestination(ZaytharRoutes.KNOWLEDGE, "Knowledge Base", "WORKSPACE", Icons.AutoMirrored.Rounded.LibraryBooks, "KNOWLEDGE", "BASE"),
     ZaytharNavDestination(ZaytharRoutes.PROFILE, "User Profile", "ACCOUNT", Icons.Rounded.Person, "USER", "PROFILE"),
@@ -116,6 +123,8 @@ internal fun ZaytharNavHost(
     val composerInput by viewModel.composerInput.collectAsStateWithLifecycle()
     val chatUiState by viewModel.chatUiState.collectAsStateWithLifecycle()
     val isSpeaking by viewModel.isSpeaking.collectAsStateWithLifecycle()
+    val attachedChatImage by viewModel.attachedChatImage.collectAsStateWithLifecycle()
+    val thoughtTraces by viewModel.thoughtTraces.collectAsStateWithLifecycle()
 
     val memoryNotesState by workspaceViewModel.memoryNotesState.collectAsStateWithLifecycle()
     val knowledgeFactsState by workspaceViewModel.knowledgeFactsState.collectAsStateWithLifecycle()
@@ -209,7 +218,60 @@ internal fun ZaytharNavHost(
                 onSelectLanguage = viewModel::selectLanguage,
                 onToggleSpeakReplies = viewModel::toggleSpeakReplies,
                 onSelectThemeMode = viewModel::setThemeMode,
+                thoughtTraces = thoughtTraces,
+                attachedImage = attachedChatImage,
+                onAttachImage = viewModel::attachChatImage,
+                onToggleThinking = viewModel::toggleThinkingEnabled,
+                onSpeakMessage = viewModel::speakMessage,
+                onSelectProviderRoute = viewModel::selectProviderRoute,
+                onOpenModelMatrix = { onNavigate(ZaytharRoutes.MODELS) },
+                onOpenSearch = { onNavigate(ZaytharRoutes.SEARCH) },
+                onNavigate = onNavigate,
                 onToast = viewModel::emitToast
+            )
+        }
+        composable(ZaytharRoutes.SEARCH) {
+            SearchHubScreen(
+                sessionsState = chatSessionsState,
+                notesState = memoryNotesState,
+                factsState = knowledgeFactsState,
+                onOpenSession = { id ->
+                    viewModel.selectChatSession(id)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onSelectAgent = { role ->
+                    viewModel.selectAgent(role)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onSelectPrompt = { prompt ->
+                    viewModel.applyPromptTemplate(prompt)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onNavigate = onNavigate
+            )
+        }
+        composable(ZaytharRoutes.LIBRARY) {
+            LibraryScreen(
+                prefs = prefs,
+                sessionsState = chatSessionsState,
+                activeSessionId = activeSessionId,
+                notesState = memoryNotesState,
+                factsState = knowledgeFactsState,
+                onOpenSession = { id ->
+                    viewModel.selectChatSession(id)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onCreateSession = { title ->
+                    viewModel.createNewChatSession(title)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onDeleteSession = viewModel::deleteChatSession,
+                onDeleteNote = { id -> workspaceViewModel.deleteMemoryNote(id, viewModel::emitToast) },
+                onSelectAgent = { role ->
+                    viewModel.selectAgent(role)
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onNavigate = onNavigate
             )
         }
         composable(ZaytharRoutes.VOICE_AUDIO) {
@@ -311,7 +373,8 @@ internal fun ZaytharNavHost(
                 prefs = prefs,
                 onUpdatePrefs = viewModel::updatePreferences,
                 onSelectAccent = viewModel::updateAccent,
-                onToast = viewModel::emitToast
+                onToast = viewModel::emitToast,
+                onNavigate = onNavigate
             )
         }
         composable(ZaytharRoutes.COLLABORATION) {

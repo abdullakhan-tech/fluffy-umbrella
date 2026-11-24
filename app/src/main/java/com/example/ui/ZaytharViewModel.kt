@@ -1,10 +1,13 @@
 package com.example.ui
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.R
 import com.example.data.local.PreferencesRepository
 import com.example.data.local.ZaytharPreferences
@@ -17,18 +20,18 @@ import com.example.data.remote.UserProfileDoc
 import com.example.domain.AgentRole
 import com.example.domain.AiRepository
 import com.example.domain.ChatMessage
-import com.example.domain.ChatStreamEvent
 import com.example.domain.GuestWorkspaceStore
 import com.example.domain.ProviderRoute
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
+import com.example.domain.ZaytharSystemPrompts
 import com.example.domain.toChatMessage
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
+import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,13 +64,6 @@ class ZaytharViewModel(
 
     val isSpeaking: StateFlow<Boolean> = ttsSpeaker.isSpeaking
 
-    // ViewModel construction must remain safe while the auth screen is active or a token is
-    // being restored. Firestore observer APIs intentionally fail fast for unauthenticated or
-    // cross-user access, so only construct those observers for the current authenticated owner.
-    private val hasAuthenticatedOwner = runCatching {
-        Firebase.auth.currentUser?.uid == currentUserId
-    }.getOrDefault(false)
-
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
     private val _isRestoringSession = MutableStateFlow(true)
     private val _activeSessionId = MutableStateFlow("")
@@ -81,6 +77,12 @@ class ZaytharViewModel(
 
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 12)
     val toastEvents = _toastEvents.asSharedFlow()
+
+    private val _attachedChatImage = MutableStateFlow<Bitmap?>(null)
+    val attachedChatImage: StateFlow<Bitmap?> = _attachedChatImage.asStateFlow()
+
+    private val _thoughtTraces = MutableStateFlow<Map<String, String>>(emptyMap())
+    val thoughtTraces: StateFlow<Map<String, String>> = _thoughtTraces.asStateFlow()
 
     private var chatJob: Job? = null
 
@@ -97,29 +99,34 @@ class ZaytharViewModel(
         guestStore = guestStore
     )
 
+    private val replyRunner = ChatReplyRunner(
+        aiRepo = aiRepo,
+        workspaceStore = workspaceStore,
+        prefsRepo = prefsRepo,
+        ttsSpeaker = ttsSpeaker,
+        currentUserId = currentUserId,
+        guestStore = guestStore,
+        activeSessionIdFlow = _activeSessionId,
+        chatUiStateFlow = _chatUiState,
+        thoughtTracesFlow = _thoughtTraces,
+        onToast = ::emitToast
+    )
+
     val preferences: StateFlow<ZaytharPreferences> = prefsRepo.preferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), ZaytharPreferences())
 
     val userProfileState: StateFlow<UiState<UserProfileDoc?>> = (
-        when {
-            guestStore != null -> guestStore.userProfile
-            hasAuthenticatedOwner -> firestoreRepo.observeUserProfile(currentUserId)
-            else -> flowOf(null)
-        }
+        guestStore?.userProfile ?: firestoreRepo.observeUserProfile(currentUserId)
     ).map<UserProfileDoc?, UiState<UserProfileDoc?>> { UiState.Success(it) }
         .catch { error ->
             val rootError = unwrapFirestoreErrorOrRethrow(error)
-            Log.w(TAG, "Error observing user profile (${rootError.javaClass.simpleName}).")
-            emit(UiState.Error("User profile is temporarily unavailable."))
+            Log.w(TAG, "Error observing user profile", rootError)
+            emit(UiState.Error(rootError.message ?: "Failed to load user profile"))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val chatSessionsState: StateFlow<UiState<List<FirestoreChatSession>>> = (
-        when {
-            guestStore != null -> guestStore.chatSessions
-            hasAuthenticatedOwner -> workspaceStore.observeChatSessions(currentUserId)
-            else -> flowOf(emptyList())
-        }
+        guestStore?.chatSessions ?: workspaceStore.observeChatSessions(currentUserId)
     ).map<List<FirestoreChatSession>, UiState<List<FirestoreChatSession>>> { sessions ->
         if (!_isRestoringSession.value && sessions.isNotEmpty() && _activeSessionId.value.isBlank()) {
             _activeSessionId.value = sessions.first().id
@@ -127,8 +134,8 @@ class ZaytharViewModel(
         UiState.Success(sessions)
     }.catch { error ->
         val rootError = unwrapFirestoreErrorOrRethrow(error)
-        Log.w(TAG, "Error observing chat sessions (${rootError.javaClass.simpleName}).")
-        emit(UiState.Error("Chat threads are temporarily unavailable."))
+        Log.w(TAG, "Error observing chat sessions", rootError)
+        emit(UiState.Error(rootError.message ?: "Failed to load chat threads"))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val sessionMessagesState: StateFlow<UiState<List<FirestoreSessionMessage>>> = _activeSessionId
@@ -136,27 +143,20 @@ class ZaytharViewModel(
             if (sessionId.isBlank()) {
                 flowOf<UiState<List<FirestoreSessionMessage>>>(UiState.Loading)
             } else {
-                val flow = when {
-                    guestStore != null -> guestStore.observeSessionMessages(sessionId)
-                    hasAuthenticatedOwner -> workspaceStore.observeSessionMessages(currentUserId, sessionId)
-                    else -> flowOf(emptyList())
-                }
+                val flow = guestStore?.observeSessionMessages(sessionId)
+                    ?: workspaceStore.observeSessionMessages(currentUserId, sessionId)
                 flow.map<List<FirestoreSessionMessage>, UiState<List<FirestoreSessionMessage>>> { UiState.Success(it) }
                     .catch { error ->
                         val rootError = unwrapFirestoreErrorOrRethrow(error)
-                        Log.w(TAG, "Error observing session messages (${rootError.javaClass.simpleName}).")
-                        emit(UiState.Error("Session history is temporarily unavailable."))
+                        Log.w(TAG, "Error observing session messages", rootError)
+                        emit(UiState.Error(rootError.message ?: "Failed to load session history"))
                     }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val activePluginsFlow: StateFlow<List<FirestorePluginConfig>> = (
-        when {
-            guestStore != null -> guestStore.plugins
-            hasAuthenticatedOwner -> workspaceStore.observePlugins(currentUserId)
-            else -> flowOf(emptyList())
-        }
+        guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
     ).catch { error ->
         unwrapFirestoreErrorOrRethrow(error)
         emit(emptyList())
@@ -194,7 +194,7 @@ class ZaytharViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Deferred startup sync failed (${e.javaClass.simpleName}).")
+                Log.w(TAG, "Deferred startup sync error", e)
                 _isRestoringSession.value = false
             }
         }
@@ -208,8 +208,13 @@ class ZaytharViewModel(
         }
     }
 
-    private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable =
-        unwrapFirestoreUiError(error)
+    private fun unwrapFirestoreErrorOrRethrow(error: Throwable): Throwable {
+        val firestoreError = generateSequence(error) { it.cause }
+            .filterIsInstance<FirebaseFirestoreException>()
+            .firstOrNull()
+        if (firestoreError == null && error is CancellationException) throw error
+        return firestoreError ?: error
+    }
 
     private fun formatCurrentTime(): String =
         LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
@@ -275,7 +280,25 @@ class ZaytharViewModel(
         }
     }
 
+    fun speakMessage(rawText: String) {
+        val cleaned = ZaytharSystemPrompts.stripMarkdownForSpeech(rawText)
+        if (cleaned.isNotBlank()) {
+            ttsSpeaker.speak(cleaned, preferences.value.languageCode)
+        }
+    }
+
     fun stopSpeaking() = ttsSpeaker.stop()
+
+    fun toggleThinkingEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            prefsRepo.update { it.copy(thinkingEnabled = enabled) }
+            emitToast(if (enabled) "Deep Thinking Mode ON." else "Deep Thinking Mode OFF.")
+        }
+    }
+
+    fun attachChatImage(bitmap: Bitmap?) {
+        _attachedChatImage.value = bitmap
+    }
 
     fun toggleWebConnect(enabled: Boolean) {
         viewModelScope.launch {
@@ -302,7 +325,7 @@ class ZaytharViewModel(
                 val result = firestoreRepo.updateOperatorName(cleaned)
                 emitToast(
                     if (result.isSuccess) "Operator profile synced to Cloud Firestore."
-                    else "Could not sync profile to cloud. Please try again."
+                    else "Could not sync profile to cloud: ${result.exceptionOrNull()?.localizedMessage ?: "error"}"
                 )
             }
         }
@@ -348,7 +371,10 @@ class ZaytharViewModel(
     }
 
     fun sendChatMessage(rawText: String = _composerInput.value) {
-        val text = rawText.trim()
+        val imageToSend = _attachedChatImage.value
+        val text = rawText.trim().ifEmpty {
+            if (imageToSend != null) "Analyze and explain this image clearly." else ""
+        }
         if (text.isEmpty() || _chatUiState.value is UiState.Loading || _chatUiState.value is UiState.Streaming) {
             return
         }
@@ -358,103 +384,18 @@ class ZaytharViewModel(
         }
 
         _composerInput.value = ""
+        _attachedChatImage.value = null
+        val sessionsSnapshot = (chatSessionsState.value as? UiState.Success)?.data.orEmpty()
         chatJob?.cancel()
         chatJob = viewModelScope.launch {
-            val currentPrefs = preferences.value
-            val agent = _activeAgent.value
-            val sessionId = _activeSessionId.value.ifBlank {
-                if (guestStore != null) {
-                    guestStore.ensureDefaultSession().also { _activeSessionId.value = it }
-                } else {
-                    workspaceStore.ensureDefaultSession().getOrNull().orEmpty().also {
-                        _activeSessionId.value = it
-                        prefsRepo.setLastActiveSession(currentUserId, it)
-                    }
-                }
-            }
-            if (sessionId.isBlank()) {
-                val msg = "Unable to initialize chat session."
-                _chatUiState.value = UiState.Error(msg)
-                emitToast(msg)
-                return@launch
-            }
-
-            val historySnapshot = guestStore?.getRecentSessionMessages(sessionId)
-                ?: workspaceStore.getRecentSessionMessages(sessionId)
-            val sessions = (chatSessionsState.value as? UiState.Success)?.data.orEmpty()
-            val activeSession = sessions.find { it.id == sessionId }
-            val autoTitle = if (activeSession != null && activeSession.messageCount == 0L &&
-                (activeSession.title == "Primary Nexus" || activeSession.title == "New Nexus Thread")
-            ) text else null
-
-            val userMsgRes = guestStore?.addSessionMessage(
-                sessionId = sessionId, role = "user", text = text, agent = agent.id, autoTitleFromFirstPrompt = autoTitle
-            ) ?: workspaceStore.addSessionMessage(
-                sessionId = sessionId, role = "user", text = text, agent = agent.id, autoTitleFromFirstPrompt = autoTitle
+            replyRunner.execute(
+                text = text,
+                attachedImage = imageToSend,
+                agent = _activeAgent.value,
+                currentPrefs = preferences.value,
+                sessions = sessionsSnapshot,
+                activePlugins = activePluginsFlow.value
             )
-            if (userMsgRes.isFailure) {
-                val msg = "Failed to save message. Please try again."
-                _chatUiState.value = UiState.Error(msg)
-                emitToast(msg)
-                return@launch
-            }
-
-            _chatUiState.value = UiState.Loading
-            try {
-                var finalReply = ""
-                var modelUsed = ""
-                var webSources: List<String> = emptyList()
-                var webSourceTitles: List<String> = emptyList()
-                var searchQueries: List<String> = emptyList()
-                var searchEntryPointHtml = ""
-                aiRepo.streamChatReply(
-                    message = text,
-                    agent = agent,
-                    prefs = currentPrefs,
-                    recentHistory = historySnapshot,
-                    activePlugins = activePluginsFlow.value,
-                    webConnectEnabled = currentPrefs.webConnectEnabled,
-                    mapsGroundingEnabled = currentPrefs.mapsGroundingEnabled
-                ).collect { event ->
-                    when (event) {
-                        is ChatStreamEvent.Chunk -> _chatUiState.value = UiState.Streaming(
-                            event.accumulatedText, event.searchQueries, event.webSources
-                        )
-                        is ChatStreamEvent.Completed -> {
-                            finalReply = event.finalText
-                            modelUsed = event.modelLabel
-                            webSources = event.webSources
-                            webSourceTitles = event.webSourceTitles
-                            searchQueries = event.searchQueries
-                            searchEntryPointHtml = event.searchEntryPointHtml
-                        }
-                    }
-                }
-                if (finalReply.isNotBlank()) {
-                    val saveReply = guestStore?.addSessionMessage(
-                        sessionId, "assistant", finalReply, agent.id, modelUsed,
-                        false, webSources, webSourceTitles, searchQueries, searchEntryPointHtml
-                    ) ?: workspaceStore.addSessionMessage(
-                        sessionId, "assistant", finalReply, agent.id, modelUsed,
-                        false, webSources, webSourceTitles, searchQueries, searchEntryPointHtml
-                    )
-                    if (saveReply.isFailure) emitToast("Reply generated, but failed to sync to Firestore.")
-                    _chatUiState.value = UiState.Success(finalReply)
-                    if (currentPrefs.speakReplies) ttsSpeaker.speak(finalReply, currentPrefs.languageCode)
-                }
-            } catch (e: TimeoutCancellationException) {
-                Log.w(TAG, "Chat timed out.")
-                val msg = "Generation timed out after 60 seconds. Check network connectivity and try again."
-                _chatUiState.value = UiState.Error(msg)
-                emitToast(msg)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Chat generation failed (${e.javaClass.simpleName}).")
-                val msg = "AI service failed to respond. Check Firebase AI Logic & App Check."
-                _chatUiState.value = UiState.Error(msg)
-                emitToast(msg)
-            }
         }
     }
 
@@ -488,7 +429,15 @@ class ZaytharViewModel(
             prefsRepo: PreferencesRepository,
             currentUserId: String,
             guestStore: GuestWorkspaceStore? = null
-        ): ViewModelProvider.Factory =
-            createZaytharViewModelFactory(application, prefsRepo, currentUserId, guestStore)
+        ): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val db = FirebaseFirestore.getInstance(application.getString(R.string.firestore_database_id))
+                val firebaseReady = runCatching { FirebaseApp.getApps(application).isNotEmpty() }.getOrDefault(false)
+                ZaytharViewModel(
+                    FirestoreRepository(db), FirestoreSessionAndBrainStore(db), prefsRepo,
+                    AndroidTtsSpeaker(application), currentUserId, firebaseReady, guestStore
+                )
+            }
+        }
     }
 }

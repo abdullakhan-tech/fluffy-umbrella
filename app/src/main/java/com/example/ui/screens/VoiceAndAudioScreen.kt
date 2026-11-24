@@ -6,8 +6,11 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -19,11 +22,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -49,11 +58,9 @@ import com.example.domain.UiState
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
-import com.example.ui.components.CyberIconBadge
 import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
-import com.example.ui.components.NeuralCoreVisualizer
-import com.example.ui.components.OrbState
+import com.example.ui.components.ZaytharSpiralEmblem
 import com.example.ui.theme.LocalCyberColors
 import java.util.Locale
 
@@ -253,30 +260,62 @@ private fun LiveVoiceCard(
             }
         )
 
-        val liveOrbState = when (liveStatus) {
-            LiveVoiceStatus.ACTIVE -> OrbState.LISTENING
-            LiveVoiceStatus.CONNECTING -> OrbState.PROCESSING
-            LiveVoiceStatus.ERROR -> OrbState.ERROR
-            LiveVoiceStatus.IDLE, LiveVoiceStatus.STOPPING -> OrbState.IDLE
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            NeuralCoreVisualizer(
-                size = 56.dp,
-                motionEnabled = isLive,
-                coreLabel = if (isLive) "LIVE" else "VOX",
-                orbState = liveOrbState,
-                audioLevel = if (liveStatus == LiveVoiceStatus.ACTIVE) 0.65f else 0f
+            Box(
+                modifier = Modifier
+                    .size(116.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                (if (isLive) cyber.cyberGreen else cyber.accent).copy(alpha = 0.34f),
+                                cyber.accent.copy(alpha = 0.12f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+                    .border(
+                        width = 1.5.dp,
+                        color = if (isLive) cyber.cyberGreen else cyber.accent.copy(alpha = 0.65f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                ZaytharSpiralEmblem(size = 76.dp)
+            }
+            Text(
+                text = when (liveStatus) {
+                    LiveVoiceStatus.ACTIVE -> "Listening..."
+                    LiveVoiceStatus.CONNECTING -> "Connecting Voice Orb..."
+                    else -> "Voice Chat Ready"
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isLive) cyber.cyberGreen else MaterialTheme.colorScheme.onSurface
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Real-Time Voice Conversations", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    text = "Two-way streaming speech with natural interruptions & live captions.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Text(
+                text = if (isLive) "Tap below to stop · Interrupt naturally anytime" else "Two-way real-time speech with Gemini 3.8 Live",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(8, 16, 12, 24, 18, 28, 16, 22, 10, 18, 8).forEach { barHeight ->
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .height(barHeight.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (isLive) cyber.cyberGreen else cyber.accentSoft.copy(alpha = 0.72f))
+                    )
+                }
             }
         }
 

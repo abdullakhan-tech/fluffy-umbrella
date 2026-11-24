@@ -65,7 +65,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 @Composable
-fun ZaytharHexEmblem(
+fun ZaytharSpiralEmblem(
     modifier: Modifier = Modifier,
     size: Dp = 40.dp
 ) {
@@ -79,64 +79,77 @@ fun ZaytharHexEmblem(
         val h = this.size.height
         val cx = w / 2f
         val cy = h / 2f
-        val outerR = (minOf(w, h) * 0.45f).coerceAtLeast(1f)
-        val innerR = outerR * 0.78f
+        val radius = (minOf(w, h) * 0.48f).coerceAtLeast(1f)
 
-        fun hexPath(radius: Float): Path {
-            val path = Path()
-            for (i in 0 until 6) {
-                val angle = (PI / 3.0) * i - (PI / 2.0)
-                val px = cx + radius * cos(angle).toFloat()
-                val py = cy + radius * sin(angle).toFloat()
-                if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
-            }
-            path.close()
-            return path
-        }
-
-        val outerHex = hexPath(outerR)
-        drawPath(
-            path = outerHex,
+        drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(primary.copy(alpha = 0.42f), panel),
+                colors = listOf(primary.copy(alpha = 0.42f), primary.copy(alpha = 0.14f), Color.Transparent),
                 center = Offset(cx, cy),
-                radius = outerR
-            )
+                radius = radius
+            ),
+            radius = radius,
+            center = Offset(cx, cy)
         )
-        drawPath(
-            path = outerHex,
-            color = primary,
-            style = Stroke(width = (w * 0.055f).coerceAtLeast(1.5f), join = StrokeJoin.Round)
+        drawCircle(
+            color = panel,
+            radius = radius * 0.86f,
+            center = Offset(cx, cy)
         )
-        drawPath(
-            path = hexPath(innerR),
-            color = glow.copy(alpha = 0.55f),
-            style = Stroke(width = (w * 0.025f).coerceAtLeast(1f), join = StrokeJoin.Round)
+        drawCircle(
+            color = primary.copy(alpha = 0.65f),
+            radius = radius * 0.86f,
+            center = Offset(cx, cy),
+            style = Stroke(width = (w * 0.035f).coerceAtLeast(1.2f))
         )
 
-        // Geometric "Z" neural bolt
-        val zx = outerR * 0.40f
-        val zy = outerR * 0.42f
-        val zPath = Path().apply {
-            moveTo(cx - zx, cy - zy)
-            lineTo(cx + zx, cy - zy)
-            lineTo(cx - zx * 0.85f, cy + zy)
-            lineTo(cx + zx, cy + zy)
-        }
-        drawPath(
-            path = zPath,
-            color = Color.White,
-            style = Stroke(
-                width = (w * 0.11f).coerceAtLeast(2.2f),
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
+        val blades = 7
+        val strokeW = (w * 0.075f).coerceAtLeast(2f)
+        for (i in 0 until blades) {
+            val baseAngle = (2.0 * PI / blades) * i
+            val startR = radius * 0.14f
+            val midR = radius * 0.50f
+            val endR = radius * 0.78f
+            val sx = cx + startR * cos(baseAngle).toFloat()
+            val sy = cy + startR * sin(baseAngle).toFloat()
+            val mx = cx + midR * cos(baseAngle + 0.58).toFloat()
+            val my = cy + midR * sin(baseAngle + 0.58).toFloat()
+            val ex = cx + endR * cos(baseAngle + 1.15).toFloat()
+            val ey = cy + endR * sin(baseAngle + 1.15).toFloat()
+            val bladePath = Path().apply {
+                moveTo(sx, sy)
+                quadraticTo(mx, my, ex, ey)
+            }
+            drawPath(
+                path = bladePath,
+                brush = Brush.linearGradient(
+                    colors = listOf(glow, primary),
+                    start = Offset(sx, sy),
+                    end = Offset(ex, ey)
+                ),
+                style = Stroke(width = strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round)
             )
+        }
+
+        drawCircle(
+            color = panel,
+            radius = radius * 0.18f,
+            center = Offset(cx, cy)
         )
-        // Neural terminal nodes on Z ends
-        val nodeRadius = (w * 0.055f).coerceAtLeast(1.5f)
-        drawCircle(color = glow, radius = nodeRadius, center = Offset(cx - zx, cy - zy))
-        drawCircle(color = glow, radius = nodeRadius, center = Offset(cx + zx, cy + zy))
+        drawCircle(
+            color = glow,
+            radius = radius * 0.14f,
+            center = Offset(cx, cy),
+            style = Stroke(width = (w * 0.03f).coerceAtLeast(1f))
+        )
     }
+}
+
+@Composable
+fun ZaytharHexEmblem(
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp
+) {
+    ZaytharSpiralEmblem(modifier = modifier, size = size)
 }
 
 @Composable

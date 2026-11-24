@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -23,6 +24,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,9 +44,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -47,6 +56,7 @@ import com.example.data.local.ZaytharPreferences
 import com.example.data.remote.FirestoreChatSession
 import com.example.data.remote.FirestoreSessionMessage
 import com.example.domain.AgentRole
+import com.example.domain.ProviderRoute
 import com.example.domain.SupportedLanguage
 import com.example.domain.UiState
 import com.example.ui.components.CyberCard
@@ -87,6 +97,15 @@ fun AssistantScreen(
     onSelectLanguage: (SupportedLanguage) -> Unit,
     onToggleSpeakReplies: (Boolean) -> Unit,
     onSelectThemeMode: (ThemeMode) -> Unit = {},
+    thoughtTraces: Map<String, String> = emptyMap(),
+    attachedImage: Bitmap? = null,
+    onAttachImage: (Bitmap?) -> Unit = {},
+    onToggleThinking: (Boolean) -> Unit = {},
+    onSpeakMessage: ((String) -> Unit)? = null,
+    onSelectProviderRoute: (ProviderRoute) -> Unit = {},
+    onOpenModelMatrix: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
+    onNavigate: (String) -> Unit = {},
     onToast: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -96,6 +115,9 @@ fun AssistantScreen(
     var langMenuExpanded by remember { mutableStateOf(false) }
     var agentMenuExpanded by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
+    var showModelSheet by remember { mutableStateOf(false) }
+    var showToolsSheet by remember { mutableStateOf(false) }
+    val currentRoute = ProviderRoute.fromId(prefs.selectedProviderRoute)
 
     val isBusy = chatUiState is UiState.Loading || chatUiState is UiState.Streaming
     val messages = (messagesState as? UiState.Success)?.data ?: emptyList()
@@ -229,6 +251,11 @@ fun AssistantScreen(
                         }
                     },
                     onSelectThemeMode = onSelectThemeMode,
+                    thoughtTraces = thoughtTraces,
+                    attachedImage = attachedImage,
+                    onAttachImage = onAttachImage,
+                    onToggleThinking = onToggleThinking,
+                    onSpeakMessage = onSpeakMessage,
                     onToast = onToast
                 )
             }
@@ -243,6 +270,49 @@ fun AssistantScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.weight(1f).minimumInteractiveComponentSize().clickable { showModelSheet = true }.testTag("chat_model_selector_chip"),
+                                shape = MaterialTheme.shapes.small,
+                                color = cyber.panelElevated,
+                                border = BorderStroke(1.dp, cyber.accent.copy(alpha = 0.55f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Rounded.AutoAwesome, null, tint = cyber.accentSoft)
+                                    Text(currentRoute.title, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                    Icon(Icons.Rounded.ExpandMore, "Select AI model", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.minimumInteractiveComponentSize().clickable { showToolsSheet = true }.testTag("chat_tools_button"),
+                                shape = MaterialTheme.shapes.small,
+                                color = cyber.panelElevated,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                            ) {
+                                Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Icon(Icons.Rounded.GridView, "Open AI tools", tint = cyber.accentSoft)
+                                    Text("Tools", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.minimumInteractiveComponentSize().clickable(onClick = onOpenSearch).testTag("chat_search_button"),
+                                shape = MaterialTheme.shapes.small,
+                                color = cyber.panelElevated,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                            ) {
+                                Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.Search, "Search Zaythar", tint = MaterialTheme.colorScheme.onSurface)
+                                }
+                            }
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -285,6 +355,7 @@ fun AssistantScreen(
                         ) {
                             listOf(
                                 "Explain a complex topic",
+                                "Help me solve a tough problem",
                                 "Write a Kotlin coroutine",
                                 "100 km to mi"
                             ).forEach { suggestion ->
@@ -348,6 +419,11 @@ fun AssistantScreen(
                         }
                     },
                     onSelectThemeMode = onSelectThemeMode,
+                    thoughtTraces = thoughtTraces,
+                    attachedImage = attachedImage,
+                    onAttachImage = onAttachImage,
+                    onToggleThinking = onToggleThinking,
+                    onSpeakMessage = onSpeakMessage,
                     onToast = onToast
                 )
             }
@@ -363,6 +439,22 @@ fun AssistantScreen(
             onRenameSession = onRenameSession,
             onDeleteSession = onDeleteSession,
             onDismiss = { showHistorySheet = false }
+        )
+    }
+    if (showModelSheet) {
+        ModelSelectorSheet(
+            currentRoute = currentRoute,
+            onSelectRoute = onSelectProviderRoute,
+            onOpenModelMatrix = onOpenModelMatrix,
+            onDismiss = { showModelSheet = false }
+        )
+    }
+    if (showToolsSheet) {
+        ToolsHubSheet(
+            webConnectEnabled = prefs.webConnectEnabled,
+            onToggleWebConnect = { onToggleWebConnect(!prefs.webConnectEnabled) },
+            onNavigate = onNavigate,
+            onDismiss = { showToolsSheet = false }
         )
     }
 }
@@ -420,6 +512,7 @@ private fun AssistantOrbCard(
             Spacer(modifier = Modifier.height(6.dp))
             listOf(
                 "Explain a complex topic",
+                "Help me solve a tough problem",
                 "Write a Kotlin coroutine",
                 "100 km to mi"
             ).forEach { prompt ->

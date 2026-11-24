@@ -48,6 +48,8 @@ data class ZaytharPreferences(
     val selectedProviderRoute: String = "hybrid",
     val languageCode: String = "en-US",
     val speakReplies: Boolean = false,
+    val thinkingEnabled: Boolean = true,
+    val autoMirrorLanguage: Boolean = true,
     val webConnectEnabled: Boolean = true,
     val mapsGroundingEnabled: Boolean = false,
     val operatorName: String = "OPERATOR 01",
@@ -83,6 +85,8 @@ class PreferencesRepository(private val context: Context) {
         val PROVIDER_ROUTE = stringPreferencesKey("provider_route")
         val LANGUAGE_CODE = stringPreferencesKey("language_code")
         val SPEAK_REPLIES = booleanPreferencesKey("speak_replies")
+        val THINKING_ENABLED = booleanPreferencesKey("thinking_enabled")
+        val AUTO_MIRROR_LANGUAGE = booleanPreferencesKey("auto_mirror_language")
         val WEB_CONNECT = booleanPreferencesKey("web_connect")
         val MAPS_GROUNDING = booleanPreferencesKey("maps_grounding")
         val OPERATOR_NAME = stringPreferencesKey("operator_name")
@@ -123,6 +127,8 @@ class PreferencesRepository(private val context: Context) {
             selectedProviderRoute = prefs[Keys.PROVIDER_ROUTE] ?: "hybrid",
             languageCode = prefs[Keys.LANGUAGE_CODE] ?: "en-US",
             speakReplies = prefs[Keys.SPEAK_REPLIES] ?: false,
+            thinkingEnabled = prefs[Keys.THINKING_ENABLED] ?: true,
+            autoMirrorLanguage = prefs[Keys.AUTO_MIRROR_LANGUAGE] ?: true,
             webConnectEnabled = prefs[Keys.WEB_CONNECT] ?: true,
             mapsGroundingEnabled = prefs[Keys.MAPS_GROUNDING] ?: false,
             operatorName = prefs[Keys.OPERATOR_NAME] ?: "OPERATOR 01",
@@ -182,6 +188,8 @@ class PreferencesRepository(private val context: Context) {
                 prefs[Keys.PROVIDER_ROUTE] = next.selectedProviderRoute
                 prefs[Keys.LANGUAGE_CODE] = next.languageCode
                 prefs[Keys.SPEAK_REPLIES] = next.speakReplies
+                prefs[Keys.THINKING_ENABLED] = next.thinkingEnabled
+                prefs[Keys.AUTO_MIRROR_LANGUAGE] = next.autoMirrorLanguage
                 prefs[Keys.WEB_CONNECT] = next.webConnectEnabled
                 prefs[Keys.MAPS_GROUNDING] = next.mapsGroundingEnabled
                 prefs[Keys.OPERATOR_NAME] = next.operatorName
