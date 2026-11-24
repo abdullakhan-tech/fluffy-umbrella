@@ -267,14 +267,14 @@ fun AssistantScreen(
                                     color = headerColor
                                 )
                                 Text(
-                                    text = buildAnnotatedString {
-                                        append("Your AI. ")
-                                        withStyle(SpanStyle(color = cyber.accentSoft)) {
-                                            append("At your command.")
-                                        }
-                                    },
+                                    text = "Hello, I'm Zaythar AI",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "How can I help you today?",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
