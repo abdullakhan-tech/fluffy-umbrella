@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -84,13 +85,12 @@ class ChatGroundingAndMarkdownUiTest {
         composeRule.waitForIdle()
 
         // Assert the actual Markdown host node and its complete accessible text summary.
-        composeRule.onNodeWithTag("markdown_content_a_md")
-            .assertIsDisplayed()
-            .assertContentDescriptionContains("Architecture Overview")
-            .assertContentDescriptionContains("Zero-Trust Sync")
-            .assertContentDescriptionContains("Validate UID ownership")
-            .assertContentDescriptionContains("Initialize App Check")
-            .assertContentDescriptionContains("fun greet() = \"Zaythar\"")
+        composeRule.onNodeWithTag("markdown_content_a_md").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Architecture Overview", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Zero-Trust Sync", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Validate UID ownership", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Initialize App Check", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("fun greet() = \"Zaythar\"", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Show **raw** markdown").assertIsDisplayed()
 
         themeMode = ThemeMode.LIGHT
