@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import android.content.Intent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -14,8 +16,9 @@ import com.mikepenz.markdown.m3.Markdown
 /**
  * Renders formatted Markdown for AI assistant message bubbles.
  *
- * Uses the renderer's version-compatible Material 3 defaults while
- * enforcing safe external-link handling for assistant-provided content.
+ * Keeps the caller's layout and test semantics on a stable Compose
+ * container rather than relying on the Markdown renderer to forward them.
+ * External links are restricted to HTTP(S).
  */
 @Composable
 internal fun AiMarkdownContent(
@@ -48,9 +51,11 @@ internal fun AiMarkdownContent(
     }
 
     CompositionLocalProvider(LocalUriHandler provides safeUriHandler) {
-        Markdown(
-            content = markdown,
-            modifier = modifier
-        )
+        Box(modifier = modifier) {
+            Markdown(
+                content = markdown,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
