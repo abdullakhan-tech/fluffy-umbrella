@@ -3,6 +3,7 @@ package com.example.ui.auth
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,6 +75,8 @@ import kotlinx.coroutines.withContext
 
 private const val TAG = "Auth"
 
+// Google Services generates this optional resource only when OAuth is configured.
+@SuppressLint("DiscouragedApi")
 private fun defaultWebClientId(context: Context): String? {
     val resourceId = context.resources.getIdentifier(
         "default_web_client_id",
