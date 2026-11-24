@@ -309,3 +309,29 @@ def test_agent_task_deep_research(client):
     assert data["tool_used"] == "deep_research"
     assert data["tool_result"]["success"] is True
     assert "research_plan" in data["tool_result"]
+
+
+def test_chat_response_contract_for_web_and_android_clients(client):
+    """Both clients rely on the documented ChatResponse fields."""
+    response = client.post(
+        "/api/v1/chat",
+        json={"messages": [{"role": "user", "content": "Contract check"}], "persona": "zaythar"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data.get("reply"), str) and data["reply"]
+    assert data.get("status") == "success"
+    assert data.get("provider_used")
+    assert data.get("model_used")
+
+
+def test_agent_task_contract_for_web_code_review(client):
+    """The browser code-review action must receive the summary field it renders."""
+    response = client.post(
+        "/api/v1/agent/task",
+        json={"task": "Review code", "context": "def add(a, b): return a + b", "tool_hint": "code_inspect"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("status") == "completed"
+    assert isinstance(data.get("summary"), str) and data["summary"]
