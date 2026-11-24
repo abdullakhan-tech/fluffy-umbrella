@@ -16,7 +16,7 @@ if (!googleServicesJson.exists() && googleServicesExample.exists()) {
 
 android {
     namespace = "com.example"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.aistudio.zaythar.zxtmkr"
