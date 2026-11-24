@@ -235,6 +235,12 @@ fun SettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
+                    text = "Selected: " + (AccentSwatches.firstOrNull { it.first == prefs.accentHex }?.second ?: "Custom"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cyber.accentSoft
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
                     text = "Select an accent color to personalize the command interface.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
