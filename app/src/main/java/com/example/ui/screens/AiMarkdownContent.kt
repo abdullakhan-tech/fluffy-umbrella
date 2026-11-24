@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.core.net.toUri
 import com.mikepenz.markdown.m3.Markdown
 
@@ -51,7 +53,7 @@ internal fun AiMarkdownContent(
     }
 
     CompositionLocalProvider(LocalUriHandler provides safeUriHandler) {
-        Box(modifier = modifier) {
+        Box(modifier = modifier.semantics { contentDescription = listOf(markdown.toAccessibleMarkdownText()) }) {
             Markdown(
                 content = markdown,
                 modifier = Modifier.fillMaxWidth()
@@ -59,3 +61,14 @@ internal fun AiMarkdownContent(
         }
     }
 }
+
+
+private fun String.toAccessibleMarkdownText(): String = lines().map { line ->
+    line.trim()
+        .replace(Regex("^#{1,6}\\s*"), "")
+        .replace(Regex("^[-*+]\\s+"), "")
+        .replace(Regex("^\\d+[.)]\\s+"), "")
+        .replace(Regex("^```[a-zA-Z0-9_-]*$"), "")
+        .replace(Regex("`([^`]+)`"), "$1")
+        .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")
+}.filter { it.isNotBlank() }.joinToString(" ").replace(Regex("\\s+"), " ").trim()
