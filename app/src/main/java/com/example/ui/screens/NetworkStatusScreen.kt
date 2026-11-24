@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.material3.Icon
 import com.example.data.remote.NetworkMonitor
 import com.example.data.remote.NetworkSnapshot
+import java.util.Locale
 
 @Composable
 fun NetworkStatusScreen() {
@@ -118,7 +119,7 @@ private fun NetworkMetricCard(snapshot: NetworkSnapshot) {
 
 private fun formatBandwidth(kbps: Int): String = when {
     kbps <= 0 -> "Unavailable"
-    kbps >= 1_000 -> String.format("%.1f Mbps", kbps / 1_000f)
+    kbps >= 1_000 -> String.format(Locale.ROOT, "%.1f Mbps", kbps / 1_000f)
     else -> "$kbps Kbps"
 }
 
