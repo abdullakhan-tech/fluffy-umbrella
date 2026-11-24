@@ -101,6 +101,18 @@ async def health():
     )
 
 
+
+
+@app.get("/api/v1/models", summary="List configured AI provider routes and their default models")
+async def list_models():
+    """Expose only provider routes supported by this backend; never advertise unintegrated model brands."""
+    providers = [
+        {"id": "openai", "name": "OpenAI", "configured": bool(settings.openai_api_key.strip()), "default_model": "gpt-4o-mini"},
+        {"id": "gemini", "name": "Google Gemini", "configured": bool(settings.gemini_api_key.strip()), "default_model": "gemini-1.5-flash"},
+        {"id": "ollama", "name": "Ollama", "configured": bool(settings.ollama_base_url.strip()), "default_model": "llama3"},
+    ]
+    return {"providers": providers, "selection": "auto", "note": "Model availability depends on server credentials and provider configuration."}
+
 @app.get("/api/v1/status", response_model=HealthResponse, summary="API v1 Status")
 async def api_status():
     return HealthResponse(
