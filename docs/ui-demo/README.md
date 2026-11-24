@@ -1,6 +1,18 @@
 # Zaythar AI — UI Demo Reference
 
 > Status: **DEMO / DESIGN REFERENCE ONLY**. This document records the two user-supplied UI concepts. It does not claim that the production UI has been implemented or that any feature shown here is working.
+>
+> **Image note:** The SVGs below are clearly labeled illustrative placeholders created for repository preview. They are NOT the original screenshots supplied in chat.
+
+## Demo image previews
+
+### Desktop settings concept
+
+![Illustrative Zaythar AI desktop settings mockup](images/zaythar-ai-desktop-settings.svg)
+
+### Responsive screens concept
+
+![Illustrative Zaythar AI responsive screens mockup](images/zaythar-ai-responsive-screens.svg)
 
 ## Reference A — Desktop workspace with settings and model picker
 
