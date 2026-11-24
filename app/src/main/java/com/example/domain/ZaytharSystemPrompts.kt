@@ -179,6 +179,7 @@ internal object ZaytharSystemPrompts {
         ProviderRoute.CARBON -> listOf("gemini-4-carbon", "gemini-4-argon", "gemini-3.8-flash", "gemini-3.5-flash-lite")
         ProviderRoute.NEON -> listOf("gemini-4-neon", "gemini-3.8-flash", "gemini-3.5-flash-lite")
         ProviderRoute.FLASH_LITE_31 -> listOf("gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash")
+        ProviderRoute.PYTHON_COMPANION -> listOf("companion-server")
     }
 
     fun candidateModelsForWorkspace(routeId: String): List<String> {
