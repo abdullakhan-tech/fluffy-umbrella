@@ -45,6 +45,16 @@ See [the UI artifact and screen map](design/ui-artifacts/README.md) for the exis
 - **Collaboration Nexus & Hybrid RAG Knowledge Base**:
   - Concurrent Multi-Agent runner executing 1–4 specialists in parallel via Kotlin Coroutines (`async` / `awaitAll`) with Lead Coordinator synthesis, plus Hybrid BM25 + Bigram + Graph RAG retrieval.
 
+## Python Development Support
+
+Python is a first-class language in this repository: the Android Code Copilot offers Python (`.py`) as a selectable target, and the FastAPI companion backend is implemented in Python 3.12.
+
+- Backend project metadata and development tooling are defined in [backend/pyproject.toml](backend/pyproject.toml).
+- The supported interpreter version is pinned in `.python-version`.
+- Python CI compiles all backend modules before running the pytest suite.
+- Install backend development tools with `python -m pip install -e ".[dev]"` from the `backend/` directory.
+- Run checks with `python -m compileall -q app tests` and `pytest -v` from `backend/`.
+
 ## Architecture
 
 - **UI**: Jetpack Compose + Material 3 (`Navigation Compose`, adaptive sidebar on tablets / drawer + bottom bar on phones, `Space Grotesk` & `Rajdhani` typography).
