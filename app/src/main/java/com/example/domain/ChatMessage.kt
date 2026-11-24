@@ -1,6 +1,6 @@
 package com.example.domain
 
-import android.net.Uri
+import androidx.core.net.toUri
 import com.example.data.remote.FirestoreSessionMessage
 import java.time.Instant
 import java.time.ZoneId
@@ -20,7 +20,7 @@ data class GroundedWebSource(
     fun displayLabel(): String {
         val cleanTitle = title.trim()
         if (cleanTitle.isNotBlank()) return cleanTitle
-        val host = runCatching { Uri.parse(url).host }.getOrNull()?.trim().orEmpty()
+        val host = runCatching { url.toUri().host }.getOrNull()?.trim().orEmpty()
         return when {
             host.isNotBlank() && !host.equals("vertexaisearch.cloud.google.com", ignoreCase = true) -> host
             host.equals("vertexaisearch.cloud.google.com", ignoreCase = true) -> "Google Search Source"
