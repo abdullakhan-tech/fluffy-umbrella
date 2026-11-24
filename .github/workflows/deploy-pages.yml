@@ -36,6 +36,11 @@ jobs:
           test -s website/index.html
           test -s website/styles.css
           test -s website/script.js
+          test -s website/app.html
+          test -s website/app.css
+          test -s website/app.js
+          node --check website/app.js
+          grep -q '/app.html' website/index.html
           test "$(cat CNAME)" = "zaytharai.com"
           test -s robots.txt
           test -s sitemap.xml
