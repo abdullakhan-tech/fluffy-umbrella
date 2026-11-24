@@ -37,3 +37,8 @@ This document records the supplied Zaythar AI interface references and maps thei
 - [ ] Voice input and speech output tested on supported physical devices.
 - [ ] Android debug/release builds and UI tests pass.
 - [ ] End-to-end tests cover web, backend and Android flows.
+
+
+## Artifact package
+
+See [`ui-artifacts/README.md`](ui-artifacts/README.md) for the canonical source map and [`ui-artifacts/UI_ARTIFACTS_OVERVIEW.md`](ui-artifacts/UI_ARTIFACTS_OVERVIEW.md) for the detailed desktop/mobile screen inventory, feature descriptions, responsive behavior, integration boundaries and acceptance checklist. The package references the original web and Android implementation files; it intentionally does not introduce duplicate UI implementations.
