@@ -1,5 +1,6 @@
 """Test suite for Zaythar AI Companion Backend API."""
 
+import json
 from fastapi.testclient import TestClient
 import pytest
 
@@ -185,3 +186,33 @@ def test_chat_stream_emits_provider_chunks_without_buffering(client, monkeypatch
     assert '"chunk": "first "' in events[0]
     assert '"chunk": "second"' in events[1]
     assert '"done": true' in events[2]
+
+
+def test_chat_stream_ends_with_redacted_error_after_provider_interruption(client, monkeypatch):
+    """A partial provider stream must end with one valid, redacted SSE error event."""
+    from app.services import ai_service as service_module
+
+    monkeypatch.setattr(service_module.settings, "openai_api_key", "test-key")
+
+    async def interrupted_openai_stream(*args, **kwargs):
+        yield "partial answer"
+        raise RuntimeError("provider secret details")
+
+    monkeypatch.setattr(service_module.ai_service, "_stream_openai", interrupted_openai_stream)
+    response = client.post(
+        "/api/v1/chat/stream",
+        json={
+            "messages": [{"role": "user", "content": "Continue safely"}],
+            "provider": "openai",
+        },
+    )
+
+    assert response.status_code == 200
+    frames = [frame for frame in response.text.split("\n\n") if frame.strip()]
+    assert len(frames) == 2
+    events = [json.loads(frame.removeprefix("data:").strip()) for frame in frames]
+    assert events[0]["chunk"] == "partial answer"
+    assert events[0]["done"] is False
+    assert events[1]["done"] is True
+    assert events[1]["error"] == "Provider stream interrupted"
+    assert "provider secret details" not in response.text
