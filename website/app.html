@@ -32,7 +32,7 @@
     <main class="main-area">
       <header class="topbar">
         <button class="icon-btn mobile-menu" id="menuToggle" aria-label="Open menu">☰</button>
-        <div class="top-brand"><span class="brand-mark mini">✺</span><b>Zaythar AI</b><span class="top-divider">/</span><span id="topSection">Chat</span></div>
+        <div class="top-brand"><span class="brand-mark mini">✺</span><b>Zaythar AI</b><label class="model-picker" aria-label="AI provider"><span>Provider</span><select id="modelSelect"><option value="auto">Auto · configured provider</option></select></label><span class="top-divider">/</span><span id="topSection">Chat</span></div>
         <div class="top-actions"><span class="connection" id="connectionState">Backend not checked</span><button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button></div>
       </header>
       <section class="workspace" id="workspace" aria-live="polite"></section>
