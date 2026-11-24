@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: pages
+  group: pages-zaythar-workspace-v2
   cancel-in-progress: true
 
 jobs:
