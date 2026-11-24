@@ -27,6 +27,7 @@ import com.example.domain.UiState
 import com.example.domain.ZaytharSystemPrompts
 import com.example.domain.toChatMessage
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
@@ -65,6 +66,9 @@ class ZaytharViewModel(
     val isSpeaking: StateFlow<Boolean> = ttsSpeaker.isSpeaking
 
     private val aiRepo = AiRepository(firestoreRepo, workspaceStore, guestStore)
+    private val hasAuthenticatedOwner = runCatching {
+        FirebaseAuth.getInstance().currentUser?.uid == currentUserId
+    }.getOrDefault(false)
     private val _isRestoringSession = MutableStateFlow(true)
     private val _activeSessionId = MutableStateFlow("")
     val activeSessionId: StateFlow<String> = _activeSessionId.asStateFlow()
@@ -116,7 +120,11 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), ZaytharPreferences())
 
     val userProfileState: StateFlow<UiState<UserProfileDoc?>> = (
-        guestStore?.userProfile ?: firestoreRepo.observeUserProfile(currentUserId)
+        when {
+            guestStore != null -> guestStore.userProfile
+            hasAuthenticatedOwner -> firestoreRepo.observeUserProfile(currentUserId)
+            else -> flowOf(null)
+        }
     ).map<UserProfileDoc?, UiState<UserProfileDoc?>> { UiState.Success(it) }
         .catch { error ->
             val rootError = unwrapFirestoreErrorOrRethrow(error)
@@ -126,7 +134,11 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val chatSessionsState: StateFlow<UiState<List<FirestoreChatSession>>> = (
-        guestStore?.chatSessions ?: workspaceStore.observeChatSessions(currentUserId)
+        when {
+            guestStore != null -> guestStore.chatSessions
+            hasAuthenticatedOwner -> workspaceStore.observeChatSessions(currentUserId)
+            else -> flowOf(emptyList<FirestoreChatSession>())
+        }
     ).map<List<FirestoreChatSession>, UiState<List<FirestoreChatSession>>> { sessions ->
         if (!_isRestoringSession.value && sessions.isNotEmpty() && _activeSessionId.value.isBlank()) {
             _activeSessionId.value = sessions.first().id
@@ -156,7 +168,11 @@ class ZaytharViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), UiState.Loading)
 
     val activePluginsFlow: StateFlow<List<FirestorePluginConfig>> = (
-        guestStore?.plugins ?: workspaceStore.observePlugins(currentUserId)
+        when {
+            guestStore != null -> guestStore.plugins
+            hasAuthenticatedOwner -> workspaceStore.observePlugins(currentUserId)
+            else -> flowOf(emptyList<FirestorePluginConfig>())
+        }
     ).catch { error ->
         unwrapFirestoreErrorOrRethrow(error)
         emit(emptyList())
@@ -178,7 +194,7 @@ class ZaytharViewModel(
         viewModelScope.launch {
             try {
                 val prefsSnapshot = runCatching { prefsRepo.preferences.first() }.getOrNull()
-                if (guestStore == null) {
+                if (guestStore == null && hasAuthenticatedOwner) {
                     val defaultName = prefsSnapshot?.operatorName ?: "OPERATOR 01"
                     val profileRes = firestoreRepo.ensureUserProfile(defaultName)
                     profileRes.getOrNull()?.let { doc ->
@@ -188,8 +204,10 @@ class ZaytharViewModel(
                     }
                     sessionController.loadSavedSessions(prefsSnapshot)
                     workspaceStore.seedBuiltInPluginsIfMissing()
-                } else {
+                } else if (guestStore != null) {
                     sessionController.loadSavedSessions(prefsSnapshot)
+                } else {
+                    _isRestoringSession.value = false
                 }
             } catch (e: CancellationException) {
                 throw e
