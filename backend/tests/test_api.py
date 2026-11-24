@@ -335,3 +335,12 @@ def test_agent_task_contract_for_web_code_review(client):
     data = response.json()
     assert data.get("status") == "completed"
     assert isinstance(data.get("summary"), str) and data["summary"]
+
+
+def test_models_endpoint(client):
+    response = client.get("/api/v1/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert {p["id"] for p in data["providers"]} == {"openai", "gemini", "ollama"}
+    assert all("configured" in p and "default_model" in p for p in data["providers"])
+    assert "GPT-6" not in str(data)
