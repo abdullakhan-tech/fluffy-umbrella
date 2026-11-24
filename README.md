@@ -2,6 +2,21 @@
 
 A native Android (Kotlin + Jetpack Compose) command center powered by **Google Sign-In + Cloud Firestore** persistence, **Firebase AI Logic** (`gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-4-neon`, `gemini-4-argon`, `gemini-3.8-flash`, `gemini-3.8-live`, `gemini-3.5-transcribe`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, and `gemini-nano-banana-2.1`), **Smart Auto-Router**, **Live Internet & Google Maps Grounding**, **Camera Eyes Vision**, **AI Brain**, and an extensible **Plugin Plug Hub**.
 
+## Original UI reference images
+
+The original screenshots are stored in `public/assets/aistudio/` and are used as the visual reference for the existing responsive web workspace and native Android Compose screens. No replacement screenshots or duplicate app implementation are introduced here.
+
+<details>
+<summary>View the original UI references</summary>
+
+![Original Zaythar AI UI reference A](public/assets/aistudio/file_000000001ce8821197b271341d7b38e6_dc6e9588.png)
+
+![Original Zaythar AI UI reference B](public/assets/aistudio/file_00000000f718821188e48dc2073c5ccf_57cc39c1.jpg)
+
+</details>
+
+See [the UI artifact and screen map](design/ui-artifacts/README.md) for the existing web/Android source files, feature boundaries and verification checklist.
+
 ## Implemented Features
 
 - **Unified Search Hub & Library Vault (`SearchHubScreen`, `LibraryScreen`)**: Search across Cloud Firestore / local chat threads, saved RAG memories, Knowledge Graph triples, specialist agents, and prompt templates (`search` route), and manage conversation threads, memory notes, and personas in a tabbed Library Vault (`library` route).
