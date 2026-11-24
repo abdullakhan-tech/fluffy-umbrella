@@ -168,11 +168,7 @@ class AIService:
                 logger.warning("%s stream failed (redacted): %s", provider, type(exc).__name__)
                 if streamed:
                     # Once bytes have reached the client, never splice in a second model's answer.
-                    payload = json.dumps({
-                        "chunk": "", "provider": provider, "done": True,
-                        "error": "Provider stream interrupted",
-                    })
-                    yield f"data: {payload}\n\n"
+                    yield self._sse("", provider, True, error="Provider stream interrupted")
                     return
 
         fallback = self._local_engine_fallback(
@@ -183,9 +179,11 @@ class AIService:
         yield self._sse("", fallback.provider_used, True)
 
     @staticmethod
-    def _sse(chunk: str, provider: str, done: bool) -> str:
-        payload = json.dumps({"chunk": chunk, "provider": provider, "done": done})
-        return f"data: {payload}\n\n"
+    def _sse(chunk: str, provider: str, done: bool, error: Optional[str] = None) -> str:
+        payload = {"chunk": chunk, "provider": provider, "done": done}
+        if error:
+            payload["error"] = error
+        return f"data: {json.dumps(payload)}\n\n"
 
     async def _stream_openai(
         self, messages: List[ChatMessage], model: str,
