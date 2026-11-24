@@ -4,8 +4,8 @@ const defaults={api:"http://localhost:8000",theme:"dark",accent:"#e11d36",person
 let state=load(),view="chat",currentId=null,tab="general",recognition=null,volatileChats=[];
 function load(){try{return {...defaults,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{return {...defaults}}}
 function persist(){localStorage.setItem(KEY,JSON.stringify(state))}
-function getChats(){return state.chats||[]}
-function saveChats(chats){state.chats=state.saveHistory?chats:[];persist()}
+function getChats(){return state.saveHistory?(state.chats||[]):volatileChats}
+function saveChats(chats){volatileChats=chats;state.chats=state.saveHistory?chats:[];persist()}
 function id(){return "z-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7)}
 function currentChat(){return getChats().find(c=>c.id===currentId)}
 function newChat(){const c={id:id(),title:"New chat",messages:[],updated:Date.now()};saveChats([c,...getChats()]);currentId=c.id;render()}
