@@ -35,7 +35,7 @@ class NetworkMonitor(context: Context) {
     private val appContext = context.applicationContext
     private val connectivity = appContext.getSystemService(ConnectivityManager::class.java)
     private val telephony = appContext.getSystemService(TelephonyManager::class.java)
-    @Volatile private var displayOverrideType: Int = TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
+    @Volatile private var displayOverrideType: Int = NO_NETWORK_OVERRIDE
 
     fun observe(): Flow<NetworkSnapshot> = callbackFlow {
         fun publish() { trySend(readSnapshot()) }
@@ -127,6 +127,9 @@ class NetworkMonitor(context: Context) {
     ) == PackageManager.PERMISSION_GRANTED
 
     companion object {
+        // The platform's NONE override constant is zero; keep this API-26-safe.
+        private const val NO_NETWORK_OVERRIDE = 0
+
         fun networkGeneration(
             type: Int,
             overrideType: Int = TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NONE
