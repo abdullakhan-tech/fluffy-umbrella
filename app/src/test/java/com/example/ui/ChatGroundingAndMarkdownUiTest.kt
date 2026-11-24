@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
@@ -74,7 +75,8 @@ class ChatGroundingAndMarkdownUiTest {
                         messages = history,
                         inputText = "",
                         onInputChange = {},
-                        onSendMessage = {}
+                        onSendMessage = {},
+                        listState = rememberLazyListState(initialFirstVisibleItemIndex = 1)
                     )
                 }
             }
