@@ -4,6 +4,12 @@
 >
 > **Image note:** The SVGs below are clearly labeled illustrative placeholders created for repository preview. They are NOT the original screenshots supplied in chat.
 
+## Complete UI details
+
+For the full screen-by-screen catalog—including navigation, chat composer, model picker, every Settings category, native Android settings controls, Voice Chat, Image Studio, Tools, Projects, GPTs/personas, Search, Library, Canvas, Code Interpreter, responsive behavior, UI states, source-code mapping and acceptance checklist—see [UI_COMPONENT_CATALOG.md](UI_COMPONENT_CATALOG.md).
+
+The layout and interaction summary remains in [SCREEN_LAYOUT_SPEC.md](SCREEN_LAYOUT_SPEC.md). The catalog distinguishes current documented integration boundaries from demo-only concepts; mockup controls and sample model names are not evidence of working integrations.
+
 ## Demo image previews
 
 ### Desktop settings concept
