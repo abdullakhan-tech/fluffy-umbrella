@@ -53,7 +53,7 @@ internal fun AiMarkdownContent(
     }
 
     CompositionLocalProvider(LocalUriHandler provides safeUriHandler) {
-        Box(modifier = modifier.semantics { contentDescription = markdown.toAccessibleMarkdownText() }) {
+        Box(modifier = modifier.semantics(mergeDescendants = true) { contentDescription = markdown.toAccessibleMarkdownText() }) {
             Markdown(
                 content = markdown,
                 modifier = Modifier.fillMaxWidth()
