@@ -193,7 +193,7 @@ object WebConnector {
         if (cleaned.length < 2) return@withContext Result.success(emptyList())
         try {
             withTimeout(WEB_TIMEOUT_MS) {
-                val firecrawlResults = runCatching {
+                val firecrawlResults = try {
                     val callable = FirebaseFunctions.getInstance("us-central1")
                         .getHttpsCallable("firecrawlSearch")
                     val response = callable.call(mapOf("query" to cleaned)).await()
@@ -208,9 +208,12 @@ object WebConnector {
                         if (snippet.isBlank() || validatePublicHttpsUrl(url).isFailure) null
                         else WebSourceSnippet(title.take(120), url, snippet.take(1800))
                     }.distinctBy { it.url }.take(5)
-                }.onFailure { failure ->
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
                     Log.w(TAG, "Firebase Firecrawl search unavailable; using public fallback (" + failure.javaClass.simpleName + ").")
-                }.getOrDefault(emptyList())
+                    emptyList()
+                }
 
                 if (firecrawlResults.isNotEmpty()) {
                     return@withContext Result.success(firecrawlResults)
