@@ -89,6 +89,7 @@ fun OverviewScreen(
         CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Rounded.Extension, "deck_plugins"),
         CommandDeckModule("code", "Code Copilot", "Principal engineering & audits", Icons.Rounded.Code, "deck_code"),
         CommandDeckModule("collaboration", "Collaboration Nexus", "Multi-agent specialist swarm", Icons.Rounded.Hub, "deck_collaboration"),
+        CommandDeckModule("ai_agents_office", "AI Agents Office", "3D Boss + 7 specialist agents", Icons.Rounded.Hub, "deck_ai_agents_office"),
         CommandDeckModule("studio", "Media Studio", "Nano Banana 2.1 AI image gen", Icons.Rounded.AutoAwesome, "deck_studio"),
         CommandDeckModule("knowledge", "Knowledge Base", "Hybrid BM25 + Graph RAG", Icons.Rounded.Memory, "deck_knowledge"),
         CommandDeckModule("settingsPanel", "AI Core Settings", "Processing & visual tuning", Icons.Rounded.Tune, "deck_settings")
