@@ -85,7 +85,7 @@ class ChatGroundingAndMarkdownUiTest {
         composeRule.waitForIdle()
 
         // Assert the actual Markdown host node and its complete accessible text summary.
-        composeRule.onNodeWithTag("markdown_content_a_md").assertIsDisplayed()
+        composeRule.onNodeWithTag("markdown_content_a_md", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Architecture Overview", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Zero-Trust Sync", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Validate UID ownership", substring = true).assertIsDisplayed()
