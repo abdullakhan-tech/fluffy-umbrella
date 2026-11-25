@@ -1,10 +1,12 @@
 package com.example.domain
 
 import android.util.Log
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -191,6 +193,29 @@ object WebConnector {
         if (cleaned.length < 2) return@withContext Result.success(emptyList())
         try {
             withTimeout(WEB_TIMEOUT_MS) {
+                val firecrawlResults = runCatching {
+                    val callable = FirebaseFunctions.getInstance("us-central1")
+                        .getHttpsCallable("firecrawlSearch")
+                    val response = callable.call(mapOf("query" to cleaned)).await()
+                    val payload = response.data as? Map<*, *>
+                        ?: throw IllegalStateException("Firecrawl returned an invalid response.")
+                    val rows = payload["results"] as? List<*> ?: emptyList<Any>()
+                    rows.mapNotNull { item ->
+                        val row = item as? Map<*, *> ?: return@mapNotNull null
+                        val title = (row["title"] as? String).orEmpty().ifBlank { "Web result" }
+                        val url = (row["url"] as? String).orEmpty()
+                        val snippet = (row["description"] as? String).orEmpty()
+                        if (snippet.isBlank() || validatePublicHttpsUrl(url).isFailure) null
+                        else WebSourceSnippet(title.take(120), url, snippet.take(1800))
+                    }.distinctBy { it.url }.take(5)
+                }.onFailure { failure ->
+                    Log.w(TAG, "Firebase Firecrawl search unavailable; using public fallback (" + failure.javaClass.simpleName + ").")
+                }.getOrDefault(emptyList())
+
+                if (firecrawlResults.isNotEmpty()) {
+                    return@withContext Result.success(firecrawlResults)
+                }
+
                 val results = mutableListOf<WebSourceSnippet>()
                 val encoded = URLEncoder.encode(cleaned, StandardCharsets.UTF_8.name())
 
