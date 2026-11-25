@@ -19,6 +19,7 @@ It provides a secure, server-side AI execution boundary, keeping provider API cr
   - **Secret Scanner**: Real-time detection and automatic redaction of sensitive credentials (OpenAI/Anthropic keys, AWS, GitHub tokens, Slack, Stripe, database URIs).
   - **Prompt Injection Defense**: Detection of prompt overrides, identity spoofing, and code/shell injection patterns.
   - Endpoint: `POST /api/v1/security/scan`.
+- **Live web research**: Android agents can request current web results through the Firebase callable Firecrawl function; the API key stays in Firebase Secret Manager. See [Firecrawl + Firebase setup](../docs/FIRECRAWL_SETUP.md).
 - **Advanced Agent Tools**:
   - `think`: OpenJarvis-inspired reasoning scratchpad for multi-step logical deduction.
   - `daily_briefing`: Morning digest with timestamp, system telemetry, memory review, and priority items.
