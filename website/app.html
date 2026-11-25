@@ -4,39 +4,67 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#09090b">
-  <meta name="description" content="Zaythar AI workspace — chat, tools, voice, projects and settings.">
+  <meta name="description" content="Zaythar AI workspace — chat, agent, security, memory, voice, and personas connected to your backend.">
   <title>Zaythar AI Workspace</title>
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="/" aria-label="Zaythar AI home"><span class="brand-mark">✺</span><span><b>Zaythar AI</b><small>Your advanced AI assistant</small></span></a>
+      <a class="brand" href="/" aria-label="Zaythar AI home">
+        <span class="brand-mark">✺</span>
+        <span><b>Zaythar AI</b><small>Your advanced AI companion</small></span>
+      </a>
       <button class="new-chat" id="newChat">＋ <span>New chat</span></button>
       <nav class="nav-group" aria-label="Workspace">
         <button class="nav-item active" data-view="chat">◉ <span>Chat</span></button>
+        <button class="nav-item" data-view="agent">⚡ <span>Autonomous Agent</span></button>
+        <button class="nav-item" data-view="security">🛡 <span>Security Scanner</span></button>
+        <button class="nav-item" data-view="library">▤ <span>Memory Vault</span></button>
+        <button class="nav-item" data-view="gpts">◇ <span>GPTs & Personas</span></button>
+        <button class="nav-item" data-view="voice">♬ <span>Voice & Orb</span></button>
         <button class="nav-item" data-view="search">⌕ <span>Search</span></button>
-        <button class="nav-item" data-view="library">▤ <span>Library</span></button>
         <button class="nav-item" data-view="projects">▣ <span>Projects</span></button>
-        <button class="nav-item" data-view="gpts">◇ <span>GPTs & personas</span></button>
-        <button class="nav-item" data-view="voice">♬ <span>Voice chat</span></button>
-        <button class="nav-item" data-view="images">▧ <span>Image studio</span></button>
+        <button class="nav-item" data-view="code">⌘ <span>Code Interpreter</span></button>
         <button class="nav-item" data-view="canvas">▱ <span>Canvas</span></button>
-        <button class="nav-item" data-view="code">⌘ <span>Code interpreter</span></button>
-        <button class="nav-item" data-view="tools">⠿ <span>More tools</span></button>
+        <button class="nav-item" data-view="tools">⠿ <span>Tools Hub</span></button>
       </nav>
       <div class="history-heading">Recent chats <button id="clearChats" title="Clear chat history">•••</button></div>
       <div class="history-list" id="historyList"></div>
-      <div class="sidebar-bottom"><div class="avatar">Z</div><div class="profile-copy"><b id="profileName">Zaythar user</b><small>Personal workspace</small></div><button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button></div>
+      <div class="sidebar-bottom">
+        <div class="avatar" id="avatarLetter">Z</div>
+        <div class="profile-copy">
+          <b id="profileName">Zaythar User</b>
+          <small id="profilePersona">Persona: Jarvis</small>
+        </div>
+        <button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button>
+      </div>
     </aside>
     <main class="main-area">
       <header class="topbar">
         <button class="icon-btn mobile-menu" id="menuToggle" aria-label="Open menu">☰</button>
-        <div class="top-brand"><span class="brand-mark mini">✺</span><b>Zaythar AI</b><label class="model-picker" aria-label="AI provider"><span>Provider</span><select id="modelSelect"><option value="auto">Auto · configured provider</option></select></label><span class="top-divider">/</span><span id="topSection">Chat</span></div>
-        <div class="top-actions"><span class="connection" id="connectionState">Backend not checked</span><button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button></div>
+        <div class="top-brand">
+          <span class="brand-mark mini">✺</span>
+          <b>Zaythar AI</b>
+          <label class="model-picker" aria-label="AI provider">
+            <span>Provider</span>
+            <select id="modelSelect">
+              <option value="auto">Auto · configured provider</option>
+            </select>
+          </label>
+          <span class="top-divider">/</span>
+          <span id="topSection">Chat</span>
+        </div>
+        <div class="top-actions">
+          <span class="connection" id="connectionState">Connecting...</span>
+          <button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button>
+        </div>
       </header>
       <section class="workspace" id="workspace" aria-live="polite"></section>
-      <footer class="footnote">Zaythar AI can make mistakes. Verify important information. <span>Configure your backend in Settings to enable AI responses.</span></footer>
+      <footer class="footnote">
+        Zaythar AI Companion · Connected to Python FastAPI backend
+        <span id="backendStatusNotice"></span>
+      </footer>
     </main>
   </div>
   <script src="/app.js" defer></script>
