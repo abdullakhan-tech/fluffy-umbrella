@@ -9,8 +9,8 @@ import org.junit.Test
 class JarvisAgentOrchestratorTest {
     @Test
     fun teamHasDistinctPersonasAndCapabilities() {
-        assertEquals(6, JarvisAgentOrchestrator.team.size)
-        assertEquals(6, JarvisAgentOrchestrator.team.map { it.id }.distinct().size)
+        assertEquals(7, JarvisAgentOrchestrator.team.size)
+        assertEquals(7, JarvisAgentOrchestrator.team.map { it.id }.distinct().size)
         assertTrue(JarvisAgentOrchestrator.team.all { it.personality.isNotBlank() && it.operatingPrinciples.isNotEmpty() })
     }
 
@@ -28,7 +28,7 @@ class JarvisAgentOrchestratorTest {
     fun repositoryEngineeringPlanIncludesQualityAndSecurityReview() {
         val plan = JarvisAgentOrchestrator.createPlan("Fix repository Gradle build and add tests")
         assertEquals(AgentTaskKind.ENGINEERING, plan.taskKind)
-        assertNotNull(plan.assignedAgents.find { it.id == "forge" })
+        assertNotNull(plan.assignedAgents.find { it.id == "friday" })
         assertNotNull(plan.assignedAgents.find { it.id == "sentinel" })
         assertTrue(plan.steps.any { it.id == "verify" })
     }
