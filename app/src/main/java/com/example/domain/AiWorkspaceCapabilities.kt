@@ -49,7 +49,7 @@ internal class AiWorkspaceCapabilities(
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
         val ragBundle = ragLoader(prompt, emptyList(), 8)
         val ragContextBlock = ragBundle.toContextBlock(maxChars = 5000)
-        val candidateModels = ZaytharSystemPrompts.candidateModelsForAgentTeam(task, prefs.selectedProviderRoute)
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
 
         val tripleSchema = Schema.obj(
             properties = mapOf(
@@ -314,7 +314,7 @@ internal class AiWorkspaceCapabilities(
         }
 
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
-        val candidateModels = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForAgentTeam(task, prefs.selectedProviderRoute)
         val langDirective = if (prefs.autoMirrorLanguage) {
             "Match the user's input language naturally (defaulting to $language if unclear)."
         } else {
