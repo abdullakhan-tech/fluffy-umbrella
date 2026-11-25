@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.ZaytharPreferences
 import com.example.data.remote.FirestoreSessionMessage
@@ -77,7 +78,7 @@ class ChatGroundingAndMarkdownUiTest {
                         inputText = "",
                         onInputChange = {},
                         onSendMessage = {},
-                        listState = rememberLazyListState(initialFirstVisibleItemIndex = 1)
+                        listState = rememberLazyListState()
                     )
                 }
             }
@@ -85,7 +86,7 @@ class ChatGroundingAndMarkdownUiTest {
         composeRule.waitForIdle()
 
         // Assert the actual Markdown host node and its complete accessible text summary.
-        composeRule.onNodeWithTag("markdown_content_a_md", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("markdown_content_a_md", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Architecture Overview", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Zero-Trust Sync", substring = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Validate UID ownership", substring = true).assertIsDisplayed()
