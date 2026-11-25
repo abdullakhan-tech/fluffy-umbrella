@@ -1,0 +1,30 @@
+name: Web UI checks
+
+on:
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/web-ui-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/web-ui-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-ui:
+    name: Responsive web UI smoke checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: node --check website/app.js
+      - name: Run web UI smoke tests
+        run: node --test website/ui-smoke.test.js
