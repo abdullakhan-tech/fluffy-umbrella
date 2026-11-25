@@ -38,7 +38,10 @@ function loadState() {
 }
 
 function persistState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const persisted = { ...state };
+  // The history preference must actually prevent conversations from being written to localStorage.
+  if (!state.saveHistory) persisted.chats = [];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
 }
 
 function escapeHtml(v = "") {
