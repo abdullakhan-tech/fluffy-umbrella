@@ -49,7 +49,7 @@ internal class AiWorkspaceCapabilities(
         val language = SupportedLanguage.fromCode(prefs.languageCode).englishName
         val ragBundle = ragLoader(prompt, emptyList(), 8)
         val ragContextBlock = ragBundle.toContextBlock(maxChars = 5000)
-        val candidateModels = ZaytharSystemPrompts.candidateModelsForWorkspace(prefs.selectedProviderRoute)
+        val candidateModels = ZaytharSystemPrompts.candidateModelsForAgentTeam(task, prefs.selectedProviderRoute)
 
         val tripleSchema = Schema.obj(
             properties = mapOf(
@@ -333,7 +333,7 @@ internal class AiWorkspaceCapabilities(
             uniqueAgents.map { role ->
                 async {
                     val specialistSystem = buildString {
-                        append("You are one specialist in Zaythar AI's multi-agent team. ")
+                        append("You are a specialist sub-agent connected to the user's ORIGINAL Zaythar AI engine. Zaythar AI is the central boss and lead intelligence; return your findings to it for final synthesis. ")
                         append(role.specialistPrompt)
                         append(" Work only on the user's task. Do not claim actions you did not perform. ")
                         append("$langDirective ")
@@ -392,7 +392,7 @@ internal class AiWorkspaceCapabilities(
             "[${item.agent.title.uppercase()} SPECIALIST]\n${item.output}"
         }
         val coordinatorSystem = buildString {
-            append("You are Zaythar AI's lead coordinator. Synthesize specialist deliverables into one warm, clear, actionable answer. ")
+            append("You are the ORIGINAL Zaythar AI central engine and boss of this specialist team. You own final coordination and answer synthesis; specialists are subordinate workers, not separate competing assistants. Synthesize their deliverables into one warm, clear, actionable answer. ")
             append("Resolve contradictions explicitly, preserve useful detail, identify uncertainty, and give prioritized next steps. ")
             append("Do not invent verification or claim that code was executed. ")
             append(langDirective)
