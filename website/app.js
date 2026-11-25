@@ -12,7 +12,9 @@ const defaults = {
   honorific: "Sir",
   displayName: "Zaythar User",
   saveHistory: true,
-  chats: []
+  chats: [],
+  projects: [],
+  projectFormOpen: false
 };
 
 let state = loadState();
@@ -562,30 +564,121 @@ function renderSearch() {
 
 // ---------------- VIEW 8: Projects ----------------
 function renderProjects() {
-  const projects = state.projects || [
-    { id: "p-1", name: "Fluffy Umbrella AI Companion", desc: "Core Kotlin + Python agent companion codebase.", date: Date.now() },
-    { id: "p-2", name: "Security Hardening", desc: "OpenJarvis guardrails and prompt security scan tests.", date: Date.now() - 86400000 }
-  ];
-
+  const projects = Array.isArray(state.projects) ? state.projects : [];
   return `
     <div class="page-head">
       <div>
         <h1>▣ Projects Workspace</h1>
-        <p>Group conversations, memory facts, and code sessions by project.</p>
+        <p>Organize workspaces and start project-focused chats. Projects are saved locally in this browser.</p>
       </div>
-      <button class="primary-btn" id="newProjectBtn">＋ New Project</button>
+      <button class="primary-btn" id="newProjectBtn" type="button">＋ New Project</button>
     </div>
 
-    <div class="grid-2">
-      ${projects.map(p => `
-        <article class="project-card panel">
-          <h3>▣ ${escapeHtml(p.name)}</h3>
-          <p class="muted">${escapeHtml(p.desc)}</p>
-          <div class="meta">Created ${new Date(p.date).toLocaleDateString()}</div>
-        </article>
-      `).join("")}
-    </div>
+    ${state.projectFormOpen ? `
+      <form class="panel" id="projectCreateForm" style="margin-bottom:18px;">
+        <h3>Create a project</h3>
+        <div class="field">
+          <label for="projectNameInput">Project name</label>
+          <input id="projectNameInput" name="name" maxlength="80" required placeholder="e.g. Zaythar AI Mobile App">
+        </div>
+        <div class="field">
+          <label for="projectDescriptionInput">Description</label>
+          <textarea id="projectDescriptionInput" name="description" rows="3" maxlength="500" placeholder="What are you building?"></textarea>
+        </div>
+        <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="primary-btn" type="submit">Create project</button>
+          <button class="icon-btn" id="cancelProjectBtn" type="button">Cancel</button>
+        </div>
+      </form>
+    ` : ""}
+
+    ${projects.length ? `
+      <div class="grid-2">
+        ${projects.map(p => `
+          <article class="project-card panel">
+            <h3>▣ ${escapeHtml(p.name)}</h3>
+            <p class="muted">${escapeHtml(p.desc || "No description added.")}</p>
+            <div class="meta">Created ${p.date ? new Date(p.date).toLocaleDateString() : "Recently"} · Local project</div>
+            <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+              <button class="primary-btn" type="button" data-project-open="${escapeHtml(p.id)}">Open project chat</button>
+              <button class="icon-btn" type="button" data-project-delete="${escapeHtml(p.id)}" aria-label="Delete ${escapeHtml(p.name)}">Delete</button>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    ` : `
+      <div class="panel empty">
+        <h3>No projects yet</h3>
+        <p class="muted">Create your first project. It will be stored on this device and can be opened as a focused chat.</p>
+        <button class="primary-btn" type="button" id="emptyNewProjectBtn">＋ Create your first project</button>
+      </div>
+    `}
   `;
+}
+
+function bindProjectsActions() {
+  const openForm = () => {
+    state.projectFormOpen = true;
+    render();
+    $("#projectNameInput")?.focus();
+  };
+  $("#newProjectBtn")?.addEventListener("click", openForm);
+  $("#emptyNewProjectBtn")?.addEventListener("click", openForm);
+  $("#cancelProjectBtn")?.addEventListener("click", () => {
+    state.projectFormOpen = false;
+    render();
+  });
+
+  $("#projectCreateForm")?.addEventListener("submit", event => {
+    event.preventDefault();
+    const name = $("#projectNameInput")?.value.trim() || "";
+    const desc = $("#projectDescriptionInput")?.value.trim() || "";
+    if (!name) {
+      $("#projectNameInput")?.focus();
+      return;
+    }
+    state.projects = [...(Array.isArray(state.projects) ? state.projects : []), {
+      id: id(),
+      name: name.slice(0, 80),
+      desc: desc.slice(0, 500),
+      date: Date.now()
+    }];
+    state.projectFormOpen = false;
+    persistState();
+    render();
+  });
+
+  $("[data-project-delete]").forEach(button => {
+    button.addEventListener("click", () => {
+      const projectId = button.dataset.projectDelete;
+      state.projects = (state.projects || []).filter(project => project.id !== projectId);
+      persistState();
+      render();
+    });
+  });
+
+  $("[data-project-open]").forEach(button => {
+    button.addEventListener("click", () => {
+      const project = (state.projects || []).find(item => item.id === button.dataset.projectOpen);
+      if (!project) return;
+      const chat = {
+        id: id(),
+        title: (project.name + " · Project").slice(0, 80),
+        messages: [],
+        updated: Date.now(),
+        persona: state.persona,
+        projectId: project.id
+      };
+      saveChats([chat, ...getChats()]);
+      currentChatId = chat.id;
+      setView("chat");
+      const input = $("#promptInput");
+      if (input) {
+        input.value = `Let's work on project: ${project.name}. ${project.desc || ""}`.trim();
+        input.focus();
+      }
+    });
+  });
 }
 
 // ---------------- VIEW 9: Code Interpreter ----------------
@@ -889,6 +982,7 @@ function bindViewActions() {
   else if (currentView === "search") bindSearchActions();
   else if (currentView === "code") bindCodeActions();
   else if (currentView === "canvas") bindCanvasActions();
+  else if (currentView === "projects") bindProjectsActions();
   else if (currentView === "settings") bindSettingsActions();
 }
 
@@ -1541,6 +1635,13 @@ function bindSettingsActions() {
       persistState();
       checkBackendHealth();
       alert("Backend API settings saved!");
+    };
+  }
+
+  if (saveHistoryCheck) {
+    saveHistoryCheck.onchange = () => {
+      state.saveHistory = saveHistoryCheck.checked;
+      persistState();
     };
   }
 
