@@ -28,7 +28,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.domain.UiState
 import com.example.ui.components.ZaytharNavDestination
-import com.example.ui.screens.AiAgentsOfficeScreen
 import com.example.ui.screens.AssistantScreen
 import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
@@ -85,7 +84,7 @@ internal val allZaytharDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.CAMERA_EYES, "Camera Eyes", "WORKSPACE", Icons.Rounded.CameraAlt, "CAMERA", "EYES"),
     ZaytharNavDestination(ZaytharRoutes.PLUGINS, "Plugin Plug", "WORKSPACE", Icons.Rounded.Extension, "PLUGIN", "PLUG HUB"),
     ZaytharNavDestination(ZaytharRoutes.COLLABORATION, "Collaboration", "WORKSPACE", Icons.Rounded.Hub, "COLLABORATION", "NEXUS"),
-    ZaytharNavDestination(ZaytharRoutes.AI_AGENTS, "AI Agents Office", "WORKSPACE", Icons.Rounded.Hub, "AI AGENTS", "OFFICE"),
+    ZaytharNavDestination(ZaytharRoutes.AI_AGENTS, "AI Agents", "WORKSPACE", Icons.Rounded.Hub, "ZAYTHAR", "AGENTS"),
     ZaytharNavDestination(ZaytharRoutes.MODELS, "Model Matrix", "WORKSPACE", Icons.Rounded.Layers, "AI MODEL", "MATRIX"),
     ZaytharNavDestination(ZaytharRoutes.STUDIO, "Image Generator", "WORKSPACE", Icons.Rounded.AutoAwesome, "MEDIA", "STUDIO"),
     ZaytharNavDestination(ZaytharRoutes.CODE, "Code Interpreter", "WORKSPACE", Icons.Rounded.Code, "CODE", "COPILOT"),
@@ -407,7 +406,30 @@ internal fun ZaytharNavHost(
             )
         }
         composable(ZaytharRoutes.AI_AGENTS) {
-            AiAgentsOfficeScreen()
+            CollaborationScreen(
+                agentRunState = agentRunState,
+                knowledgeFactsState = knowledgeFactsState,
+                onAgentNodeClick = { role ->
+                    viewModel.selectAgent(role)
+                    viewModel.emitToast("${role.title} specialist selected.")
+                    onNavigate(ZaytharRoutes.ASSISTANT)
+                },
+                onRunTeam = { task, roles ->
+                    workspaceViewModel.runMultiAgent(
+                        task = task,
+                        selectedAgents = roles,
+                        prefs = prefs,
+                        activeSessionId = activeSessionId,
+                        onToast = viewModel::emitToast
+                    )
+                },
+                onAddFact = { s, p, o ->
+                    workspaceViewModel.addKnowledgeFact(s, p, o, onToast = viewModel::emitToast)
+                },
+                onDeleteFact = { id ->
+                    workspaceViewModel.deleteKnowledgeFact(id, viewModel::emitToast)
+                }
+            )
         }
         composable(ZaytharRoutes.MODELS) {
             ModelMatrixScreen(
