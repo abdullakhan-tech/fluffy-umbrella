@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - 'website/**'
-      - 'integrations/zaythar-office-backup.zip'
       - 'CNAME'
       - 'robots.txt'
       - 'sitemap.xml'
@@ -32,20 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Prepare AI Agents Office from uploaded backup
-        run: |
-          test -s integrations/zaythar-office-backup.zip
-          mkdir -p website/ai-agents/.staging
-          unzip -q integrations/zaythar-office-backup.zip -d website/ai-agents/.staging
-          cp -a website/ai-agents/.staging/zaythar-office/. website/ai-agents/
-          rm -rf website/ai-agents/.staging
-          test -s website/ai-agents/index.html
-          node --check website/ai-agents/browser.js
-          node --check website/ai-agents/server/index.js
-          rm -rf website/ai-agents/server website/ai-agents/backup website/ai-agents/README.md website/ai-agents/.gitignore
       - name: Validate website files
         run: |
-          test -s website/ai-agents/index.html
           test -s website/index.html
           test -s website/styles.css
           test -s website/script.js
