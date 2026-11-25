@@ -182,6 +182,29 @@ internal object ZaytharSystemPrompts {
         ProviderRoute.PYTHON_COMPANION -> listOf("companion-server")
     }
 
+    /**
+     * Routes the specialist swarm through the same Zaythar AI engine used by the main workspace.
+     * AUTO uses the original SmartEngineRouter; manual routes remain respected. Non-text models
+     * and local-plugin pseudo-models are excluded because this path calls FirebaseAI text generation.
+     */
+    fun candidateModelsForAgentTeam(
+        task: String,
+        routeId: String,
+        enabledKeys: Set<String> = defaultPluginKeys
+    ): List<String> {
+        val route = ProviderRoute.fromId(routeId)
+        val routedModels = if (route == ProviderRoute.AUTO) {
+            SmartEngineRouter.classifyPrompt(task, enabledKeys).candidateModels
+        } else {
+            candidateModelsForWorkspace(routeId)
+        }
+        val textModels = routedModels.filter {
+            it.startsWith("gemini-") &&
+                it !in setOf("gemini-nano-banana-2.1", "gemini-3.8-live", "gemini-3.5-transcribe")
+        }
+        return (textModels + listOf("gemini-3.8-flash", "gemini-3.5-flash-lite")).distinct()
+    }
+
     fun candidateModelsForWorkspace(routeId: String): List<String> {
         val preferred = ProviderRoute.fromId(routeId).modelName
         return listOf(preferred, "gemini-3.8-flash", "gemini-3.5-flash-lite").distinct()
