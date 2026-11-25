@@ -28,6 +28,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.domain.UiState
 import com.example.ui.components.ZaytharNavDestination
+import com.example.ui.screens.AiAgentsOfficeScreen
 import com.example.ui.screens.AssistantScreen
 import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
@@ -58,6 +59,7 @@ object ZaytharRoutes {
     const val PERSONA = "persona"
     const val SETTINGS = "settingsPanel"
     const val COLLABORATION = "collaboration"
+    const val AI_AGENTS = "ai_agents_office"
     const val MODELS = "models"
     const val STUDIO = "studio"
     const val CODE = "code"
@@ -83,6 +85,7 @@ internal val allZaytharDestinations = listOf(
     ZaytharNavDestination(ZaytharRoutes.CAMERA_EYES, "Camera Eyes", "WORKSPACE", Icons.Rounded.CameraAlt, "CAMERA", "EYES"),
     ZaytharNavDestination(ZaytharRoutes.PLUGINS, "Plugin Plug", "WORKSPACE", Icons.Rounded.Extension, "PLUGIN", "PLUG HUB"),
     ZaytharNavDestination(ZaytharRoutes.COLLABORATION, "Collaboration", "WORKSPACE", Icons.Rounded.Hub, "COLLABORATION", "NEXUS"),
+    ZaytharNavDestination(ZaytharRoutes.AI_AGENTS, "AI Agents Office", "WORKSPACE", Icons.Rounded.Hub, "AI AGENTS", "OFFICE"),
     ZaytharNavDestination(ZaytharRoutes.MODELS, "Model Matrix", "WORKSPACE", Icons.Rounded.Layers, "AI MODEL", "MATRIX"),
     ZaytharNavDestination(ZaytharRoutes.STUDIO, "Image Generator", "WORKSPACE", Icons.Rounded.AutoAwesome, "MEDIA", "STUDIO"),
     ZaytharNavDestination(ZaytharRoutes.CODE, "Code Interpreter", "WORKSPACE", Icons.Rounded.Code, "CODE", "COPILOT"),
@@ -402,6 +405,9 @@ internal fun ZaytharNavHost(
                     workspaceViewModel.deleteKnowledgeFact(id, viewModel::emitToast)
                 }
             )
+        }
+        composable(ZaytharRoutes.AI_AGENTS) {
+            AiAgentsOfficeScreen()
         }
         composable(ZaytharRoutes.MODELS) {
             ModelMatrixScreen(
