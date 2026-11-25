@@ -216,9 +216,8 @@ object WebConnector {
                 }
 
                 if (firecrawlResults.isNotEmpty()) {
-                    return@withContext Result.success(firecrawlResults)
-                }
-
+                    Result.success(firecrawlResults)
+                } else {
                 val results = mutableListOf<WebSourceSnippet>()
                 val encoded = URLEncoder.encode(cleaned, StandardCharsets.UTF_8.name())
 
@@ -274,6 +273,7 @@ object WebConnector {
                 }
 
                 Result.success(results.distinctBy { it.url }.take(5))
+                }
             }
         } catch (e: CancellationException) {
             throw e
