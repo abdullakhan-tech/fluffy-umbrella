@@ -83,12 +83,12 @@ fun CollaborationScreen(
     ) {
         item {
             CyberSectionTitle(
-                eyebrow = "MULTI-AGENT WORKSPACE",
-                titlePrefix = "Collaboration",
-                titleAccent = "Nexus",
+                eyebrow = "ZAYTHAR · AGENT COMMAND",
+                titlePrefix = "AI",
+                titleAccent = "Agents",
                 trailing = {
                     Text(
-                        text = "● ORCHESTRATOR READY",
+                        text = "BOSS · ZAYTHAR  ● READY",
                         style = MaterialTheme.typography.labelSmall,
                         color = cyber.cyberGreen
                     )
@@ -149,6 +149,7 @@ fun CollaborationScreen(
                     val positions = listOf(
                         AgentRole.RESEARCH to Pair(0.14f, 0.18f),
                         AgentRole.CODING to Pair(0.86f, 0.18f),
+                        AgentRole.SENTINEL to Pair(0.50f, 0.08f),
                         AgentRole.WRITING to Pair(0.10f, 0.78f),
                         AgentRole.ANALYSIS to Pair(0.90f, 0.78f),
                         AgentRole.CREATIVE to Pair(0.50f, 0.88f)
@@ -387,7 +388,7 @@ fun CollaborationScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                MiniStatCard(label = "SPECIALIST ROLES", value = "05", modifier = Modifier.weight(1f))
+                MiniStatCard(label = "SPECIALIST ROLES", value = "06", modifier = Modifier.weight(1f))
                 MiniStatCard(label = "MAX PARALLEL", value = "04", modifier = Modifier.weight(1f))
                 MiniStatCard(label = "COORDINATOR", value = "READY", modifier = Modifier.weight(1f))
             }
