@@ -153,7 +153,7 @@ object JarvisAgentOrchestrator {
         val assignedIds = when (kind) {
             AgentTaskKind.DESTRUCTIVE_ACTION, AgentTaskKind.DEVICE_ACTION -> listOf("jarvies", "sentinel", "omnivex")
             AgentTaskKind.ENGINEERING -> listOf("friday", "sentinel", "omnivex", "jarvies")
-            AgentTaskKind.RESEARCH -> listOf("athena", "sentinel", "oracle")
+            AgentTaskKind.RESEARCH -> listOf("athena", "sentinel", "omnivex")
             AgentTaskKind.COMMUNICATION -> listOf("echo", "sentinel")
             AgentTaskKind.STRATEGY -> listOf("omnivex", "athena", "sentinel")
             AgentTaskKind.GENERAL -> listOf("jarvies", "echo")
