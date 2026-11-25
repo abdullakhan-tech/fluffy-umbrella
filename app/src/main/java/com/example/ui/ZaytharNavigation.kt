@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.PsychologyAlt
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -154,7 +156,8 @@ internal fun ZaytharNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = ZaytharRoutes.OVERVIEW
+        startDestination = ZaytharRoutes.OVERVIEW,
+        modifier = Modifier.fillMaxSize()
     ) {
         composable(ZaytharRoutes.OVERVIEW) {
             val ragCorpusCount = ((memoryNotesState as? UiState.Success)?.data?.size ?: 0) +
