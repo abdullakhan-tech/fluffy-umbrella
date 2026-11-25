@@ -11,6 +11,7 @@ import com.google.firebase.ai.type.Schema
 import com.google.firebase.ai.type.content
 import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -320,9 +321,13 @@ internal class AiWorkspaceCapabilities(
             "Write in $language."
         }
         val ragContext = ragLoader(task, emptyList(), 6).toContextBlock(maxChars = 4000)
-        // Fetch current public-web context once and share it with every selected specialist.
-        // Firecrawl runs behind an authenticated, App-Check-protected Firebase callable.
-        val webContext = WebConnector.groundPromptWithInternet(task).toContextBlock()
+        // Respect the user's web-connect preference; Firecrawl runs behind an authenticated,
+        // App-Check-protected Firebase callable. Retrieved context is shared with each specialist.
+        val webContext = if (prefs.webConnectEnabled) {
+            WebConnector.groundPromptWithInternet(task).toContextBlock()
+        } else {
+            ""
+        }
 
         val deliverables = coroutineScope {
             uniqueAgents.map { role ->
@@ -355,7 +360,12 @@ internal class AiWorkspaceCapabilities(
                             if (text.isNotBlank()) {
                                 return@async SpecialistDeliverable(role, "completed", text, candidate)
                             }
+                        } catch (e: TimeoutCancellationException) {
+                            // A single slow specialist/model must not cancel the entire parallel team.
+                            Log.w(WORKSPACE_AI_TAG, "Specialist ${role.id} timed out on $candidate", e)
+                            lastErr = e
                         } catch (e: CancellationException) {
+                            // Preserve caller cancellation; only isolate this specialist's own timeout.
                             throw e
                         } catch (e: Exception) {
                             Log.w(WORKSPACE_AI_TAG, "Specialist ${role.id} attempt failed on $candidate", e)
