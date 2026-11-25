@@ -5,6 +5,10 @@ The callable requires a signed-in Firebase user and Firebase App Check. The Fire
 credential stays in Firebase Secret Manager; it is never placed in the Android app,
 Gradle configuration, or Git repository.
 
+## Billing requirement
+
+Deploying Firebase Cloud Functions requires the Firebase Blaze (pay-as-you-go) plan and a linked Cloud Billing account. The platform has monthly no-cost usage quotas, but deployment can incur small infrastructure charges. Set budget alerts and review usage before enabling it. See the [Firebase Cloud Functions billing FAQ](https://firebase.google.com/docs/functions/faq-and-troubleshooting).
+
 ## 1. Select the real Firebase project
 
 Use the Firebase project that owns the Android app's real `google-services.json` and
