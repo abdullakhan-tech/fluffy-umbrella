@@ -149,7 +149,7 @@ fun CollaborationScreen(
                     val positions = listOf(
                         AgentRole.RESEARCH to Pair(0.14f, 0.18f),
                         AgentRole.CODING to Pair(0.86f, 0.18f),
-                        AgentRole.SENTINEL to Pair(0.50f, 0.08f),
+                        AgentRole.SENTINEL to Pair(0.50f, 0.16f),
                         AgentRole.WRITING to Pair(0.10f, 0.78f),
                         AgentRole.ANALYSIS to Pair(0.90f, 0.78f),
                         AgentRole.CREATIVE to Pair(0.50f, 0.88f)
