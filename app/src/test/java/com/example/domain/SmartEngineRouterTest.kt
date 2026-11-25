@@ -48,6 +48,32 @@ class SmartEngineRouterTest {
     }
 
     @Test
+    fun agentTeamAutoRouteUsesZaytharSmartEngineForSpecialistTask() {
+        val models = ZaytharSystemPrompts.candidateModelsForAgentTeam(
+            task = "Refactor Kotlin StateFlow repository with unit tests",
+            routeId = ProviderRoute.AUTO.id
+        )
+
+        assertEquals(listOf("gemini-4-argon", "gemini-3.8-flash", "gemini-3.5-flash-lite"), models)
+    }
+
+    @Test
+    fun agentTeamRespectsManualRouteAndExcludesNonTextEngineModels() {
+        val manual = ZaytharSystemPrompts.candidateModelsForAgentTeam(
+            task = "Generate an image and inspect a screenshot",
+            routeId = ProviderRoute.LITE.id
+        )
+        val companionFallback = ZaytharSystemPrompts.candidateModelsForAgentTeam(
+            task = "Run Python code",
+            routeId = ProviderRoute.PYTHON_COMPANION.id
+        )
+
+        assertEquals(listOf("gemini-3.5-flash-lite", "gemini-3.8-flash"), manual)
+        assertTrue(companionFallback.all { it.startsWith("gemini-") })
+        assertTrue(companionFallback.none { it == "companion-server" || it == "gemini-nano-banana-2.1" })
+    }
+
+    @Test
     fun runLocalAndHybridDiagnostics_passesAllDeterministicEngines() {
         val report = SmartEngineRouter.runLocalAndHybridDiagnostics(
             memoriesCount = 4,
