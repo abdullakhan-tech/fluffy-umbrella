@@ -1,6 +1,7 @@
 package com.example.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -76,8 +77,6 @@ class CollaborationScreenTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("run_agent_team_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("run_agent_team_button").assert(
-            androidx.compose.ui.test.assertIsNotEnabled()
-        )
+        composeRule.onNodeWithTag("run_agent_team_button").assertIsNotEnabled()
     }
 }
