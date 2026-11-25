@@ -78,8 +78,8 @@ object JarvisAgentOrchestrator {
             capabilities = setOf(AgentCapability.RESEARCH, AgentCapability.REASON, AgentCapability.PLAN)
         ),
         JarvisAgentPersona(
-            id = "forge",
-            name = "Forge",
+            id = "friday",
+            name = "Friday",
             title = "Principal Engineer",
             personality = "Pragmatic, meticulous and test-driven; favors maintainable solutions.",
             operatingPrinciples = listOf("Inspect before editing", "Minimize risky changes", "Run tests after implementation"),
@@ -94,8 +94,8 @@ object JarvisAgentOrchestrator {
             capabilities = setOf(AgentCapability.RESEARCH, AgentCapability.REASON, AgentCapability.REVIEW_CODE)
         ),
         JarvisAgentPersona(
-            id = "oracle",
-            name = "Oracle",
+            id = "omnivex",
+            name = "Omnivex",
             title = "Strategy & Planning",
             personality = "Calm, systems-minded and outcome-focused; turns goals into measurable milestones.",
             operatingPrinciples = listOf("Define success criteria", "Surface dependencies", "Track blockers and trade-offs"),
@@ -110,8 +110,16 @@ object JarvisAgentOrchestrator {
             capabilities = setOf(AgentCapability.WRITE_DRAFT, AgentCapability.READ_LOCAL_DATA, AgentCapability.PLAN)
         ),
         JarvisAgentPersona(
-            id = "atlas",
-            name = "Atlas",
+            id = "rio",
+            name = "Rio",
+            title = "Creative & Personal Assistant",
+            personality = "Adaptable, thoughtful and user-focused; turns ideas into clear, practical outcomes.",
+            operatingPrinciples = listOf("Preserve user intent", "Offer practical next steps", "Be clear about uncertainty"),
+            capabilities = setOf(AgentCapability.REASON, AgentCapability.PLAN, AgentCapability.WRITE_DRAFT)
+        ),
+        JarvisAgentPersona(
+            id = "jarvies",
+            name = "Jarvies",
             title = "Workflow Operator",
             personality = "Methodical and dependable; reports each action and verifies the result.",
             operatingPrinciples = listOf("Use only registered tools", "Never bypass permission prompts", "Verify every completed step"),
@@ -143,12 +151,12 @@ object JarvisAgentOrchestrator {
             else -> AgentTaskKind.STRATEGY
         }
         val assignedIds = when (kind) {
-            AgentTaskKind.DESTRUCTIVE_ACTION, AgentTaskKind.DEVICE_ACTION -> listOf("atlas", "sentinel", "oracle")
-            AgentTaskKind.ENGINEERING -> listOf("forge", "sentinel", "oracle", "atlas")
+            AgentTaskKind.DESTRUCTIVE_ACTION, AgentTaskKind.DEVICE_ACTION -> listOf("jarvies", "sentinel", "omnivex")
+            AgentTaskKind.ENGINEERING -> listOf("friday", "sentinel", "omnivex", "jarvies")
             AgentTaskKind.RESEARCH -> listOf("athena", "sentinel", "oracle")
             AgentTaskKind.COMMUNICATION -> listOf("echo", "sentinel")
-            AgentTaskKind.STRATEGY -> listOf("oracle", "athena", "sentinel")
-            AgentTaskKind.GENERAL -> listOf("oracle", "echo")
+            AgentTaskKind.STRATEGY -> listOf("omnivex", "athena", "sentinel")
+            AgentTaskKind.GENERAL -> listOf("jarvies", "echo")
         }
         val assigned = team.filter { it.id in assignedIds }
         val approval = destructive || externalWrite || deviceAction
@@ -158,11 +166,11 @@ object JarvisAgentOrchestrator {
             else -> AgentActionRisk.READ_ONLY
         }
         val steps = listOf(
-            AgentWorkStep("understand", "Understand request and constraints", "oracle", AgentActionRisk.READ_ONLY, false, "Goal and success criteria are explicit."),
+            AgentWorkStep("understand", "Understand request and constraints", "omnivex", AgentActionRisk.READ_ONLY, false, "Goal and success criteria are explicit."),
             AgentWorkStep("prepare", "Research, plan and prepare the proposed work", assigned.first().id, AgentActionRisk.READ_ONLY, false, "Plan includes dependencies and expected outputs."),
             AgentWorkStep("review", "Run safety and quality review", "sentinel", AgentActionRisk.READ_ONLY, false, "No secrets, permission bypasses or unsafe actions."),
-            AgentWorkStep("execute", "Execute permitted work using registered tools", "atlas", risk, approval, "Tool result is checked against the requested outcome."),
-            AgentWorkStep("verify", "Verify outcome and report incomplete items", "forge", AgentActionRisk.READ_ONLY, false, "Evidence or test results support completion.")
+            AgentWorkStep("execute", "Execute permitted work using registered tools", "jarvies", risk, approval, "Tool result is checked against the requested outcome."),
+            AgentWorkStep("verify", "Verify outcome and report incomplete items", "friday", AgentActionRisk.READ_ONLY, false, "Evidence or test results support completion.")
         )
         val reason = when {
             destructive -> "Destructive changes require explicit approval of the exact action."
