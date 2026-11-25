@@ -469,3 +469,41 @@ def test_memory_quota_check_is_atomic_under_concurrent_creates(monkeypatch, tmp_
     assert len(created) == 2
     assert len(rejected) == 8
     assert len(asyncio.run(memory_service.list("alice", limit=50))) == 2
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        ("get", "/api/v1/memories", None),
+        ("post", "/api/v1/memories", {"content": "Synthetic protected memory"}),
+        ("delete", "/api/v1/memories/" + ("a" * 32), None),
+    ],
+)
+def test_memory_crud_requires_firebase_id_token_and_app_check_for_every_method(
+    client, method, path, payload
+):
+    request = getattr(client, method)
+    kwargs = {"json": payload} if payload is not None else {}
+
+    missing_identity = request(path, **kwargs)
+    assert missing_identity.status_code == 401
+
+    missing_attestation = request(
+        path,
+        headers={"Authorization": "Bearer test:alice"},
+        **kwargs,
+    )
+    assert missing_attestation.status_code == 403
+
+
+def test_memory_create_rejects_client_supplied_owner_id(client):
+    response = client.post(
+        "/api/v1/memories",
+        headers=auth_headers("alice"),
+        json={
+            "content": "Synthetic memory must belong to verified identity.",
+            "owner_id": "bob",
+        },
+    )
+
+    assert response.status_code == 422
