@@ -10,10 +10,10 @@ const STATE = {
   activePersona: localStorage.getItem("zaythar_persona") || "jarvis",
   honorific: localStorage.getItem("zaythar_honorific") || "Sir",
   activeModel: localStorage.getItem("zaythar_model") || "auto",
-  chats: JSON.parse(localStorage.getItem("zaythar_chats") || "[]"),
+  chats: readStoredJson("zaythar_chats", []),
   currentChatId: localStorage.getItem("zaythar_active_chat") || null,
-  projects: JSON.parse(localStorage.getItem("zaythar_projects") || "[]"),
-  memoryFacts: [],
+  projects: readStoredJson("zaythar_projects", []),
+  memoryFacts: readStoredJson("zaythar_memory_facts", []),
   notifications: [],
   backendOnline: false,
   pyodideReady: false,
@@ -21,6 +21,15 @@ const STATE = {
   speechRecognition: null,
   canvasText: localStorage.getItem("zaythar_canvas_doc") || "# Zaythar AI Neural Canvas\n\nWelcome to your creative workspace.\n- Write specifications\n- Outline algorithms\n- Keep notes and thoughts"
 };
+
+function readStoredJson(key, fallback) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+    return Array.isArray(fallback) && !Array.isArray(parsed) ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
 
 // UI Helper: DOM Query
 const $ = (sel) => document.querySelector(sel);
@@ -32,7 +41,9 @@ function showToast(message, type = "info") {
   if (!container) return;
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `<span>${message}</span>`;
+  const messageNode = document.createElement("span");
+  messageNode.textContent = String(message ?? "");
+  toast.appendChild(messageNode);
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = "0";
@@ -61,6 +72,30 @@ async function apiRequest(endpoint, options = {}) {
     console.warn(`[Backend Offline/Error] ${endpoint}:`, err.message);
     throw err;
   }
+}
+
+let pyodideLoadPromise = null;
+async function loadPythonRuntime() {
+  const runtimeUrl = "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";
+  if (window.zaytharPyodide) return window.zaytharPyodide;
+  if (!pyodideLoadPromise) {
+    pyodideLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = runtimeUrl + "pyodide.js";
+      script.async = true;
+      script.onload = async () => {
+        try {
+          if (typeof window.loadPyodide !== "function") throw new Error("Pyodide loader is unavailable.");
+          const runtime = await window.loadPyodide({ indexURL: runtimeUrl });
+          window.zaytharPyodide = runtime;
+          resolve(runtime);
+        } catch (error) { reject(error); }
+      };
+      script.onerror = () => reject(new Error("Could not download Pyodide. Check your internet connection."));
+      document.head.appendChild(script);
+    }).catch((error) => { pyodideLoadPromise = null; throw error; });
+  }
+  return pyodideLoadPromise;
 }
 
 // Check Backend Health
@@ -257,7 +292,7 @@ function renderChatMessages(chat) {
         <div class="chat-hero-orb"></div>
         <h3 style="font-size:22px; font-weight:700;">Zaythar AI Neural Core</h3>
         <p style="color:var(--text-secondary); margin-top:8px; font-size:13px;">
-          Active Persona: <b style="color:var(--accent-chat);">${STATE.activePersona.toUpperCase()}</b> · Honorific: <b>${STATE.honorific}</b>
+          Active Persona: <b style="color:var(--accent-chat);">${escapeHtml(STATE.activePersona.toUpperCase())}</b> · Honorific: <b>${escapeHtml(STATE.honorific)}</b>
         </p>
         <div class="chat-suggestions-grid">
           <button class="chat-suggest-btn" data-text="What capabilities does Zaythar AI offer?">
@@ -336,7 +371,7 @@ async function handleSendMessage() {
     aiMsg.content = res.reply || res.content || JSON.stringify(res);
   } catch (err) {
     // Graceful Client-side Fallback
-    aiMsg.content = `[Zaythar Client Mode - ${STATE.activePersona.toUpperCase()}]: I received your request: "${text}". Note that the local FastAPI backend is currently on standby, so I am processing your session via local state. You can update your Backend URL in Settings at any time.`;
+    aiMsg.content = `I could not reach the FastAPI backend, so no AI response was generated. Your message is saved in this browser only. Configure a reachable backend URL in Settings and try again. (${err.message})`;
   }
 
   renderChatMessages(currentChat);
@@ -484,7 +519,7 @@ function renderCodeView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-code)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           Python & Code Terminal
         </h2>
-        <p>Interactive code execution environment. Run Python and JavaScript directly in your browser with real-time standard output and telemetry.</p>
+        <p>Run real Python 3.11 code in an isolated WebAssembly runtime (Pyodide). The first run downloads the runtime; an internet connection is required.</p>
       </div>
 
       <div class="terminal-window">
@@ -550,51 +585,41 @@ print("Performance Multipliers:", metrics)
 
   runBtn.addEventListener("click", async () => {
     const code = editor.value;
-    output.textContent = "Running code in isolated engine...\n";
-    status.textContent = "Status: Running...";
+    if (!code.trim()) {
+      showToast("Enter Python code before running it.", "warning");
+      return;
+    }
+    output.textContent = "Loading Python 3.11 runtime...\\n";
+    status.textContent = "Status: Loading Python runtime...";
     runBtn.disabled = true;
-
     try {
-      // If backend is online, try backend agent execution first
-      if (STATE.backendOnline) {
-        const res = await apiRequest("/api/v1/agent/task", {
-          method: "POST",
-          body: JSON.stringify({
-            task: "Execute code calculation",
-            context: code,
-            tool_hint: "calculator"
-          })
-        });
-        output.textContent += `[Backend Agent Execution]:\n${res.summary || ''}\n${JSON.stringify(res.tool_result || '', null, 2)}`;
-      } else {
-        // Safe JavaScript / Python evaluation fallback
-        const lines = code.split("\n");
-        let logs = [];
-        lines.forEach(line => {
-          if (line.trim().startsWith("print(") && line.trim().endsWith(")")) {
-            const content = line.trim().slice(6, -1);
-            try {
-              // Strip f-string or simple quotes
-              logs.push(content.replace(/^[f"']+|["']+$/g, ""));
-            } catch {
-              logs.push(content);
-            }
-          }
-        });
-        if (logs.length === 0) {
-          logs.push("Code executed successfully with return code 0.");
-        }
-        output.textContent = `=== Execution Success (Client Sandbox) ===\n` + logs.join("\n");
+      const pyodide = await loadPythonRuntime();
+      let stdout = "";
+      let stderr = "";
+      pyodide.setStdout({ batched: (line) => { stdout += line + "\\n"; } });
+      pyodide.setStderr({ batched: (line) => { stderr += line + "\\n"; } });
+      status.textContent = "Status: Executing Python...";
+      const result = await pyodide.runPythonAsync(code);
+      let resultText = "";
+      if (result !== undefined && result !== null) {
+        resultText = String(result);
+        if (typeof result.destroy === "function") result.destroy();
       }
-      status.textContent = "Status: Execution finished (Exit 0)";
+      const outputText = [stdout.trimEnd(), stderr.trimEnd(), resultText].filter(Boolean).join("\\n");
+      output.textContent = outputText
+        ? `=== Python 3.11 · Execution complete ===\\n${outputText}`
+        : "=== Python 3.11 · Execution complete ===\\nProgram finished without printed output.";
+      status.textContent = "Status: Execution finished";
+      STATE.pyodideReady = true;
     } catch (err) {
-      output.textContent += `\n[Runtime Error]: ${err.message}`;
+      output.textContent = `=== Python execution failed ===\\n${err.message}`;
       status.textContent = "Status: Execution Failed";
+      STATE.pyodideReady = false;
+      showToast("Python runtime error: " + err.message, "error");
     } finally {
       runBtn.disabled = false;
     }
   });
-}
 
 // ==========================================================================
 // 4. SECURITY & CODE SCANNER
@@ -607,11 +632,11 @@ function renderSecurityView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-security)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Security & Vulnerability Scanner
         </h2>
-        <p>Inspect repository source code, API keys, credentials, and configuration files for security vulnerabilities, PII leaks, and dangerous exposure.</p>
+        <p>Quick client-side pattern checks for common secret formats in the text you paste. This is not a full repository audit, dependency scan, or substitute for a dedicated security scanner.</p>
       </div>
 
       <div class="threat-grid">
-        <div class="threat-stat-card"><span class="threat-stat-num stat-safe" id="statScanned">0</span><span class="threat-stat-label">Scanned</span></div>
+        <div class="threat-stat-card"><span class="threat-stat-num stat-safe" id="statScanned">0</span><span class="threat-stat-label">Characters scanned</span></div>
         <div class="threat-stat-card"><span class="threat-stat-num stat-critical" id="statCritical">0</span><span class="threat-stat-label">Critical</span></div>
         <div class="threat-stat-card"><span class="threat-stat-num stat-high" id="statHigh">0</span><span class="threat-stat-label">High Risk</span></div>
         <div class="threat-stat-card"><span class="threat-stat-num stat-medium" id="statRedacted">0</span><span class="threat-stat-label">Redacted</span></div>
@@ -626,7 +651,7 @@ function renderSecurityView(container) {
         <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
           <button class="btn btn-primary" id="runSecurityScanBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>Run Deep Security Scan</span>
+            <span>Run Local Secret Scan</span>
           </button>
         </div>
       </div>
@@ -915,7 +940,7 @@ function renderMemoryView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-memory)" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0-4 4v1a4 4 0 0 0 4 4v1a4 4 0 0 0 4 4h0a4 4 0 0 0 4-4v-1a4 4 0 0 0 4-4v-1a4 4 0 0 0-4-4V6a4 4 0 0 0-4-4z"/></svg>
           Memory Vault
         </h2>
-        <p>Persistent contextual memory storage synced with the FastAPI backend. Zaythar retains user preferences, identities, and project goals across sessions.</p>
+        <p>Memory facts use the FastAPI backend when connected. Without a backend, facts are stored locally in this browser only.</p>
       </div>
 
       <div class="card">
@@ -965,6 +990,7 @@ function renderMemoryView(container) {
       } else {
         STATE.memoryFacts.push({ id: "fact_" + Date.now(), fact, category: cat, created_at: new Date().toISOString() });
       }
+      localStorage.setItem("zaythar_memory_facts", JSON.stringify(STATE.memoryFacts));
       input.value = "";
       showToast("Fact saved into memory vault", "success");
       loadAndRenderFacts();
@@ -981,6 +1007,7 @@ function renderMemoryView(container) {
         await apiRequest("/api/v1/memory/facts", { method: "DELETE" });
       }
       STATE.memoryFacts = [];
+      localStorage.setItem("zaythar_memory_facts", "[]");
       loadAndRenderFacts();
       showToast("Memory vault cleared", "info");
     } catch (err) {
@@ -995,10 +1022,16 @@ async function loadAndRenderFacts() {
 
   try {
     if (STATE.backendOnline) {
-      STATE.memoryFacts = await apiRequest("/api/v1/memory/facts");
+      const remoteFacts = await apiRequest("/api/v1/memory/facts");
+      if (!Array.isArray(remoteFacts)) throw new Error("Unexpected memory response format.");
+      STATE.memoryFacts = remoteFacts;
+      localStorage.setItem("zaythar_memory_facts", JSON.stringify(STATE.memoryFacts));
+    } else {
+      STATE.memoryFacts = readStoredJson("zaythar_memory_facts", []);
     }
   } catch (err) {
-    console.log("Using local memory cache");
+    console.log("Using local memory cache", err);
+    STATE.memoryFacts = readStoredJson("zaythar_memory_facts", STATE.memoryFacts);
   }
 
   $("#factCountBadge").textContent = STATE.memoryFacts.length;
@@ -1016,7 +1049,7 @@ async function loadAndRenderFacts() {
           <span class="nav-pill pill-blue">${escapeHtml(f.category || 'general')}</span>
         </div>
       </div>
-      <button class="icon-btn delete-single-fact-btn" data-id="${f.id}" title="Delete fact" style="width:28px; height:28px;">✕</button>
+      <button class="icon-btn delete-single-fact-btn" data-id="${escapeHtml(f.id)}" title="Delete fact" style="width:28px; height:28px;">✕</button>
     </div>
   `).join("");
 
@@ -1025,9 +1058,10 @@ async function loadAndRenderFacts() {
       const id = btn.dataset.id;
       try {
         if (STATE.backendOnline) {
-          await apiRequest(`/api/v1/memory/facts/${id}`, { method: "DELETE" });
+          await apiRequest(`/api/v1/memory/facts/${encodeURIComponent(id)}`, { method: "DELETE" });
         }
         STATE.memoryFacts = STATE.memoryFacts.filter(x => x.id !== id);
+        localStorage.setItem("zaythar_memory_facts", JSON.stringify(STATE.memoryFacts));
         loadAndRenderFacts();
         showToast("Fact deleted");
       } catch (err) {
@@ -1167,8 +1201,8 @@ function renderAgentView(container) {
       $("#agentOutputContent").innerHTML = `
         <div style="padding:12px; background:var(--bg-surface); border:1px solid var(--border-strong); border-radius:var(--radius-md);">
           <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:8px;">
-            <span>Status: <b style="color:#10b981;">${res.status}</b></span>
-            <span>Tool Used: <b>${res.tool_used}</b></span>
+            <span>Status: <b style="color:#10b981;">${escapeHtml(res.status)}</b></span>
+            <span>Tool Used: <b>${escapeHtml(res.tool_used)}</b></span>
           </div>
           <p style="font-size:14px; line-height:1.6;">${escapeHtml(res.summary)}</p>
           ${res.actions_taken?.length ? `
@@ -1366,7 +1400,7 @@ function renderProjectsList() {
         <b>${escapeHtml(p.name)}</b>
         <div style="font-size:11px; color:var(--text-muted);">Created: ${new Date(p.createdAt).toLocaleDateString()}</div>
       </div>
-      <button class="icon-btn delete-proj-btn" data-id="${p.id}" title="Delete project" style="width:28px; height:28px;">✕</button>
+      <button class="icon-btn delete-proj-btn" data-id="${escapeHtml(p.id)}" title="Delete project" style="width:28px; height:28px;">✕</button>
     </div>
   `).join("");
 
@@ -1495,7 +1529,7 @@ function renderHistoryList() {
   if (!container) return;
 
   container.innerHTML = STATE.chats.map(c => `
-    <button class="history-item ${c.id === STATE.currentChatId ? 'active' : ''}" data-id="${c.id}">
+    <button class="history-item ${c.id === STATE.currentChatId ? 'active' : ''}" data-id="${escapeHtml(c.id)}">
       <span>${escapeHtml(c.title)}</span>
     </button>
   `).join("");
