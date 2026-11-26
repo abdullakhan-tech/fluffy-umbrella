@@ -83,14 +83,14 @@ fun OverviewScreen(
     val deckModules = listOf(
         CommandDeckModule("engine_hub", "AI Engine Nexus", "Smart Router & live suite runner", Icons.Rounded.PrecisionManufacturing, "deck_engines"),
         CommandDeckModule("assistant", "AI Assistant", "Multi-thread chat, Search & Maps", Icons.Rounded.ChatBubbleOutline, "deck_assistant"),
-        CommandDeckModule("voice_audio", "Voice & Audio", "Gemini 3.8 Live & Transcribe", Icons.Rounded.GraphicEq, "deck_voice_audio"),
+        CommandDeckModule("voice_audio", "Voice & Audio", "Device speech input & transcription", Icons.Rounded.GraphicEq, "deck_voice_audio"),
         CommandDeckModule("brain", "AI Brain", "RAG-grounded neural reasoning", Icons.Rounded.PsychologyAlt, "deck_brain"),
         CommandDeckModule("camera_eyes", "Camera Eyes", "Live multimodal photo vision", Icons.Rounded.CameraAlt, "deck_camera_eyes"),
         CommandDeckModule("plugins", "Plugin Plug Hub", "Extensible tools & directives", Icons.Rounded.Extension, "deck_plugins"),
         CommandDeckModule("code", "Code Copilot", "Principal engineering & audits", Icons.Rounded.Code, "deck_code"),
         CommandDeckModule("collaboration", "Collaboration Nexus", "Multi-agent specialist swarm", Icons.Rounded.Hub, "deck_collaboration"),
         CommandDeckModule("ai_agents_office", "AI Agents Office", "3D Boss + 7 specialist agents", Icons.Rounded.Hub, "deck_ai_agents_office"),
-        CommandDeckModule("studio", "Media Studio", "Nano Banana 2.1 AI image gen", Icons.Rounded.AutoAwesome, "deck_studio"),
+        CommandDeckModule("studio", "Media Studio", "Image workspace · provider availability varies", Icons.Rounded.AutoAwesome, "deck_studio"),
         CommandDeckModule("knowledge", "Knowledge Base", "Hybrid BM25 + Graph RAG", Icons.Rounded.Memory, "deck_knowledge"),
         CommandDeckModule("settingsPanel", "AI Core Settings", "Processing & visual tuning", Icons.Rounded.Tune, "deck_settings")
     )
