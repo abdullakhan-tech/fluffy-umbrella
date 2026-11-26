@@ -16,6 +16,8 @@ const STATE = {
   currentChatId: localStorage.getItem("zaythar_active_chat") || null,
   projects: readStoredJson("zaythar_projects", []),
   memoryFacts: readStoredJson("zaythar_memory_facts", []),
+  backendLastChecked: null,
+  backendLastError: null,
   notifications: [],
   backendOnline: false,
   pyodideReady: false,
@@ -106,13 +108,16 @@ async function checkBackendHealth() {
   const label = $("#backendLabel");
   if (!dot || !label) return;
 
+  STATE.backendLastChecked = new Date().toISOString();
   try {
-    const res = await apiRequest("/health");
+    await apiRequest("/health");
     STATE.backendOnline = true;
+    STATE.backendLastError = null;
     dot.className = "status-dot dot-online";
     label.textContent = "FastAPI: Online";
   } catch (err) {
     STATE.backendOnline = false;
+    STATE.backendLastError = err?.message || "Connection failed";
     dot.className = "status-dot dot-offline";
     label.textContent = "FastAPI: Standby";
   }
@@ -1600,6 +1605,58 @@ document.addEventListener("DOMContentLoaded", () => {
     STATE.activeModel = e.target.value;
     localStorage.setItem("zaythar_model", STATE.activeModel);
     showToast(`Switched engine to ${e.target.value}`);
+  });
+
+  // Diagnostics modal: show actual connection state and local runtime capabilities.
+  const closeDiagnostics = () => {
+    const modal = $("#notifModal");
+    if (modal) modal.style.display = "none";
+  };
+  $("#notifBellBtn")?.addEventListener("click", () => {
+    const modal = $("#notifModal");
+    const body = $("#notifModalBody");
+    if (!modal || !body) return;
+    const rows = [
+      ["FastAPI backend", STATE.backendOnline ? "Connected" : "Offline / not configured"],
+      ["Backend URL", STATE.backendUrl],
+      ["Last health check", STATE.backendLastChecked ? new Date(STATE.backendLastChecked).toLocaleString() : "Not checked yet"],
+      ["Last connection error", STATE.backendLastError || "None"],
+      ["Python runtime", STATE.pyodideReady ? "Loaded (Pyodide)" : "Not loaded"],
+      ["Storage", "Browser local storage"]
+    ];
+    body.replaceChildren();
+    const list = document.createElement("div");
+    list.style.display = "grid";
+    list.style.gap = "12px";
+    rows.forEach(([label, value]) => {
+      const row = document.createElement("div");
+      const title = document.createElement("b");
+      title.textContent = label;
+      const detail = document.createElement("div");
+      detail.textContent = String(value);
+      detail.style.color = "var(--text-secondary)";
+      row.append(title, detail);
+      list.appendChild(row);
+    });
+    const refresh = document.createElement("button");
+    refresh.className = "btn btn-primary";
+    refresh.textContent = "Refresh diagnostics";
+    refresh.addEventListener("click", async () => {
+      refresh.disabled = true;
+      await checkBackendHealth();
+      closeDiagnostics();
+      $("#notifBellBtn")?.click();
+    });
+    list.appendChild(refresh);
+    body.appendChild(list);
+    modal.style.display = "flex";
+  });
+  $("#closeNotifModalBtn")?.addEventListener("click", closeDiagnostics);
+  $("#notifModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "notifModal") closeDiagnostics();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDiagnostics();
   });
 
   // Backend Status Ping Button
