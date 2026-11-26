@@ -66,3 +66,8 @@ Python is a first-class language in this repository: the Android Code Copilot of
 ## Local code intelligence (optional developer tooling)
 
 This repository includes an optional [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) project MCP configuration for local coding agents. It provides a persistent local code knowledge graph, symbol/dependency exploration, and change-impact context. It is developer-workstation tooling, not an Android runtime dependency. See [docs/CODEBASE_MEMORY_MCP.md](docs/CODEBASE_MEMORY_MCP.md) for installation, setup, security, and limitations. Local `.codebase-memory/` index data is Git-ignored. For bounded snippet-level Python/Kotlin/Gradle dependency inspection through the backend agent API, see [Static Codebase Analysis Agent](docs/CODEBASE_ANALYSIS_AGENT.md).
+
+
+## Community Discussions
+
+Use [DISCUSSIONS.md](DISCUSSIONS.md) for the recommended GitHub Discussions categories, posting guidelines, moderation workflow, and setup checklist. Structured discussion templates are maintained in `.github/DISCUSSION_TEMPLATE/`. Repository maintainers must create the matching categories in GitHub Settings; templates do not create categories automatically.
