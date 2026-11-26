@@ -86,3 +86,12 @@ test("AI provider selection is limited to backend-supported routes and reaches c
   assert.ok(!html.includes('value="pyodide"'));
   assert.ok(!html.includes('value="jarvis"'));
 });
+
+
+test("notification bell opens real diagnostics and supports close and refresh", () => {
+  assert.ok(js.includes('$("#notifBellBtn")?.addEventListener("click"'));
+  assert.ok(js.includes('$("#closeNotifModalBtn")?.addEventListener("click"'));
+  assert.ok(js.includes("Refresh diagnostics"));
+  assert.ok(js.includes("backendLastChecked"));
+  assert.ok(js.includes("backendLastError"));
+});
