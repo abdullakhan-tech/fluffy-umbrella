@@ -2,71 +2,206 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09090b">
-  <meta name="description" content="Zaythar AI workspace — chat, agent, security, memory, voice, and personas connected to your backend.">
-  <title>Zaythar AI Workspace</title>
+  <meta name="description" content="Zaythar AI — Advanced Multimodal AI Command Nexus & Assistant">
+  <title>Zaythar AI — Intelligent Command Nexus</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
   <link rel="stylesheet" href="/app.css">
 </head>
-<body>
-  <div class="app-shell">
+<body class="dark-theme">
+  <div class="app-shell" id="appShell">
+    <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="/" aria-label="Zaythar AI home">
-        <span class="brand-mark">✺</span>
-        <span><b>Zaythar AI</b><small>Your advanced AI companion</small></span>
-      </a>
-      <button class="new-chat" id="newChat">＋ <span>New chat</span></button>
-      <nav class="nav-group" aria-label="Workspace">
-        <button class="nav-item active" data-view="chat">◉ <span>Chat</span></button>
-        <button class="nav-item" data-view="agent">⚡ <span>Autonomous Agent</span></button>
-        <button class="nav-item" data-view="security">🛡 <span>Security Scanner</span></button>
-        <button class="nav-item" data-view="library">▤ <span>Memory Vault</span></button>
-        <button class="nav-item" data-view="gpts">◇ <span>GPTs & Personas</span></button>
-        <button class="nav-item" data-view="voice">♬ <span>Voice & Orb</span></button>
-        <button class="nav-item" data-view="search">⌕ <span>Search</span></button>
-        <button class="nav-item" data-view="projects">▣ <span>Projects</span></button>
-        <button class="nav-item" data-view="code">⌘ <span>Code Interpreter</span></button>
-        <button class="nav-item" data-view="canvas">▱ <span>Canvas</span></button>
-        <button class="nav-item" data-view="tools">⠿ <span>Tools Hub</span></button>
+      <div class="sidebar-header">
+        <a class="brand" href="/" aria-label="Zaythar AI Home">
+          <div class="brand-orb">
+            <span class="orb-core"></span>
+          </div>
+          <div class="brand-title">
+            <span class="brand-name">Zaythar <b>AI</b></span>
+            <span class="brand-tag">Neural Nexus</span>
+          </div>
+        </a>
+        <button class="icon-btn sidebar-close-mobile" id="closeSidebarBtn" aria-label="Close sidebar">✕</button>
+      </div>
+
+      <div class="sidebar-action">
+        <button class="new-chat-btn" id="newChatBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New Chat</span>
+        </button>
+      </div>
+
+      <nav class="nav-menu" aria-label="Workspace Views">
+        <div class="nav-section-label">CORE INTELLIGENCE</div>
+        <button class="nav-btn active" data-view="chat">
+          <span class="nav-icon chat-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="nav-text">Neural Chat</span>
+          <span class="nav-badge" id="chatBadge">Live</span>
+        </button>
+
+        <button class="nav-btn" data-view="agent">
+          <span class="nav-icon agent-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg></span>
+          <span class="nav-text">Autonomous Agent</span>
+          <span class="nav-pill pill-amber">Tasks</span>
+        </button>
+
+        <button class="nav-btn" data-view="image">
+          <span class="nav-icon image-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>
+          <span class="nav-text">Image Studio</span>
+          <span class="nav-pill pill-pink">Real Gen</span>
+        </button>
+
+        <button class="nav-btn" data-view="voice">
+          <span class="nav-icon voice-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></span>
+          <span class="nav-text">Neural Orb & Voice</span>
+          <span class="nav-pill pill-red">Audio</span>
+        </button>
+
+        <div class="nav-section-label">TOOLS & ENGINEERING</div>
+        <button class="nav-btn" data-view="code">
+          <span class="nav-icon code-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+          <span class="nav-text">Python & Code Runner</span>
+          <span class="nav-pill pill-lime">Pyodide</span>
+        </button>
+
+        <button class="nav-btn" data-view="security">
+          <span class="nav-icon security-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+          <span class="nav-text">Security & Code Scanner</span>
+          <span class="nav-pill pill-green">Audit</span>
+        </button>
+
+        <button class="nav-btn" data-view="data">
+          <span class="nav-icon data-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></span>
+          <span class="nav-text">Data Analytics</span>
+          <span class="nav-pill pill-blue">CSV/JSON</span>
+        </button>
+
+        <button class="nav-btn" data-view="canvas">
+          <span class="nav-icon canvas-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+          <span class="nav-text">Canvas & Notes</span>
+        </button>
+
+        <div class="nav-section-label">SYSTEM & MEMORY</div>
+        <button class="nav-btn" data-view="memory">
+          <span class="nav-icon memory-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0-4 4v1a4 4 0 0 0 4 4v1a4 4 0 0 0 4 4h0a4 4 0 0 0 4-4v-1a4 4 0 0 0 4-4v-1a4 4 0 0 0-4-4V6a4 4 0 0 0-4-4z"/></svg></span>
+          <span class="nav-text">Memory Vault</span>
+          <span class="nav-badge" id="factCountBadge">0</span>
+        </button>
+
+        <button class="nav-btn" data-view="personas">
+          <span class="nav-icon personas-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg></span>
+          <span class="nav-text">Personas & GPTs</span>
+        </button>
+
+        <button class="nav-btn" data-view="projects">
+          <span class="nav-icon projects-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="nav-text">Projects Hub</span>
+        </button>
+
+        <button class="nav-btn" data-view="android">
+          <span class="nav-icon android-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg></span>
+          <span class="nav-text">Android & APK Hub</span>
+          <span class="nav-pill pill-green">Build</span>
+        </button>
+
+        <button class="nav-btn" data-view="settings">
+          <span class="nav-icon settings-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+          <span class="nav-text">Settings & Sync</span>
+        </button>
       </nav>
-      <div class="history-heading">Recent chats <button id="clearChats" title="Clear chat history">•••</button></div>
-      <div class="history-list" id="historyList"></div>
-      <div class="sidebar-bottom">
-        <div class="avatar" id="avatarLetter">Z</div>
-        <div class="profile-copy">
-          <b id="profileName">Zaythar User</b>
-          <small id="profilePersona">Persona: Jarvis</small>
+
+      <!-- CHAT HISTORY IN SIDEBAR -->
+      <div class="sidebar-history-box">
+        <div class="history-title-row">
+          <span>Recent Sessions</span>
+          <button class="clear-history-btn" id="clearAllChatsBtn" title="Clear All History">Clear</button>
         </div>
-        <button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button>
+        <div class="history-list" id="historyList"></div>
+      </div>
+
+      <!-- SIDEBAR FOOTER -->
+      <div class="sidebar-footer">
+        <div class="user-chip" id="userProfileChip" title="User Profile & Active Persona">
+          <div class="user-avatar" id="avatarBadge">Z</div>
+          <div class="user-info">
+            <span class="user-name" id="userNameLabel">Abdullah</span>
+            <span class="user-persona" id="activePersonaLabel">Persona: JARVIS</span>
+          </div>
+        </div>
+        <button class="icon-btn" data-view="settings" title="Settings" aria-label="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
       </div>
     </aside>
-    <main class="main-area">
+
+    <!-- MAIN VIEW AREA -->
+    <main class="main-wrapper" id="mainWrapper">
+      <!-- TOPBAR -->
       <header class="topbar">
-        <button class="icon-btn mobile-menu" id="menuToggle" aria-label="Open menu">☰</button>
-        <div class="top-brand">
-          <span class="brand-mark mini">✺</span>
-          <b>Zaythar AI</b>
-          <label class="model-picker" aria-label="AI provider">
-            <span>Provider</span>
-            <select id="modelSelect">
-              <option value="auto">Auto · configured provider</option>
-            </select>
-          </label>
-          <span class="top-divider">/</span>
-          <span id="topSection">Chat</span>
+        <div class="topbar-left">
+          <button class="icon-btn mobile-menu-btn" id="openSidebarBtn" aria-label="Toggle menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="view-indicator">
+            <span class="view-badge" id="currentViewBadge">Chat</span>
+            <span class="view-title" id="currentViewTitle">Neural Conversation</span>
+          </div>
         </div>
-        <div class="top-actions">
-          <span class="connection" id="connectionState">Connecting...</span>
-          <button class="icon-btn" data-view="settings" aria-label="Settings">⚙</button>
+
+        <div class="topbar-right">
+          <!-- Backend Connection Status -->
+          <button class="status-indicator" id="backendStatusPill" title="Click to test backend connection">
+            <span class="status-dot dot-connecting" id="backendDot"></span>
+            <span class="status-label" id="backendLabel">FastAPI: Connecting</span>
+          </button>
+
+          <!-- Model / Engine Picker -->
+          <div class="model-dropdown-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <select id="engineSelect" aria-label="Select AI Engine">
+              <option value="auto">Zaythar Hybrid Engine</option>
+              <option value="jarvis">JARVIS Core (FastAPI)</option>
+              <option value="friday">FRIDAY Tactical (FastAPI)</option>
+              <option value="zaythar">Zaythar Advanced</option>
+              <option value="pyodide">Client-Side Pyodide</option>
+            </select>
+          </div>
+
+          <!-- Notification Bell -->
+          <button class="icon-btn" id="notifBellBtn" title="Notifications & Diagnostics" aria-label="Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="notif-badge" id="notifBadge" style="display:none;"></span>
+          </button>
         </div>
       </header>
-      <section class="workspace" id="workspace" aria-live="polite"></section>
-      <footer class="footnote">
-        Zaythar AI Companion · Connected to Python FastAPI backend
-        <span id="backendStatusNotice"></span>
-      </footer>
+
+      <!-- DYNAMIC WORKSPACE VIEW CONTAINER -->
+      <section class="workspace-content" id="workspaceContent" aria-live="polite">
+        <!-- Injected via JavaScript based on active view -->
+      </section>
+
+      <!-- SYSTEM TOAST CONTAINER -->
+      <div class="toast-container" id="toastContainer"></div>
+
+      <!-- GLOBAL NOTIFICATIONS MODAL -->
+      <div class="modal-overlay" id="notifModal" style="display:none;">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>System Status & Diagnostics</h3>
+            <button class="icon-btn" id="closeNotifModalBtn">✕</button>
+          </div>
+          <div class="modal-body" id="notifModalBody">
+            <!-- Dynamic alerts -->
+          </div>
+        </div>
+      </div>
     </main>
   </div>
+
+  <script src="app.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
