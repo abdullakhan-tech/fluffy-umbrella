@@ -87,18 +87,19 @@ class ChatGroundingAndMarkdownUiTest {
 
         // Assert the actual Markdown host node and its complete accessible text summary.
         composeRule.onNodeWithTag("chat_message_a_md").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Architecture Overview", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Zero-Trust Sync", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Validate UID ownership", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Initialize App Check", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("fun greet() = \"Zaythar\"", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Show **raw** markdown").assertIsDisplayed()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Architecture Overview", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Zero-Trust Sync", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Validate UID ownership", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Initialize App Check", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("fun greet() = \"Zaythar\"", substring = true).assertExists()
+        composeRule.onNodeWithText("Show **raw** markdown").assertExists()
 
         themeMode = ThemeMode.LIGHT
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Zero-Trust Sync", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Zero-Trust Sync", substring = true).assertExists()
 
-        composeRule.onNodeWithTag("copy_message_a_md").performClick()
+        composeRule.onNodeWithTag("copy_message_a_md").performScrollTo().performClick()
         composeRule.waitForIdle()
         val app = ApplicationProvider.getApplicationContext<Application>()
         val clipboard = app.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

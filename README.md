@@ -61,3 +61,8 @@ Python is a first-class language in this repository: the Android Code Copilot of
 - **Authentication & Cloud Data**: Firebase Auth (Google Sign-In via `CredentialManager`), Cloud Firestore (`users/{userId}` profiles, `chat_sessions`, `messages`, `plugins`, `brain_runs`, `memories`, and `knowledge_facts` subcollections) backed by zero-trust `firestore.rules`.
 - **AI & Security**: `com.google.firebase:firebase-ai` + `FirebaseAppCheck` (`DebugAppCheckProviderFactory` in debug builds, `RecaptchaAppCheckProviderFactory` when `recaptcha_site_key` is configured in release builds).
 - **Local Preferences**: Jetpack DataStore Preferences for client-only UI theme, accent, motion, cognitive tuning, Google Search/Maps grounding, and model route settings.
+
+
+## Local code intelligence (optional developer tooling)
+
+This repository includes an optional [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) project MCP configuration for local coding agents. It provides a persistent local code knowledge graph, symbol/dependency exploration, and change-impact context. It is developer-workstation tooling, not an Android runtime dependency. See [docs/CODEBASE_MEMORY_MCP.md](docs/CODEBASE_MEMORY_MCP.md) for installation, setup, security, and limitations. Local `.codebase-memory/` index data is Git-ignored. For bounded snippet-level Python/Kotlin/Gradle dependency inspection through the backend agent API, see [Static Codebase Analysis Agent](docs/CODEBASE_ANALYSIS_AGENT.md).

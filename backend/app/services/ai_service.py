@@ -24,6 +24,7 @@ from app.services.agent_tools import (
     execute_text_summarizer,
     execute_think_tool,
 )
+from app.services.codebase_analysis import analyze_source
 from app.services.memory_service import memory_service
 from app.services.persona_service import persona_service
 from app.services.security_service import security_scanner
@@ -320,6 +321,7 @@ class AIService:
 
         # Determine target tool
         task_lower = task.lower()
+        is_codebase_analysis = tool_hint == ToolType.CODEBASE_ANALYZE
         is_think = (
             tool_hint == ToolType.THINK
             or task_lower.startswith("think")
@@ -349,7 +351,12 @@ class AIService:
             or len(context) > 200
         )
 
-        if is_think:
+        if is_codebase_analysis:
+            actions.append("Dispatched to read-only static dependency analyzer; source is never executed")
+            tool_result = analyze_source(context, language="auto")
+            selected_tool = "codebase_analyzer"
+            summary = ("Static dependency analysis completed." if tool_result.get("success") else tool_result.get("error", "Analysis failed."))
+        elif is_think:
             actions.append("Dispatched to OpenJarvis Reasoning Scratchpad (ThinkTool)")
             tool_result = execute_think_tool(task)
             selected_tool = "think"

@@ -65,12 +65,13 @@ class ToolType(str, Enum):
     THINK = "think"
     DAILY_BRIEFING = "daily_briefing"
     DEEP_RESEARCH = "deep_research"
+    CODEBASE_ANALYZE = "codebase_analyze"
     GENERAL = "general"
 
 
 class AgentTaskRequest(BaseModel):
     task: str = Field(..., min_length=1, max_length=2000, description="Task instruction for the AI agent")
-    context: Optional[str] = Field(default="", max_length=4000, description="Optional supporting context")
+    context: Optional[str] = Field(default="", max_length=20000, description="Optional supporting context; source snippets are analyzed as data and never executed")
     tool_hint: Optional[ToolType] = Field(default=None, description="Explicit tool hint if known")
 
 
