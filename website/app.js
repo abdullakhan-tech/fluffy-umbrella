@@ -389,7 +389,7 @@ function renderImageView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-image)" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
           Image Studio
         </h2>
-        <p>Generate high-definition AI art directly inside your browser powered by Flux & Stable Diffusion with zero external API key requirements.</p>
+        <p>Generate images through the third-party Pollinations service. Prompts are sent to that provider; availability and data handling depend on its service.</p>
       </div>
 
       <div class="image-studio-grid">
@@ -682,32 +682,41 @@ function renderSecurityView(container) {
     $("#statScanned").textContent = text.length;
 
     try {
+      if (text.length > 10000) {
+        throw new Error("The server scanner accepts at most 10,000 characters per request.");
+      }
       let findings = [];
       let redacted = text;
 
-      // Check regex for keys/secrets
-      const patterns = [
-        { name: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/g, level: "critical" },
-        { name: "OpenAI Secret Key", regex: /sk-[a-zA-Z0-9_-]{20,}/g, level: "critical" },
-        { name: "Password String", regex: /(?:password|passwd|pwd)\s*=\s*['"][^'"]+['"]/gi, level: "high" },
-        { name: "Social Security Number", regex: /\d{3}-\d{2}-\d{4}/g, level: "high" }
-      ];
-
-      let critCount = 0;
-      let highCount = 0;
-
-      patterns.forEach(p => {
-        const matches = text.match(p.regex);
-        if (matches) {
-          matches.forEach(m => {
-            findings.push({ name: p.name, value: m, level: p.level });
-            redacted = redacted.replace(m, "[REDACTED_SECRET]");
-            if (p.level === "critical") critCount++;
-            if (p.level === "high") highCount++;
+      if (STATE.backendOnline) {
+        const scan = await apiRequest("/api/v1/security/scan", {
+          method: "POST",
+          body: JSON.stringify({ text, redact: true })
+        });
+        findings = (scan.findings || []).map((finding) => ({
+          name: finding.pattern,
+          level: finding.threat_level,
+          description: finding.description
+        }));
+        redacted = scan.clean_text ?? text;
+      } else {
+        const patterns = [
+          { name: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/g, level: "critical" },
+          { name: "OpenAI Secret Key", regex: /sk-[a-zA-Z0-9_-]{20,}/g, level: "critical" },
+          { name: "Password String", regex: /(?:password|passwd|pwd)\s*=\s*['"][^'"]+['"]/gi, level: "high" },
+          { name: "Social Security Number", regex: /\d{3}-\d{2}-\d{4}/g, level: "high" }
+        ];
+        patterns.forEach((pattern) => {
+          const matches = text.match(pattern.regex) || [];
+          matches.forEach((match) => {
+            findings.push({ name: pattern.name, value: match, level: pattern.level });
+            redacted = redacted.replace(match, "[REDACTED_SECRET]");
           });
-        }
-      });
+        });
+      }
 
+      const critCount = findings.filter((finding) => finding.level === "critical").length;
+      const highCount = findings.filter((finding) => finding.level === "high").length;
       $("#statCritical").textContent = critCount;
       $("#statHigh").textContent = highCount;
       $("#statRedacted").textContent = findings.length;
@@ -1306,7 +1315,7 @@ function renderPersonasView(container) {
         <p>Switch between neural personas to tailor response tone, vocabulary, and execution style.</p>
       </div>
 
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+      <div class="personas-grid">
         ${personas.map(p => `
           <div class="card" style="border-color:${STATE.activePersona === p.id ? 'var(--accent-personas)' : 'var(--border-subtle)'};">
             <span class="nav-pill pill-pink">${p.tag}</span>
@@ -1361,7 +1370,7 @@ function renderProjectsView(container) {
 
       <div class="card">
         <div class="card-title">Active Projects</div>
-        <div id="projectsGrid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-top:12px;"></div>
+        <div id="projectsGrid" class="projects-grid"></div>
       </div>
     </div>
   `;
