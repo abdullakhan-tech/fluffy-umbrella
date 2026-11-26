@@ -1,0 +1,33 @@
+title: "[Show & Tell]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Show the community what you built with or around Zaythar AI. Only share content you have permission to publish.
+  - type: textarea
+    id: project
+    attributes:
+      label: What did you make?
+      description: Describe your demo, workflow, integration, or experiment.
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: How does it work?
+      description: Share the relevant setup steps, tools, and Zaythar AI features.
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Demo or source links
+      description: Add public links. Do not include credentials or private URLs.
+    validations:
+      required: false
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What feedback would help?
+    validations:
+      required: false

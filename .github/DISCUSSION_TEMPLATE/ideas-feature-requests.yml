@@ -1,0 +1,50 @@
+title: "[Idea]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share a focused idea or use case. Feature requests are proposals, not commitments to implement.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What are you trying to do, and what is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workaround or alternative approach?
+    validations:
+      required: false
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Relevant platform
+      options:
+        - Android
+        - Web
+        - Windows
+        - Backend / API
+        - Documentation
+        - Cross-platform
+        - Not sure
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before posting
+      options:
+        - label: I searched existing discussions and issues for duplicates.
+          required: true
+        - label: I have removed secrets and personal information.
+          required: true

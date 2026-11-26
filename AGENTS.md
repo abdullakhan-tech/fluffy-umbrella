@@ -16,3 +16,11 @@
 
 ## Completion checklist
 Run `gradle :app:testDebugUnitTest`, `gradle :app:lintDebug`, `gradle :app:assembleDebug`, and `node --test firestore.test.js` (with Firebase emulators running), update docs, and report any environment boundaries honestly.
+
+
+## GitHub Discussions and community documentation
+- Keep `DISCUSSIONS.md`, the README community link, and `.github/DISCUSSION_TEMPLATE/*.yml` aligned when category names or community workflows change.
+- Do not imply that committing discussion templates creates GitHub Discussion categories; category setup is a repository settings action.
+- Route reproducible defects and implementation work to Issues/Pull Requests; use Discussions for questions, ideas, demos, and design conversations.
+- Never request or publish API keys, Firebase credentials, access tokens, passwords, or private user data in public discussions.
+- Send vulnerability reports through a private security channel, not a public discussion thread.

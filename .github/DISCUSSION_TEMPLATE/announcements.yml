@@ -1,0 +1,28 @@
+title: "Announcement: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Maintainers: use this template for verified project news, releases, milestones, and service notices. Do not publish secrets or private user data.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Announcement
+      description: State the update clearly and include relevant dates.
+      placeholder: What is new?
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Who is affected?
+      description: Explain impact, availability, and any action users need to take.
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Relevant links
+      description: Link to release notes, documentation, issues, or pull requests.
+    validations:
+      required: false

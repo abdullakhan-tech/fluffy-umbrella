@@ -1,0 +1,52 @@
+title: "[Question]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include enough detail for the community to reproduce or understand the question. Never paste API keys, passwords, tokens, or private Firebase configuration.
+  - type: textarea
+    id: question
+    attributes:
+      label: What do you need help with?
+      description: Ask one clear question and describe your goal.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version / commit
+      description: Add the version, release, or commit if known.
+    validations:
+      required: false
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - Web
+        - Windows
+        - Backend / API
+        - Development environment
+        - Other / Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps and error details
+      description: What did you do? Include sanitized error text and relevant logs.
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: false
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: false
