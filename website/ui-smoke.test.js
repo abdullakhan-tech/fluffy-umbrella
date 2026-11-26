@@ -44,3 +44,35 @@ test("projects can be created, persisted, listed and deleted", () => {
   assert.ok(js.includes('localStorage.setItem("zaythar_projects", JSON.stringify(STATE.projects))'));
   assert.ok(js.includes("STATE.projects = STATE.projects.filter"));
 });
+
+
+test("Python runner uses a real Pyodide runtime instead of echoing source text", () => {
+  assert.ok(js.includes("loadPyodide"));
+  assert.ok(js.includes("runPythonAsync(code)"));
+  assert.ok(js.includes("setStdout"));
+  assert.ok(!js.includes("Code executed successfully with return code 0."));
+});
+
+test("browser workspace does not advertise an unimplemented Firestore sync action", () => {
+  assert.ok(js.includes("does not yet have an authenticated Firestore adapter"));
+  assert.ok(!js.includes("id=\"syncFirestoreBtn\""));
+  assert.ok(!js.includes('$("#syncFirestoreBtn")'));
+});
+
+test("untrusted toast and agent response text is inserted safely", () => {
+  assert.ok(js.includes("messageNode.textContent = String(message ?? \"\")"));
+  assert.ok(js.includes("escapeHtml(res.status)"));
+  assert.ok(js.includes("escapeHtml(res.tool_used)"));
+  assert.ok(!js.includes("toast.innerHTML ="));
+});
+
+test("offline chat clearly reports that no AI response was generated", () => {
+  assert.ok(js.includes("no AI response was generated"));
+  assert.ok(!js.includes("processing your session via local state"));
+});
+
+test("persona and project cards collapse to a single column on mobile", () => {
+  assert.ok(css.includes(".personas-grid"));
+  assert.ok(css.includes(".projects-grid"));
+  assert.match(css, /@media \(max-width: 768px\)[\s\S]*\.personas-grid,[\s\S]*\.projects-grid[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+});
