@@ -84,6 +84,15 @@ class AgentTaskResponse(BaseModel):
     actions_taken: List[str] = Field(default_factory=list, description="Step-by-step actions executed")
 
 
+class DecisionRequest(BaseModel):
+    question: str = Field(..., min_length=5, max_length=2000, description="Decision or problem to evaluate")
+    options: List[str] = Field(..., min_length=2, max_length=8, description="Candidate options to compare")
+    criteria: List[str] = Field(default_factory=list, max_length=12, description="Optional decision criteria")
+    context: Optional[str] = Field(default="", max_length=10000, description="Supporting evidence, treated as untrusted reference data")
+    risk_tolerance: str = Field(default="balanced", max_length=30, description="Conservative, balanced, or aggressive")
+    language: Optional[str] = Field(default=None, max_length=40, description="Optional response language")
+
+
 class StudyMode(str, Enum):
     SUMMARY = "summary"
     NOTES = "notes"
