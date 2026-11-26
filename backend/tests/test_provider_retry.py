@@ -102,6 +102,20 @@ def test_retries_transient_transport_error(monkeypatch):
     assert delays == [0.25]
 
 
+def test_does_not_retry_read_timeout_after_request_may_have_been_sent(monkeypatch):
+    delays = configure_retries(monkeypatch)
+    client = FakeClient(
+        [httpx.ReadTimeout("synthetic response timeout"), FakeResponse(200)]
+    )
+    service = make_service(client)
+
+    with pytest.raises(httpx.ReadTimeout):
+        asyncio.run(service._post_with_retry("https://provider.invalid/chat", json={}))
+
+    assert client.calls == 1
+    assert delays == []
+
+
 def test_backoff_is_exponential_and_attempt_count_is_bounded(monkeypatch):
     delays = configure_retries(monkeypatch, attempts=3)
     first, second, last = FakeResponse(503), FakeResponse(503), FakeResponse(503)
