@@ -105,29 +105,29 @@ class FactStore:
 
 
 class FactExtractor:
-    """Heuristic and pattern-based durable fact extractor."""
+    """Conservative extractor for explicit, durable, non-sensitive preferences and projects."""
+
+    PATTERNS = [
+        (r"(?i)\b(?:i prefer|i like|i love|my preference is)\s+([^.!?\n]{3,120})", "preference"),
+        (r"(?i)\b(?:my name is|call me)\s+([A-Za-z0-9_\- ]{2,60})", "identity"),
+        (r"(?i)\b(?:i am working on|my project is|we are building)\s+([^.!?\n]{3,120})", "project"),
+        (r"(?i)\b(?:remember that|please remember|note that|keep in mind that)\s+([^.!?\n]{3,150})", "general"),
+        (r"(?i)\b(?:mujhe|mujhko)\s+([^.!?\n]{3,100}?)\s+pasand hai", "preference"),
+        (r"(?i)\b(?:yaad rakhna|yaad rakh lo)\s+([^.!?\n]{3,150})", "general"),
+    ]
 
     @classmethod
     def extract_from_turn(cls, user_text: str, assistant_text: str = "") -> List[str]:
-        extracted: List[str] = []
         user_clean = (user_text or "").strip()
         if not user_clean:
             return []
 
-        patterns = [
-            (r"(?i)\b(?:i prefer|i like|i love|my preference is)\s+([^.!?\n]{3,120})", "preference"),
-            (r"(?i)\b(?:my name is|i am|call me)\s+([A-Za-z0-9_\- ]{2,60})", "identity"),
-            (r"(?i)\b(?:i am working on|my project is|we are building|building)\s+([^.!?\n]{3,120})", "project"),
-            (r"(?i)\b(?:remember that|note that|keep in mind that)\s+([^.!?\n]{3,150})", "general"),
-        ]
-
-        for p, category in patterns:
-            for match in re.finditer(p, user_clean):
-                captured = match.group(0).strip()
-                fact = captured.strip(" ,.-:;")
+        extracted: List[str] = []
+        for pattern, _category in cls.PATTERNS:
+            for match in re.finditer(pattern, user_clean):
+                fact = match.group(0).strip(" ,.-:;")
                 if len(fact) >= 8 and fact not in extracted:
                     extracted.append(fact)
-
         return extracted[:5]
 
 
@@ -150,15 +150,20 @@ class MemoryService:
         if not query:
             return [r.fact for r in all_records[:limit]]
 
-        query_tokens = set(re.findall(r"\w+", query.lower()))
+        stop_words = {"the", "and", "for", "with", "that", "this", "what", "when", "where", "how", "why", "from", "you", "your", "are", "is", "was", "can", "could", "would"}
+        query_tokens = {token for token in re.findall(r"\w+", query.lower()) if len(token) > 2 and token not in stop_words}
+        if not query_tokens:
+            return [r.fact for r in all_records[:limit]]
+
         scored = []
         for r in all_records:
-            fact_tokens = set(re.findall(r"\w+", r.fact.lower()))
+            fact_tokens = {token for token in re.findall(r"\w+", r.fact.lower()) if len(token) > 2 and token not in stop_words}
             overlap = len(query_tokens & fact_tokens)
-            scored.append((overlap, r))
+            if overlap:
+                scored.append((overlap, r.created_at, r))
 
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [r.fact for _, r in scored[:limit]]
+        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return [record.fact for _, _, record in scored[:limit]]
 
     async def list_facts(self, limit: int = 50) -> List[FactRecord]:
         return await self.store.list_facts(limit=limit)
