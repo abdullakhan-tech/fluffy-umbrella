@@ -31,6 +31,7 @@ import androidx.navigation.compose.composable
 import com.example.domain.UiState
 import com.example.ui.components.ZaytharNavDestination
 import com.example.ui.screens.AssistantScreen
+import com.example.ui.screens.AiAgentsOfficeScreen
 import com.example.ui.screens.CameraEyesScreen
 import com.example.ui.screens.CodeCopilotScreen
 import com.example.ui.screens.CollaborationScreen
@@ -409,30 +410,7 @@ internal fun ZaytharNavHost(
             )
         }
         composable(ZaytharRoutes.AI_AGENTS) {
-            CollaborationScreen(
-                agentRunState = agentRunState,
-                knowledgeFactsState = knowledgeFactsState,
-                onAgentNodeClick = { role ->
-                    viewModel.selectAgent(role)
-                    viewModel.emitToast("${role.title} specialist selected.")
-                    onNavigate(ZaytharRoutes.ASSISTANT)
-                },
-                onRunTeam = { task, roles ->
-                    workspaceViewModel.runMultiAgent(
-                        task = task,
-                        selectedAgents = roles,
-                        prefs = prefs,
-                        activeSessionId = activeSessionId,
-                        onToast = viewModel::emitToast
-                    )
-                },
-                onAddFact = { s, p, o ->
-                    workspaceViewModel.addKnowledgeFact(s, p, o, onToast = viewModel::emitToast)
-                },
-                onDeleteFact = { id ->
-                    workspaceViewModel.deleteKnowledgeFact(id, viewModel::emitToast)
-                }
-            )
+            AiAgentsOfficeScreen()
         }
         composable(ZaytharRoutes.MODELS) {
             ModelMatrixScreen(
