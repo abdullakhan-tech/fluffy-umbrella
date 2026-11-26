@@ -84,6 +84,24 @@ class AgentTaskResponse(BaseModel):
     actions_taken: List[str] = Field(default_factory=list, description="Step-by-step actions executed")
 
 
+class StudyMode(str, Enum):
+    SUMMARY = "summary"
+    NOTES = "notes"
+    FLASHCARDS = "flashcards"
+    MCQ = "mcq"
+    QUIZ = "quiz"
+    STUDY_GUIDE = "study_guide"
+
+
+class StudyRequest(BaseModel):
+    document_text: str = Field(..., min_length=1, max_length=50000, description="Extracted document text; treated as untrusted source material")
+    mode: StudyMode = Field(default=StudyMode.STUDY_GUIDE, description="Study output to generate")
+    language: Optional[str] = Field(default=None, max_length=40, description="Optional output language")
+    question_count: int = Field(default=10, ge=3, le=25, description="Number of MCQs or quiz questions")
+    provider: Optional[str] = Field(default="auto", description="Preferred configured AI provider")
+    model: Optional[str] = Field(default=None, max_length=60, description="Optional provider model override")
+
+
 class SessionSummary(BaseModel):
     session_id: str = Field(..., description="Unique session ID")
     message_count: int = Field(..., description="Number of stored messages")
