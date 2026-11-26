@@ -324,14 +324,17 @@ function renderChatMessages(chat) {
     return;
   }
 
-  container.innerHTML = chat.messages.map((m) => `
-    <div class="msg-row ${m.role}">
-      <div class="msg-avatar ${m.role === 'user' ? 'user-msg-avatar' : 'ai-msg-avatar'}">
-        ${m.role === 'user' ? 'U' : 'Z'}
+  container.innerHTML = chat.messages.map((m) => {
+    const roleClass = m.role === "user" ? "user" : "assistant";
+    return `
+      <div class="msg-row ${roleClass}">
+        <div class="msg-avatar ${roleClass === "user" ? "user-msg-avatar" : "ai-msg-avatar"}">
+          ${roleClass === "user" ? "U" : "Z"}
+        </div>
+        <div class="msg-bubble">${escapeHtml(m.content)}</div>
       </div>
-      <div class="msg-bubble">${escapeHtml(m.content)}</div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
   container.scrollTop = container.scrollHeight;
 }
@@ -730,7 +733,7 @@ function renderSecurityView(container) {
       } else {
         findingsBox.innerHTML = findings.map(f => `
           <div style="padding:8px 12px; border-radius:var(--radius-sm); background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#fca5a5; margin-bottom:6px; font-size:12px;">
-            <b>[${f.level.toUpperCase()}]</b> Found exposed <b>${f.name}</b>
+            <b>[${escapeHtml(String(f.level).toUpperCase())}]</b> Found exposed <b>${escapeHtml(f.name)}</b>
           </div>
         `).join("");
       }
