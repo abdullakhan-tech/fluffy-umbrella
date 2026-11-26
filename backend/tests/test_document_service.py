@@ -21,7 +21,7 @@ def test_extract_plain_text_document():
 
 
 def test_extract_markdown_and_normalize_filename():
-    result = extract_document("../../project.md", b"# Project\nA useful note.")
+    result = extract_document(r"C:\\temp\\project.md", b"# Project\\nA useful note.")
     assert result.filename == "project.md"
     assert result.file_type == "md"
     assert result.text.startswith("# Project")
