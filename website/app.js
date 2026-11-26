@@ -9,7 +9,9 @@ const STATE = {
   backendUrl: localStorage.getItem("zaythar_backend_url") || "http://localhost:8000",
   activePersona: localStorage.getItem("zaythar_persona") || "jarvis",
   honorific: localStorage.getItem("zaythar_honorific") || "Sir",
-  activeModel: localStorage.getItem("zaythar_model") || "auto",
+  activeModel: ["auto", "openai", "gemini", "ollama"].includes(localStorage.getItem("zaythar_model"))
+    ? localStorage.getItem("zaythar_model")
+    : "auto",
   chats: readStoredJson("zaythar_chats", []),
   currentChatId: localStorage.getItem("zaythar_active_chat") || null,
   projects: readStoredJson("zaythar_projects", []),
@@ -368,7 +370,8 @@ async function handleSendMessage() {
       body: JSON.stringify({
         messages: currentChat.messages.slice(0, -1),
         persona: STATE.activePersona,
-        honorific: STATE.honorific
+        honorific: STATE.honorific,
+        provider: STATE.activeModel
       })
     });
     aiMsg.content = res.reply || res.content || JSON.stringify(res);
