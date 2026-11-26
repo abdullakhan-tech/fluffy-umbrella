@@ -642,6 +642,19 @@ body {
   animation: fadeIn 0.2s ease;
 }
 
+.personas-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1213,6 +1226,10 @@ body {
 
 /* MOBILE RESPONSIVE */
 @media (max-width: 768px) {
+  .personas-grid,
+  .projects-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .sidebar {
     position: fixed;
     top: 0;
