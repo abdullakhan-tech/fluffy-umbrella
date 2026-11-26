@@ -322,11 +322,11 @@ async def analyze_decision(request: DecisionRequest):
     import json
     from app.models import ChatRole
 
-    safe_context = security_scanner.scan(request.context or "", redact=True).clean_text
+    safe_context = security_scanner.scan(request.context or "", redact=True).clean_text[:700]
     decision_payload = {
-        "question": request.question,
-        "options": request.options,
-        "criteria": request.criteria,
+        "question": request.question[:1000],
+        "options": [option[:250] for option in request.options],
+        "criteria": [criterion[:100] for criterion in request.criteria],
         "risk_tolerance": request.risk_tolerance,
         "supporting_context": safe_context,
     }
