@@ -43,7 +43,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ZaytharPreferences
-import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
 import com.example.ui.components.CyberSectionTitle
@@ -73,10 +72,10 @@ fun SettingsScreen(
                 titlePrefix = "AI Cognitive",
                 titleAccent = "Settings",
                 trailing = {
-                    CyberActionButton(
-                        text = "SAVE",
-                        onClick = { onToast("Preferences saved on this device.") },
-                        testTag = "save_settings_button"
+                    Text(
+                        text = "AUTO-SAVED",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cyber.accentSoft
                     )
                 }
             )

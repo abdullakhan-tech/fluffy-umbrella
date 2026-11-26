@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,6 +111,8 @@ fun AssistantScreen(
 ) {
     val context = LocalContext.current
     val cyber = LocalCyberColors.current
+    val currentOnSend by rememberUpdatedState(onSend)
+    val currentOnToast by rememberUpdatedState(onToast)
     val listState = rememberLazyListState()
     var isListening by remember { mutableStateOf(false) }
     var langMenuExpanded by remember { mutableStateOf(false) }
@@ -125,6 +128,7 @@ fun AssistantScreen(
     val activeSessionTitle = sessions.find { it.id == activeSessionId }?.title ?: "Primary Nexus"
     val currentOrbState = when {
         isListening -> OrbState.LISTENING
+        isSpeaking -> OrbState.SPEAKING
         chatUiState is UiState.Loading || chatUiState is UiState.Streaming -> OrbState.PROCESSING
         chatUiState is UiState.Error -> OrbState.ERROR
         else -> OrbState.IDLE
@@ -147,13 +151,13 @@ fun AssistantScreen(
             override fun onEndOfSpeech() { isListening = false }
             override fun onError(error: Int) {
                 isListening = false
-                onToast("Voice capture unavailable or cancelled.")
+                currentOnToast("Voice capture unavailable or cancelled.")
             }
             override fun onResults(results: Bundle?) {
                 isListening = false
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                 if (!spoken.isNullOrBlank()) {
-                    onSend(spoken)
+                    currentOnSend(spoken)
                 }
             }
             override fun onPartialResults(partialResults: Bundle?) {}

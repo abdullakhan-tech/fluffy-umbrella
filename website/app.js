@@ -9,11 +9,15 @@ const STATE = {
   backendUrl: localStorage.getItem("zaythar_backend_url") || "http://localhost:8000",
   activePersona: localStorage.getItem("zaythar_persona") || "jarvis",
   honorific: localStorage.getItem("zaythar_honorific") || "Sir",
-  activeModel: localStorage.getItem("zaythar_model") || "auto",
-  chats: JSON.parse(localStorage.getItem("zaythar_chats") || "[]"),
+  activeModel: ["auto", "openai", "gemini", "ollama"].includes(localStorage.getItem("zaythar_model"))
+    ? localStorage.getItem("zaythar_model")
+    : "auto",
+  chats: readStoredJson("zaythar_chats", []),
   currentChatId: localStorage.getItem("zaythar_active_chat") || null,
-  projects: JSON.parse(localStorage.getItem("zaythar_projects") || "[]"),
-  memoryFacts: [],
+  projects: readStoredJson("zaythar_projects", []),
+  memoryFacts: readStoredJson("zaythar_memory_facts", []),
+  backendLastChecked: null,
+  backendLastError: null,
   notifications: [],
   backendOnline: false,
   pyodideReady: false,
@@ -21,6 +25,15 @@ const STATE = {
   speechRecognition: null,
   canvasText: localStorage.getItem("zaythar_canvas_doc") || "# Zaythar AI Neural Canvas\n\nWelcome to your creative workspace.\n- Write specifications\n- Outline algorithms\n- Keep notes and thoughts"
 };
+
+function readStoredJson(key, fallback) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+    return Array.isArray(fallback) && !Array.isArray(parsed) ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
 
 // UI Helper: DOM Query
 const $ = (sel) => document.querySelector(sel);
@@ -32,7 +45,9 @@ function showToast(message, type = "info") {
   if (!container) return;
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `<span>${message}</span>`;
+  const messageNode = document.createElement("span");
+  messageNode.textContent = String(message ?? "");
+  toast.appendChild(messageNode);
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = "0";
@@ -63,19 +78,46 @@ async function apiRequest(endpoint, options = {}) {
   }
 }
 
+let pyodideLoadPromise = null;
+async function loadPythonRuntime() {
+  const runtimeUrl = "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";
+  if (window.zaytharPyodide) return window.zaytharPyodide;
+  if (!pyodideLoadPromise) {
+    pyodideLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = runtimeUrl + "pyodide.js";
+      script.async = true;
+      script.onload = async () => {
+        try {
+          if (typeof window.loadPyodide !== "function") throw new Error("Pyodide loader is unavailable.");
+          const runtime = await window.loadPyodide({ indexURL: runtimeUrl });
+          window.zaytharPyodide = runtime;
+          resolve(runtime);
+        } catch (error) { reject(error); }
+      };
+      script.onerror = () => reject(new Error("Could not download Pyodide. Check your internet connection."));
+      document.head.appendChild(script);
+    }).catch((error) => { pyodideLoadPromise = null; throw error; });
+  }
+  return pyodideLoadPromise;
+}
+
 // Check Backend Health
 async function checkBackendHealth() {
   const dot = $("#backendDot");
   const label = $("#backendLabel");
   if (!dot || !label) return;
 
+  STATE.backendLastChecked = new Date().toISOString();
   try {
-    const res = await apiRequest("/health");
+    await apiRequest("/health");
     STATE.backendOnline = true;
+    STATE.backendLastError = null;
     dot.className = "status-dot dot-online";
     label.textContent = "FastAPI: Online";
   } catch (err) {
     STATE.backendOnline = false;
+    STATE.backendLastError = err?.message || "Connection failed";
     dot.className = "status-dot dot-offline";
     label.textContent = "FastAPI: Standby";
   }
@@ -257,7 +299,7 @@ function renderChatMessages(chat) {
         <div class="chat-hero-orb"></div>
         <h3 style="font-size:22px; font-weight:700;">Zaythar AI Neural Core</h3>
         <p style="color:var(--text-secondary); margin-top:8px; font-size:13px;">
-          Active Persona: <b style="color:var(--accent-chat);">${STATE.activePersona.toUpperCase()}</b> · Honorific: <b>${STATE.honorific}</b>
+          Active Persona: <b style="color:var(--accent-chat);">${escapeHtml(STATE.activePersona.toUpperCase())}</b> · Honorific: <b>${escapeHtml(STATE.honorific)}</b>
         </p>
         <div class="chat-suggestions-grid">
           <button class="chat-suggest-btn" data-text="What capabilities does Zaythar AI offer?">
@@ -289,14 +331,17 @@ function renderChatMessages(chat) {
     return;
   }
 
-  container.innerHTML = chat.messages.map((m) => `
-    <div class="msg-row ${m.role}">
-      <div class="msg-avatar ${m.role === 'user' ? 'user-msg-avatar' : 'ai-msg-avatar'}">
-        ${m.role === 'user' ? 'U' : 'Z'}
+  container.innerHTML = chat.messages.map((m) => {
+    const roleClass = m.role === "user" ? "user" : "assistant";
+    return `
+      <div class="msg-row ${roleClass}">
+        <div class="msg-avatar ${roleClass === "user" ? "user-msg-avatar" : "ai-msg-avatar"}">
+          ${roleClass === "user" ? "U" : "Z"}
+        </div>
+        <div class="msg-bubble">${escapeHtml(m.content)}</div>
       </div>
-      <div class="msg-bubble">${escapeHtml(m.content)}</div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 
   container.scrollTop = container.scrollHeight;
 }
@@ -330,13 +375,14 @@ async function handleSendMessage() {
       body: JSON.stringify({
         messages: currentChat.messages.slice(0, -1),
         persona: STATE.activePersona,
-        honorific: STATE.honorific
+        honorific: STATE.honorific,
+        provider: STATE.activeModel
       })
     });
     aiMsg.content = res.reply || res.content || JSON.stringify(res);
   } catch (err) {
     // Graceful Client-side Fallback
-    aiMsg.content = `[Zaythar Client Mode - ${STATE.activePersona.toUpperCase()}]: I received your request: "${text}". Note that the local FastAPI backend is currently on standby, so I am processing your session via local state. You can update your Backend URL in Settings at any time.`;
+    aiMsg.content = `I could not reach the FastAPI backend, so no AI response was generated. Your message is saved in this browser only. Configure a reachable backend URL in Settings and try again. (${err.message})`;
   }
 
   renderChatMessages(currentChat);
@@ -354,7 +400,7 @@ function renderImageView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-image)" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
           Image Studio
         </h2>
-        <p>Generate high-definition AI art directly inside your browser powered by Flux & Stable Diffusion with zero external API key requirements.</p>
+        <p>Generate images through the third-party Pollinations service. Prompts are sent to that provider; availability and data handling depend on its service.</p>
       </div>
 
       <div class="image-studio-grid">
@@ -484,7 +530,7 @@ function renderCodeView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-code)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           Python & Code Terminal
         </h2>
-        <p>Interactive code execution environment. Run Python and JavaScript directly in your browser with real-time standard output and telemetry.</p>
+        <p>Run real Python 3.11 code in an isolated WebAssembly runtime (Pyodide). The first run downloads the runtime; an internet connection is required.</p>
       </div>
 
       <div class="terminal-window">
@@ -550,46 +596,37 @@ print("Performance Multipliers:", metrics)
 
   runBtn.addEventListener("click", async () => {
     const code = editor.value;
-    output.textContent = "Running code in isolated engine...\n";
-    status.textContent = "Status: Running...";
+    if (!code.trim()) {
+      showToast("Enter Python code before running it.", "warning");
+      return;
+    }
+    output.textContent = "Loading Python 3.11 runtime...\\n";
+    status.textContent = "Status: Loading Python runtime...";
     runBtn.disabled = true;
-
     try {
-      // If backend is online, try backend agent execution first
-      if (STATE.backendOnline) {
-        const res = await apiRequest("/api/v1/agent/task", {
-          method: "POST",
-          body: JSON.stringify({
-            task: "Execute code calculation",
-            context: code,
-            tool_hint: "calculator"
-          })
-        });
-        output.textContent += `[Backend Agent Execution]:\n${res.summary || ''}\n${JSON.stringify(res.tool_result || '', null, 2)}`;
-      } else {
-        // Safe JavaScript / Python evaluation fallback
-        const lines = code.split("\n");
-        let logs = [];
-        lines.forEach(line => {
-          if (line.trim().startsWith("print(") && line.trim().endsWith(")")) {
-            const content = line.trim().slice(6, -1);
-            try {
-              // Strip f-string or simple quotes
-              logs.push(content.replace(/^[f"']+|["']+$/g, ""));
-            } catch {
-              logs.push(content);
-            }
-          }
-        });
-        if (logs.length === 0) {
-          logs.push("Code executed successfully with return code 0.");
-        }
-        output.textContent = `=== Execution Success (Client Sandbox) ===\n` + logs.join("\n");
+      const pyodide = await loadPythonRuntime();
+      let stdout = "";
+      let stderr = "";
+      pyodide.setStdout({ batched: (line) => { stdout += line + "\\n"; } });
+      pyodide.setStderr({ batched: (line) => { stderr += line + "\\n"; } });
+      status.textContent = "Status: Executing Python...";
+      const result = await pyodide.runPythonAsync(code);
+      let resultText = "";
+      if (result !== undefined && result !== null) {
+        resultText = String(result);
+        if (typeof result.destroy === "function") result.destroy();
       }
-      status.textContent = "Status: Execution finished (Exit 0)";
+      const outputText = [stdout.trimEnd(), stderr.trimEnd(), resultText].filter(Boolean).join("\\n");
+      output.textContent = outputText
+        ? `=== Python 3.11 · Execution complete ===\\n${outputText}`
+        : "=== Python 3.11 · Execution complete ===\\nProgram finished without printed output.";
+      status.textContent = "Status: Execution finished";
+      STATE.pyodideReady = true;
     } catch (err) {
-      output.textContent += `\n[Runtime Error]: ${err.message}`;
+      output.textContent = `=== Python execution failed ===\\n${err.message}`;
       status.textContent = "Status: Execution Failed";
+      STATE.pyodideReady = false;
+      showToast("Python runtime error: " + err.message, "error");
     } finally {
       runBtn.disabled = false;
     }
@@ -607,11 +644,11 @@ function renderSecurityView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-security)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Security & Vulnerability Scanner
         </h2>
-        <p>Inspect repository source code, API keys, credentials, and configuration files for security vulnerabilities, PII leaks, and dangerous exposure.</p>
+        <p>Scan pasted text for secrets and prompt-injection patterns. When the FastAPI backend is connected, its broader scanner is used; offline mode checks a smaller set of common secret formats. This is not a full repository or dependency audit.</p>
       </div>
 
       <div class="threat-grid">
-        <div class="threat-stat-card"><span class="threat-stat-num stat-safe" id="statScanned">0</span><span class="threat-stat-label">Scanned</span></div>
+        <div class="threat-stat-card"><span class="threat-stat-num stat-safe" id="statScanned">0</span><span class="threat-stat-label">Characters scanned</span></div>
         <div class="threat-stat-card"><span class="threat-stat-num stat-critical" id="statCritical">0</span><span class="threat-stat-label">Critical</span></div>
         <div class="threat-stat-card"><span class="threat-stat-num stat-high" id="statHigh">0</span><span class="threat-stat-label">High Risk</span></div>
         <div class="threat-stat-card"><span class="threat-stat-num stat-medium" id="statRedacted">0</span><span class="threat-stat-label">Redacted</span></div>
@@ -626,7 +663,7 @@ function renderSecurityView(container) {
         <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
           <button class="btn btn-primary" id="runSecurityScanBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>Run Deep Security Scan</span>
+            <span>Run Security Scan</span>
           </button>
         </div>
       </div>
@@ -657,32 +694,41 @@ function renderSecurityView(container) {
     $("#statScanned").textContent = text.length;
 
     try {
+      if (text.length > 10000) {
+        throw new Error("The server scanner accepts at most 10,000 characters per request.");
+      }
       let findings = [];
       let redacted = text;
 
-      // Check regex for keys/secrets
-      const patterns = [
-        { name: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/g, level: "critical" },
-        { name: "OpenAI Secret Key", regex: /sk-[a-zA-Z0-9_-]{20,}/g, level: "critical" },
-        { name: "Password String", regex: /(?:password|passwd|pwd)\s*=\s*['"][^'"]+['"]/gi, level: "high" },
-        { name: "Social Security Number", regex: /\d{3}-\d{2}-\d{4}/g, level: "high" }
-      ];
-
-      let critCount = 0;
-      let highCount = 0;
-
-      patterns.forEach(p => {
-        const matches = text.match(p.regex);
-        if (matches) {
-          matches.forEach(m => {
-            findings.push({ name: p.name, value: m, level: p.level });
-            redacted = redacted.replace(m, "[REDACTED_SECRET]");
-            if (p.level === "critical") critCount++;
-            if (p.level === "high") highCount++;
+      if (STATE.backendOnline) {
+        const scan = await apiRequest("/api/v1/security/scan", {
+          method: "POST",
+          body: JSON.stringify({ text, redact: true })
+        });
+        findings = (scan.findings || []).map((finding) => ({
+          name: finding.pattern,
+          level: finding.threat_level,
+          description: finding.description
+        }));
+        redacted = scan.clean_text ?? text;
+      } else {
+        const patterns = [
+          { name: "AWS Access Key", regex: /AKIA[0-9A-Z]{16}/g, level: "critical" },
+          { name: "OpenAI Secret Key", regex: /sk-[a-zA-Z0-9_-]{20,}/g, level: "critical" },
+          { name: "Password String", regex: /(?:password|passwd|pwd)\s*=\s*['"][^'"]+['"]/gi, level: "high" },
+          { name: "Social Security Number", regex: /\d{3}-\d{2}-\d{4}/g, level: "high" }
+        ];
+        patterns.forEach((pattern) => {
+          const matches = text.match(pattern.regex) || [];
+          matches.forEach((match) => {
+            findings.push({ name: pattern.name, value: match, level: pattern.level });
+            redacted = redacted.replace(match, "[REDACTED_SECRET]");
           });
-        }
-      });
+        });
+      }
 
+      const critCount = findings.filter((finding) => finding.level === "critical").length;
+      const highCount = findings.filter((finding) => finding.level === "high").length;
       $("#statCritical").textContent = critCount;
       $("#statHigh").textContent = highCount;
       $("#statRedacted").textContent = findings.length;
@@ -696,7 +742,7 @@ function renderSecurityView(container) {
       } else {
         findingsBox.innerHTML = findings.map(f => `
           <div style="padding:8px 12px; border-radius:var(--radius-sm); background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#fca5a5; margin-bottom:6px; font-size:12px;">
-            <b>[${f.level.toUpperCase()}]</b> Found exposed <b>${f.name}</b>
+            <b>[${escapeHtml(String(f.level).toUpperCase())}]</b> Found exposed <b>${escapeHtml(f.name)}</b>
           </div>
         `).join("");
       }
@@ -915,7 +961,7 @@ function renderMemoryView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-memory)" stroke-width="2"><path d="M12 2a4 4 0 0 0-4 4v1a4 4 0 0 0-4 4v1a4 4 0 0 0 4 4v1a4 4 0 0 0 4 4h0a4 4 0 0 0 4-4v-1a4 4 0 0 0 4-4v-1a4 4 0 0 0-4-4V6a4 4 0 0 0-4-4z"/></svg>
           Memory Vault
         </h2>
-        <p>Persistent contextual memory storage synced with the FastAPI backend. Zaythar retains user preferences, identities, and project goals across sessions.</p>
+        <p>Memory facts use the FastAPI backend when connected. Without a backend, facts are stored locally in this browser only.</p>
       </div>
 
       <div class="card">
@@ -965,6 +1011,7 @@ function renderMemoryView(container) {
       } else {
         STATE.memoryFacts.push({ id: "fact_" + Date.now(), fact, category: cat, created_at: new Date().toISOString() });
       }
+      localStorage.setItem("zaythar_memory_facts", JSON.stringify(STATE.memoryFacts));
       input.value = "";
       showToast("Fact saved into memory vault", "success");
       loadAndRenderFacts();
@@ -981,6 +1028,7 @@ function renderMemoryView(container) {
         await apiRequest("/api/v1/memory/facts", { method: "DELETE" });
       }
       STATE.memoryFacts = [];
+      localStorage.setItem("zaythar_memory_facts", "[]");
       loadAndRenderFacts();
       showToast("Memory vault cleared", "info");
     } catch (err) {
@@ -995,10 +1043,16 @@ async function loadAndRenderFacts() {
 
   try {
     if (STATE.backendOnline) {
-      STATE.memoryFacts = await apiRequest("/api/v1/memory/facts");
+      const remoteFacts = await apiRequest("/api/v1/memory/facts");
+      if (!Array.isArray(remoteFacts)) throw new Error("Unexpected memory response format.");
+      STATE.memoryFacts = remoteFacts;
+      localStorage.setItem("zaythar_memory_facts", JSON.stringify(STATE.memoryFacts));
+    } else {
+      STATE.memoryFacts = readStoredJson("zaythar_memory_facts", []);
     }
   } catch (err) {
-    console.log("Using local memory cache");
+    console.log("Using local memory cache", err);
+    STATE.memoryFacts = readStoredJson("zaythar_memory_facts", STATE.memoryFacts);
   }
 
   $("#factCountBadge").textContent = STATE.memoryFacts.length;
@@ -1016,7 +1070,7 @@ async function loadAndRenderFacts() {
           <span class="nav-pill pill-blue">${escapeHtml(f.category || 'general')}</span>
         </div>
       </div>
-      <button class="icon-btn delete-single-fact-btn" data-id="${f.id}" title="Delete fact" style="width:28px; height:28px;">✕</button>
+      <button class="icon-btn delete-single-fact-btn" data-id="${escapeHtml(f.id)}" title="Delete fact" style="width:28px; height:28px;">✕</button>
     </div>
   `).join("");
 
@@ -1025,9 +1079,10 @@ async function loadAndRenderFacts() {
       const id = btn.dataset.id;
       try {
         if (STATE.backendOnline) {
-          await apiRequest(`/api/v1/memory/facts/${id}`, { method: "DELETE" });
+          await apiRequest(`/api/v1/memory/facts/${encodeURIComponent(id)}`, { method: "DELETE" });
         }
         STATE.memoryFacts = STATE.memoryFacts.filter(x => x.id !== id);
+        localStorage.setItem("zaythar_memory_facts", JSON.stringify(STATE.memoryFacts));
         loadAndRenderFacts();
         showToast("Fact deleted");
       } catch (err) {
@@ -1167,8 +1222,8 @@ function renderAgentView(container) {
       $("#agentOutputContent").innerHTML = `
         <div style="padding:12px; background:var(--bg-surface); border:1px solid var(--border-strong); border-radius:var(--radius-md);">
           <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted); margin-bottom:8px;">
-            <span>Status: <b style="color:#10b981;">${res.status}</b></span>
-            <span>Tool Used: <b>${res.tool_used}</b></span>
+            <span>Status: <b style="color:#10b981;">${escapeHtml(res.status)}</b></span>
+            <span>Tool Used: <b>${escapeHtml(res.tool_used)}</b></span>
           </div>
           <p style="font-size:14px; line-height:1.6;">${escapeHtml(res.summary)}</p>
           ${res.actions_taken?.length ? `
@@ -1272,7 +1327,7 @@ function renderPersonasView(container) {
         <p>Switch between neural personas to tailor response tone, vocabulary, and execution style.</p>
       </div>
 
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+      <div class="personas-grid">
         ${personas.map(p => `
           <div class="card" style="border-color:${STATE.activePersona === p.id ? 'var(--accent-personas)' : 'var(--border-subtle)'};">
             <span class="nav-pill pill-pink">${p.tag}</span>
@@ -1327,7 +1382,7 @@ function renderProjectsView(container) {
 
       <div class="card">
         <div class="card-title">Active Projects</div>
-        <div id="projectsGrid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-top:12px;"></div>
+        <div id="projectsGrid" class="projects-grid"></div>
       </div>
     </div>
   `;
@@ -1366,7 +1421,7 @@ function renderProjectsList() {
         <b>${escapeHtml(p.name)}</b>
         <div style="font-size:11px; color:var(--text-muted);">Created: ${new Date(p.createdAt).toLocaleDateString()}</div>
       </div>
-      <button class="icon-btn delete-proj-btn" data-id="${p.id}" title="Delete project" style="width:28px; height:28px;">✕</button>
+      <button class="icon-btn delete-proj-btn" data-id="${escapeHtml(p.id)}" title="Delete project" style="width:28px; height:28px;">✕</button>
     </div>
   `).join("");
 
@@ -1415,18 +1470,11 @@ function renderSettingsView(container) {
       </div>
 
       <div class="card">
-        <div class="card-title">Firebase & Cloud Sync</div>
+        <div class="card-title">Cloud Sync Availability</div>
         <p style="font-size:13px; color:var(--text-secondary); margin-top:6px;">
-          Connect remote Firestore project to synchronize memory facts and chat histories.
+          This browser workspace does not yet have an authenticated Firestore adapter. Cloud sync is unavailable here; use the local JSON backup below to export your browser data.
         </p>
-        <div style="margin-top:12px;">
-          <label style="font-size:12px; color:var(--text-secondary);">Firebase Project ID</label>
-          <input class="input" id="firebaseProjectId" placeholder="fluffy-umbrella-production" />
-        </div>
-        <div style="margin-top:14px; display:flex; gap:10px;">
-          <button class="btn btn-outline" id="syncFirestoreBtn">
-            <span>Trigger Cloud Sync</span>
-          </button>
+        <div style="margin-top:14px;">
           <button class="btn btn-outline" id="exportDataJsonBtn">
             <span>Export Local JSON Backup</span>
           </button>
@@ -1452,15 +1500,6 @@ function renderSettingsView(container) {
     } else {
       showToast("Cannot reach backend at specified URL", "error");
     }
-  });
-
-  $("#syncFirestoreBtn").addEventListener("click", () => {
-    const projectId = $("#firebaseProjectId").value.trim();
-    if (!projectId) {
-      showToast("Cloud sync is not configured. Enter a Firebase Project ID and configure Firebase Auth first.", "warning");
-      return;
-    }
-    showToast("No data was synced: this browser workspace has no authenticated Firestore adapter configured yet.", "warning");
   });
 
   $("#exportDataJsonBtn").addEventListener("click", () => {
@@ -1495,7 +1534,7 @@ function renderHistoryList() {
   if (!container) return;
 
   container.innerHTML = STATE.chats.map(c => `
-    <button class="history-item ${c.id === STATE.currentChatId ? 'active' : ''}" data-id="${c.id}">
+    <button class="history-item ${c.id === STATE.currentChatId ? 'active' : ''}" data-id="${escapeHtml(c.id)}">
       <span>${escapeHtml(c.title)}</span>
     </button>
   `).join("");
@@ -1566,6 +1605,58 @@ document.addEventListener("DOMContentLoaded", () => {
     STATE.activeModel = e.target.value;
     localStorage.setItem("zaythar_model", STATE.activeModel);
     showToast(`Switched engine to ${e.target.value}`);
+  });
+
+  // Diagnostics modal: show actual connection state and local runtime capabilities.
+  const closeDiagnostics = () => {
+    const modal = $("#notifModal");
+    if (modal) modal.style.display = "none";
+  };
+  $("#notifBellBtn")?.addEventListener("click", () => {
+    const modal = $("#notifModal");
+    const body = $("#notifModalBody");
+    if (!modal || !body) return;
+    const rows = [
+      ["FastAPI backend", STATE.backendOnline ? "Connected" : "Offline / not configured"],
+      ["Backend URL", STATE.backendUrl],
+      ["Last health check", STATE.backendLastChecked ? new Date(STATE.backendLastChecked).toLocaleString() : "Not checked yet"],
+      ["Last connection error", STATE.backendLastError || "None"],
+      ["Python runtime", STATE.pyodideReady ? "Loaded (Pyodide)" : "Not loaded"],
+      ["Storage", "Browser local storage"]
+    ];
+    body.replaceChildren();
+    const list = document.createElement("div");
+    list.style.display = "grid";
+    list.style.gap = "12px";
+    rows.forEach(([label, value]) => {
+      const row = document.createElement("div");
+      const title = document.createElement("b");
+      title.textContent = label;
+      const detail = document.createElement("div");
+      detail.textContent = String(value);
+      detail.style.color = "var(--text-secondary)";
+      row.append(title, detail);
+      list.appendChild(row);
+    });
+    const refresh = document.createElement("button");
+    refresh.className = "btn btn-primary";
+    refresh.textContent = "Refresh diagnostics";
+    refresh.addEventListener("click", async () => {
+      refresh.disabled = true;
+      await checkBackendHealth();
+      closeDiagnostics();
+      $("#notifBellBtn")?.click();
+    });
+    list.appendChild(refresh);
+    body.appendChild(list);
+    modal.style.display = "flex";
+  });
+  $("#closeNotifModalBtn")?.addEventListener("click", closeDiagnostics);
+  $("#notifModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "notifModal") closeDiagnostics();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeDiagnostics();
   });
 
   // Backend Status Ping Button
