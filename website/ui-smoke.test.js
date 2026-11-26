@@ -37,7 +37,7 @@ test("mobile layout has a real off-canvas sidebar", () => {
 });
 
 test("projects can be created, persisted, listed and deleted", () => {
-  assert.ok(js.includes('localStorage.getItem("zaythar_projects")'));
+  assert.ok(js.includes('readStoredJson("zaythar_projects", [])'));
   assert.ok(js.includes("function renderProjectsView(container)"));
   assert.ok(js.includes("function renderProjectsList()"));
   assert.ok(js.includes("STATE.projects.push("));
