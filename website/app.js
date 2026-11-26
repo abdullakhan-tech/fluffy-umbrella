@@ -1060,7 +1060,7 @@ function renderAndroidView(container) {
         </p>
         <pre style="background:#0a0e14; padding:12px; border-radius:var(--radius-md); font-family:monospace; font-size:12px; color:#34d399; margin:10px 0;">cd androidApp\n./gradlew assembleRelease</pre>
         <p style="font-size:12px; color:var(--text-muted);">
-          Output path: <code>androidApp/build/outputs/apk/release/app-release.apk</code>
+          Output path: <code>app/build/outputs/apk/release/app-release.apk</code>
         </p>
       </div>
 
@@ -1455,7 +1455,12 @@ function renderSettingsView(container) {
   });
 
   $("#syncFirestoreBtn").addEventListener("click", () => {
-    showToast("Synced local cache with cloud state", "success");
+    const projectId = $("#firebaseProjectId").value.trim();
+    if (!projectId) {
+      showToast("Cloud sync is not configured. Enter a Firebase Project ID and configure Firebase Auth first.", "warning");
+      return;
+    }
+    showToast("No data was synced: this browser workspace has no authenticated Firestore adapter configured yet.", "warning");
   });
 
   $("#exportDataJsonBtn").addEventListener("click", () => {
