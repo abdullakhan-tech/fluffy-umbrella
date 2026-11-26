@@ -623,6 +623,7 @@ print("Performance Multipliers:", metrics)
       runBtn.disabled = false;
     }
   });
+}
 
 // ==========================================================================
 // 4. SECURITY & CODE SCANNER
@@ -635,7 +636,7 @@ function renderSecurityView(container) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-security)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Security & Vulnerability Scanner
         </h2>
-        <p>Quick client-side pattern checks for common secret formats in the text you paste. This is not a full repository audit, dependency scan, or substitute for a dedicated security scanner.</p>
+        <p>Scan pasted text for secrets and prompt-injection patterns. When the FastAPI backend is connected, its broader scanner is used; offline mode checks a smaller set of common secret formats. This is not a full repository or dependency audit.</p>
       </div>
 
       <div class="threat-grid">
@@ -654,7 +655,7 @@ function renderSecurityView(container) {
         <div style="margin-top:14px; display:flex; justify-content:flex-end; gap:10px;">
           <button class="btn btn-primary" id="runSecurityScanBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>Run Local Secret Scan</span>
+            <span>Run Security Scan</span>
           </button>
         </div>
       </div>
