@@ -65,7 +65,7 @@ class AIService:
             retry_after = 0.0
             try:
                 response = await self.client.post(url, **kwargs)
-            except httpx.TransportError:
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
                 if attempt + 1 >= attempts:
                     raise
             else:
