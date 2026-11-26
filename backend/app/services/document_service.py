@@ -90,7 +90,7 @@ def _extract_text(data: bytes, extension: str) -> tuple[str, int | None]:
 
 def extract_document(filename: str, data: bytes) -> ExtractedDocument:
     """Extracts text in memory, bounds resource use, and flags suspicious content."""
-    safe_name = PurePath(filename or "").name
+    safe_name = PurePath((filename or "").replace("\\\\", "/")).name
     extension = PurePath(safe_name).suffix.lower()
     if not safe_name or extension not in SUPPORTED_EXTENSIONS:
         raise DocumentExtractionError("Unsupported file type. Upload TXT, MD, PDF, or DOCX.")
