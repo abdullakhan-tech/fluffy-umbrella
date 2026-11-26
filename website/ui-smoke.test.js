@@ -76,3 +76,13 @@ test("persona and project cards collapse to a single column on mobile", () => {
   assert.ok(css.includes(".projects-grid"));
   assert.match(css, /@media \(max-width: 768px\)[\s\S]*\.personas-grid,[\s\S]*\.projects-grid[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 });
+
+
+test("AI provider selection is limited to backend-supported routes and reaches chat requests", () => {
+  for (const provider of ["auto", "openai", "gemini", "ollama"]) {
+    assert.ok(html.includes('value="' + provider + '"'));
+  }
+  assert.ok(js.includes("provider: STATE.activeModel"));
+  assert.ok(!html.includes('value="pyodide"'));
+  assert.ok(!html.includes('value="jarvis"'));
+});
