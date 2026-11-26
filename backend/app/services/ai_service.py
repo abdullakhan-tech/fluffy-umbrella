@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import math
 import re
 from typing import AsyncGenerator, List, Optional
 import httpx
@@ -30,6 +31,8 @@ from app.services.session_service import session_manager
 
 logger = logging.getLogger(__name__)
 
+RETRYABLE_PROVIDER_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+
 
 class AIService:
     """Manages AI provider routing with server-side secret isolation, personas, and memory."""
@@ -40,6 +43,46 @@ class AIService:
     async def close(self):
         """Closes the underlying HTTP client session."""
         await self.client.aclose()
+
+    @staticmethod
+    def _retry_after_seconds(value: Optional[str]) -> float:
+        """Parse a numeric Retry-After value; HTTP-date values use normal backoff."""
+        if value is None:
+            return 0.0
+        try:
+            seconds = float(value.strip())
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, seconds) if math.isfinite(seconds) else 0.0
+
+    async def _post_with_retry(self, url: str, **kwargs) -> httpx.Response:
+        """Retry only transient provider failures with a small, bounded backoff."""
+        attempts = max(1, min(int(settings.provider_max_attempts), 3))
+        base_delay = max(0.0, float(settings.provider_retry_base_seconds))
+        max_delay = max(0.0, float(settings.provider_retry_max_seconds))
+
+        for attempt in range(attempts):
+            retry_after = 0.0
+            try:
+                response = await self.client.post(url, **kwargs)
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
+                if attempt + 1 >= attempts:
+                    raise
+            else:
+                if (
+                    response.status_code not in RETRYABLE_PROVIDER_STATUS_CODES
+                    or attempt + 1 >= attempts
+                ):
+                    return response
+                retry_after = self._retry_after_seconds(response.headers.get("Retry-After"))
+                await response.aclose()
+
+            exponential_delay = base_delay * (2 ** attempt)
+            delay = min(max_delay, max(exponential_delay, min(retry_after, max_delay)))
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+        raise RuntimeError("Provider retry attempts exhausted")
 
     async def _prepare_messages(
         self,
@@ -378,7 +421,7 @@ class AIService:
             "max_tokens": max_tokens,
         }
 
-        resp = await self.client.post(url, headers=headers, json=payload)
+        resp = await self._post_with_retry(url, headers=headers, json=payload)
         resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
@@ -410,7 +453,7 @@ class AIService:
             "generationConfig": {"temperature": temperature},
         }
 
-        resp = await self.client.post(url, params=params, json=payload)
+        resp = await self._post_with_retry(url, params=params, json=payload)
         resp.raise_for_status()
         data = resp.json()
         content = data["candidates"][0]["content"]["parts"][0]["text"]
@@ -435,7 +478,7 @@ class AIService:
             "stream": False,
         }
 
-        resp = await self.client.post(url, json=payload)
+        resp = await self._post_with_retry(url, json=payload)
         resp.raise_for_status()
         data = resp.json()
         content = data["message"]["content"]

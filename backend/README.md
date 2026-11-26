@@ -61,6 +61,12 @@ fluffy-umbrella/
     └── .env.example
 ```
 
+## Provider resilience
+
+The backend uses a 30-second HTTP timeout and a bounded retry policy for OpenAI, Gemini, and Ollama requests. By default, a provider request gets at most **2 total attempts** (the initial request plus one retry). Retries are limited to connection/pool-acquisition errors that occur before a request is sent and HTTP 408, 425, 429, 500, 502, 503, and 504 responses; authentication and other non-transient 4xx errors are returned immediately. Numeric `Retry-After` seconds are respected but clamped to the configured maximum. Read/write timeouts after sending a request are not retried, avoiding an automatic duplicate generation and possible duplicate provider charge. A failed provider can still fall through to the existing hybrid provider chain or local fallback.
+
+Configure with `PROVIDER_MAX_ATTEMPTS` (1–3), `PROVIDER_RETRY_BASE_SECONDS`, and `PROVIDER_RETRY_MAX_SECONDS`. Defaults are 2 attempts, 0.25 seconds base backoff, and a 2-second maximum delay. Set attempts to 1 to disable retries. Retry limits are per provider request; they are not a global request budget or a token/cost cap.
+
 ## Quick Start
 
 ### 1. Setup & Installation
