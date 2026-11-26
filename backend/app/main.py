@@ -85,6 +85,7 @@ async def root():
             "memory-store (persistent fact extraction)",
             "security-guardrails (secret & injection scanner)",
             "agent-tools (think, briefing, research, math, code, summarize)",
+            "document-intelligence (txt, md, pdf, docx extraction)",
             "realtime-sse-streaming",
             "orb-visual-state",
         ],
