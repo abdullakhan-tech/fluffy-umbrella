@@ -36,7 +36,6 @@ body:
     attributes:
       label: Steps and error details
       description: What did you do? Include sanitized error text and relevant logs.
-      render: text
     validations:
       required: false
   - type: textarea
