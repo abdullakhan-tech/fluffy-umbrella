@@ -1,0 +1,40 @@
+title: "[Architecture]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this space for design proposals and roadmap discussion. Separate verified current behavior from assumptions and future ideas.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and current behavior
+      description: Link relevant source paths, issues, or pull requests.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Explain the design or roadmap change being considered.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs and alternatives
+      description: Discuss reliability, security, privacy, performance, cost, and maintenance.
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Compatibility and migration
+      description: Explain impact on Android, Web, Windows, backend, data, and existing users.
+    validations:
+      required: false
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open questions
+    validations:
+      required: false
