@@ -1449,18 +1449,11 @@ function renderSettingsView(container) {
       </div>
 
       <div class="card">
-        <div class="card-title">Firebase & Cloud Sync</div>
+        <div class="card-title">Cloud Sync Availability</div>
         <p style="font-size:13px; color:var(--text-secondary); margin-top:6px;">
-          Connect remote Firestore project to synchronize memory facts and chat histories.
+          This browser workspace does not yet have an authenticated Firestore adapter. Cloud sync is unavailable here; use the local JSON backup below to export your browser data.
         </p>
-        <div style="margin-top:12px;">
-          <label style="font-size:12px; color:var(--text-secondary);">Firebase Project ID</label>
-          <input class="input" id="firebaseProjectId" placeholder="fluffy-umbrella-production" />
-        </div>
-        <div style="margin-top:14px; display:flex; gap:10px;">
-          <button class="btn btn-outline" id="syncFirestoreBtn">
-            <span>Trigger Cloud Sync</span>
-          </button>
+        <div style="margin-top:14px;">
           <button class="btn btn-outline" id="exportDataJsonBtn">
             <span>Export Local JSON Backup</span>
           </button>
@@ -1486,15 +1479,6 @@ function renderSettingsView(container) {
     } else {
       showToast("Cannot reach backend at specified URL", "error");
     }
-  });
-
-  $("#syncFirestoreBtn").addEventListener("click", () => {
-    const projectId = $("#firebaseProjectId").value.trim();
-    if (!projectId) {
-      showToast("Cloud sync is not configured. Enter a Firebase Project ID and configure Firebase Auth first.", "warning");
-      return;
-    }
-    showToast("No data was synced: this browser workspace has no authenticated Firestore adapter configured yet.", "warning");
   });
 
   $("#exportDataJsonBtn").addEventListener("click", () => {
