@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import logging
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -26,6 +26,7 @@ from app.models import (
     SessionSummary,
 )
 from app.services.ai_service import ai_service
+from app.services.document_service import DocumentExtractionError, MAX_UPLOAD_BYTES, extract_document
 from app.services.memory_service import memory_service
 from app.services.persona_service import persona_service
 from app.services.security_service import security_scanner
@@ -309,3 +310,32 @@ async def execute_agent_task(request: AgentTaskRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Agent task could not be processed.",
         )
+
+
+
+# ---------------------------------------------------------------------------
+# Document Intelligence (bounded in-memory extraction; no uploaded-file storage)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/files/extract", summary="Extract and safety-scan text from a document")
+async def extract_uploaded_document(file: UploadFile = File(...)):
+    """Accepts TXT, MD, PDF, and DOCX files and returns bounded, scanned text."""
+    try:
+        data = await file.read(MAX_UPLOAD_BYTES + 1)
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File exceeds the 8 MB upload limit.")
+        document = extract_document(file.filename or "", data)
+        return {
+            "filename": document.filename,
+            "file_type": document.file_type,
+            "text": document.text,
+            "character_count": document.character_count,
+            "page_count": document.page_count,
+            "security_findings": document.security_findings,
+            "contains_untrusted_instructions": document.contains_untrusted_instructions,
+            "storage": "in_memory_only",
+        }
+    except DocumentExtractionError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    finally:
+        await file.close()
