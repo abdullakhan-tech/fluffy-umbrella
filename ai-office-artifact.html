@@ -1,0 +1,263 @@
+<!DOCTYPE html><html lang="ur"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>AI Agents Office</title>
+<style>
+:root{--bg:#e9edf5;--ui:#ffffffee;--tx:#1b2330;--ac:#4f46e5;--chip:#e3e7f5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10141c;--ui:#1b2230ee;--tx:#e8edf6;--ac:#818cf8;--chip:#2b3350}}
+:root[data-theme="dark"]{--bg:#10141c;--ui:#1b2230ee;--tx:#e8edf6;--ac:#818cf8;--chip:#2b3350}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
+canvas{display:block;touch-action:none}
+#ui{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);padding:10px;background:var(--ui);backdrop-filter:blur(8px);border-top:1px solid #8883}
+#st{font-size:13px;opacity:.8;margin-bottom:6px;min-height:16px}
+#chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;padding-bottom:2px}
+#chips b{flex:none;background:var(--chip);color:var(--tx);padding:7px 12px;border-radius:16px;font-weight:500;font-size:14px;cursor:pointer}
+.row{display:flex;gap:8px}
+input{flex:1;min-width:0;font-size:16px;padding:11px 12px;border-radius:10px;border:1px solid #8886;background:transparent;color:var(--tx)}
+button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:0 18px;font-size:15px;font-weight:600}
+#rp{display:none;font-size:14px;line-height:1.4;max-height:84px;overflow:auto;margin-bottom:6px;background:var(--chip);padding:8px 10px;border-radius:10px}
+</style></head><body>
+<div id="ui"><div id="st">👑 Boss Zaythar AI aur 7 agents tayyar hain. Koi bhi kaam dein, Boss khud faisla karega.</div><div id="rp"></div><div id="chips"></div><div class="row"><input id="in" placeholder="Kuch bhi poochein ya kaam dein…" autocomplete="off"><button id="go">Bhejo</button></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x1d2433);
+const cam=new THREE.PerspectiveCamera(50,1,.1,100);
+const ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.shadowMap.enabled=true;ren.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(ren.domElement);
+let az=.35,el=.5,dist=15;
+function setCam(){cam.position.set(Math.sin(az)*Math.cos(el)*dist,Math.sin(el)*dist+1,Math.cos(az)*Math.cos(el)*dist);cam.lookAt(0,1,0)}
+function resize(){const w=innerWidth,h=innerHeight-130;ren.setSize(w,h);cam.aspect=w/h;dist=cam.aspect<1?26:15;cam.updateProjectionMatrix();setCam()}
+addEventListener("resize",resize);resize();
+let drag=null;const cv=ren.domElement;
+cv.addEventListener("pointerdown",e=>drag=[e.clientX,e.clientY]);
+addEventListener("pointerup",()=>drag=null);
+addEventListener("pointermove",e=>{if(!drag)return;az=Math.max(-1.2,Math.min(1.2,az-(e.clientX-drag[0])*.006));el=Math.max(.15,Math.min(1.2,el+(e.clientY-drag[1])*.006));drag=[e.clientX,e.clientY];setCam()});
+cv.addEventListener("wheel",e=>{dist=Math.max(8,Math.min(32,dist+e.deltaY*.01));setCam()});
+
+scene.fog=new THREE.Fog(0x1d2433,28,60);scene.add(new THREE.HemisphereLight(0xcfe3ff,0x8a6a4a,.7));scene.add(new THREE.AmbientLight(0xffffff,.25));
+const sun=new THREE.DirectionalLight(0xffffff,.8);sun.position.set(6,12,8);sun.castShadow=true;
+Object.assign(sun.shadow.camera,{left:-11,right:11,top:11,bottom:-11});sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0005;scene.add(sun);
+const M=c=>new THREE.MeshStandardMaterial({color:c,roughness:.75});
+function box(w,h,d,c,x,y,z,p=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;p.add(m);return m}
+// room
+const fc=document.createElement("canvas");fc.width=fc.height=256;const fx=fc.getContext("2d");for(let i=0;i<8;i++){fx.fillStyle=i%2?"#b58a5c":"#c49b6c";fx.fillRect(0,i*32,256,32);fx.fillStyle="#0003";fx.fillRect(0,i*32,256,2);fx.fillRect((i*83)%256,i*32,2,32)}
+const ft=new THREE.CanvasTexture(fc);ft.wrapS=ft.wrapT=THREE.RepeatWrapping;ft.repeat.set(4,3);
+box(16,.2,12,0xffffff,0,-.1,0).material.map=ft;box(16,6,.2,0xdfe4ee,0,3,-5.1);
+const scv=document.createElement("canvas");scv.width=256;scv.height=140;const sctx=scv.getContext("2d"),sTex=new THREE.CanvasTexture(scv),SM=new THREE.MeshBasicMaterial({map:sTex});let sOff=0;
+function drawScr(){sctx.fillStyle="#0b1220";sctx.fillRect(0,0,256,140);for(let i=0;i<9;i++){const y=(i*16+sOff)%144-8,q=Math.floor(sOff/16);sctx.fillStyle=["#38bdf8","#a3e635","#f472b6","#fbbf24"][(i+q)%4];sctx.fillRect(10+(i%3)*14,y,40+((i*37+q*13)%120),6)}sOff=(sOff+3)%144;sTex.needsUpdate=true}drawScr();
+const lw=box(.2,6,12,0xcfd6e6,-8.1,3,0);
+box(5,2.2,.1,0xffffff,-7.95,3,.8).rotation.y=Math.PI/2;
+box(5.2,2.4,.06,0x555b6b,-8,3,.8).rotation.y=Math.PI/2;
+box(7.2,.03,4.2,0x2b3a67,0,.01,2.2);
+// desks + chairs
+const DX=[-6.3,-4.2,-2.1,0,2.1,4.2,6.3];
+DX.forEach(x=>{box(1.9,.08,1,0x8b6a4a,x,.75,-4.2);[[-1,-.4],[1,-.4],[-1,.4],[1,.4]].forEach(([a,b])=>box(.08,.75,.08,0x5a4632,x+a*.85,.37,-4.2+b));
+box(.9,.55,.05,0x111827,x,1.2,-4.5);{const pl=new THREE.Mesh(new THREE.PlaneGeometry(.84,.46),SM);pl.position.set(x,1.2,-4.46);scene.add(pl)}box(.1,.2,.1,0x333,x,.9,-4.5);box(.7,.03,.25,0xcccccc,x,.8,-3.9);
+box(.7,.08,.7,0x333b4f,x,.45,-3.35);box(.7,.7,.08,0x333b4f,x,.85,-3.0);box(.08,.45,.08,0x222,x,.22,-3.35)});
+// meeting table + coffee
+const tb=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,.1,24),M(0x7a5a3c));tb.position.set(0,.8,2.2);tb.castShadow=true;scene.add(tb);
+box(.15,.8,.15,0x444,0,.4,2.2);
+box(1,1,.8,0x374151,7.3,.5,1);box(.5,.5,.4,0xdc2626,7.3,1.25,1);
+// decor
+[-3.2,3.2].forEach(x=>{box(3.4,1.9,.05,0x2b3345,x,3.7,-4.99);const g=new THREE.Mesh(new THREE.PlaneGeometry(3.2,1.7),new THREE.MeshBasicMaterial({color:0xa5d8ff}));g.position.set(x,3.7,-4.95);scene.add(g);box(.05,1.7,.02,0xffffff,x,3.7,-4.94);box(3.2,.05,.02,0xffffff,x,3.7,-4.94)});
+function plant(x,z){box(.5,.5,.5,0xd6d3d1,x,.25,z);for(let k=0;k<5;k++){const s=new THREE.Mesh(new THREE.SphereGeometry(.28,10,8),M(0x2f9e55));s.position.set(x+Math.sin(k*1.3)*.2,.8+k*.12,z+Math.cos(k*1.3)*.2);s.castShadow=true;scene.add(s)}}
+plant(-7.4,-2.4);plant(7.6,-2.6);plant(7,3.8);plant(-7.3,4.6);
+
+const kc=document.createElement("canvas");kc.width=kc.height=128;const kx=kc.getContext("2d"),kt=new THREE.CanvasTexture(kc);
+const wclk=new THREE.Mesh(new THREE.CircleGeometry(.45,32),new THREE.MeshBasicMaterial({map:kt}));wclk.position.set(0,4.6,-4.97);scene.add(wclk);
+function tickClock(){const d=new Date();kx.fillStyle="#fff";kx.fillRect(0,0,128,128);kx.strokeStyle="#111";kx.lineCap="round";const h=(d.getHours()%12+d.getMinutes()/60)/12*6.283,m=d.getMinutes()/60*6.283;[[h,30,6],[m,46,4]].forEach(([a,l,w])=>{kx.lineWidth=w;kx.beginPath();kx.moveTo(64,64);kx.lineTo(64+Math.sin(a)*l,64-Math.cos(a)*l);kx.stroke()});kt.needsUpdate=true}tickClock();
+const lamp=new THREE.Mesh(new THREE.ConeGeometry(.7,.45,24,1,true),new THREE.MeshStandardMaterial({color:0xfacc15,side:THREE.DoubleSide,emissive:0x7a5c00}));lamp.position.set(0,3.6,2.2);scene.add(lamp);box(.03,1.2,.03,0x222222,0,4.4,2.2);
+const pl1=new THREE.PointLight(0xffe2a8,.9,12);pl1.position.set(0,3.3,2.2);scene.add(pl1);
+box(4.2,.02,1.3,0x6366f1,0,.02,2.2).visible=false;
+// upgrade decor
+tb.visible=false;
+box(4.8,.1,1.6,0x6b4a2f,0,.8,2.2);[[-2.2,-.6],[2.2,-.6],[-2.2,.6],[2.2,.6]].forEach(([a,b])=>box(.12,.75,.12,0x3d2b1a,a,.4,2.2+b));
+box(2.4,.02,.3,0x38bdf8,0,.86,2.2).material=new THREE.MeshBasicMaterial({color:0x38bdf8});
+[-1.65,-.55,.55,1.65].forEach(x=>box(.4,.02,.3,0xf1f5f9,x,.86,1.65));[-1.1,0,1.1].forEach(x=>box(.4,.02,.3,0xf1f5f9,x,.86,2.75));
+function chair(x,z,rot,big){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=rot;scene.add(g);const c=big?0x854d0e:0x333b4f,w=big?.9:.65;
+ box(w,.1,w,c,0,.45,0,g);box(w,big?1.5:.8,.1,c,0,big?1.15:.9,big?-.42:-.3,g);box(.08,.45,.08,0x222222,0,.22,0,g);
+ if(big){box(.1,.35,.8,0xfacc15,-.5,.7,0,g);box(.1,.35,.8,0xfacc15,.5,.7,0,g)}}
+[[-1.65,.95,0],[-.55,.95,0],[.55,.95,0],[1.65,.95,0],[-1.1,3.45,Math.PI],[0,3.45,Math.PI],[1.1,3.45,Math.PI]].forEach(a=>chair(a[0],a[1],a[2]));
+chair(2.9,2.2,-Math.PI/2,1);
+DX.forEach(x=>{box(.28,.55,.5,0x1f2937,x+.78,.28,-4.1);box(.04,.04,.04,0x22c55e,x+.78,.5,-3.84);box(.08,.03,.12,0xdddddd,x+.45,.82,-3.95);box(.1,.1,.1,0xef4444,x-.7,.84,-4.0);box(.04,.35,.04,0x333333,x-.75,.95,-4.5);box(.2,.05,.12,0xfde047,x-.75,1.13,-4.42)});
+const leds=[],tv=document.createElement('canvas');tv.width=512;tv.height=256;const tvx=tv.getContext('2d'),tvt=new THREE.CanvasTexture(tv);
+box(2.8,1.5,.06,0x0b0f19,0,3.25,-4.98);const tvm=new THREE.Mesh(new THREE.PlaneGeometry(2.64,1.34),new THREE.MeshBasicMaterial({map:tvt}));tvm.position.set(0,3.25,-4.94);scene.add(tvm);
+function drawTV(){tvx.fillStyle='#0b1220';tvx.fillRect(0,0,512,256);tvx.fillStyle='#fff';tvx.font='bold 26px sans-serif';tvx.fillText('ZAYTHAR AI · OFFICE',16,34);
+ try{AG.forEach((w,i)=>{const m=mem(w),y=68+i*27;tvx.font='18px sans-serif';tvx.fillStyle='#cbd5e1';tvx.fillText(cap(w.name)+' · '+w.role,16,y);tvx.fillStyle='#334155';tvx.fillRect(230,y-14,190,12);tvx.fillStyle='#38bdf8';tvx.fillRect(230,y-14,190*((m.xp%30)/30),12);tvx.fillStyle='#fff';tvx.fillText('Lv'+lvl(w),436,y)})}catch(e){}
+ tvt.needsUpdate=true;leds.forEach(l=>l.material.color.setHex(Math.random()>.4?0x22c55e:0x14532d))}
+drawTV();
+box(.9,2,.8,0x1f2937,7.4,1,-.9);for(let k=0;k<8;k++){const l=box(.1,.05,.02,0x22c55e,7.15+(k%2)*.3,.35+Math.floor(k/2)*.4,-.49);l.material=new THREE.MeshBasicMaterial({color:0x22c55e});leds.push(l)}
+const rk=spr();draw(rk,'🖥 Backend','#000000b0','#fff');rk.scale.set(1.8,.45,1);rk.position.set(7.4,2.4,-.9);scene.add(rk);
+box(2.6,.45,.9,0x6d28d9,-5.8,.25,4.6);box(2.6,.7,.2,0x5b21b6,-5.8,.75,5.0);box(.2,.6,.9,0x5b21b6,-7.2,.45,4.6);box(.2,.6,.9,0x5b21b6,-4.4,.45,4.6);box(1.2,.4,.6,0x92400e,-5.8,.2,3.5);
+box(.5,2.6,1.6,0x6b4f3a,-7.75,1.3,-3.0);for(let r=0;r<4;r++)for(let k=0;k<6;k++)box(.3,.4,.16,[0xef4444,0x3b82f6,0xeab308,0x10b981,0x8b5cf6][(r+k)%5],-7.55,.4+r*.6,-3.7+k*.25);
+const cl=new THREE.Mesh(new THREE.CylinderGeometry(.25,.25,.9,12),M(0xe2e8f0));cl.position.set(7.5,.45,2.8);scene.add(cl);const cl2=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.35,12),M(0x60a5fa));cl2.position.set(7.5,1.05,2.8);scene.add(cl2);
+// jarvis upgrade: neural core (Fibonacci sphere), emblem, repo status wall
+const core=new THREE.Points((()=>{const g=new THREE.BufferGeometry(),n=220,pp=new Float32Array(n*3);for(let i=0;i<n;i++){const y=1-2*(i+.5)/n,r=Math.sqrt(1-y*y),a=i*2.39996;pp[i*3]=Math.cos(a)*r*.5;pp[i*3+1]=y*.5;pp[i*3+2]=Math.sin(a)*r*.5}g.setAttribute('position',new THREE.BufferAttribute(pp,3));return g})(),new THREE.PointsMaterial({color:0xff2d55,size:.05,transparent:true,opacity:.9}));
+core.position.set(0,1.7,2.2);scene.add(core);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(.62,.012,8,48),new THREE.MeshBasicMaterial({color:0xff2d55}));ring.rotation.x=Math.PI/2;ring.position.set(0,1.7,2.2);scene.add(ring);
+const cpl=new THREE.PointLight(0xff2d55,.5,6);cpl.position.set(0,1.7,2.2);scene.add(cpl);
+const ec=document.createElement('canvas');ec.width=ec.height=256;const ex=ec.getContext('2d');ex.translate(128,128);ex.fillStyle='#ff2d55';
+for(let k=0;k<7;k++){ex.rotate(Math.PI*2/7);ex.beginPath();ex.moveTo(0,0);ex.quadraticCurveTo(70,-20,100,-80);ex.quadraticCurveTo(40,-50,0,0);ex.fill()}
+const emb=new THREE.Mesh(new THREE.PlaneGeometry(2.2,2.2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(ec),transparent:true,opacity:.8}));emb.rotation.x=-Math.PI/2;emb.position.set(0,.05,4.9);scene.add(emb);
+const sw=document.createElement('canvas');sw.width=512;sw.height=256;const swx=sw.getContext('2d'),swt=new THREE.CanvasTexture(sw);
+const swm=new THREE.Mesh(new THREE.PlaneGeometry(4.6,2.1),new THREE.MeshBasicMaterial({map:swt}));swm.position.set(-7.88,3,.8);swm.rotation.y=Math.PI/2;scene.add(swm);
+window.drawStatus=lines=>{swx.fillStyle='#0b1220';swx.fillRect(0,0,512,256);swx.fillStyle='#ff6b8a';swx.font='bold 24px sans-serif';swx.fillText('ZAYTHAR OS · REPO STATUS',16,32);swx.fillStyle='#e2e8f0';swx.font='17px sans-serif';lines.slice(0,10).forEach((l,i)=>swx.fillText(String(l).slice(0,52),16,62+i*20));swt.needsUpdate=true};
+drawStatus(['Server jodein (config.js) to yahan','CI, issues aur approvals dikhenge.']);
+function bossMeet(){BOSS.steps=[{go:[3.7,2.2]},{sit:true,at:[2.9,2.2,-Math.PI/2]},{do:'talk',t:7,say:'Meeting shuru karte hain.'},{sit:false},{go:[0,-.6]},{face:0}];BOSS.cur=null}
+// workers
+const NAMES=[['Jarvis',0x2563eb,0x2a1b12,0xe0ac82,0,'Orchestrator','pur-sukoon, tameezdar aur wafadar coordinator; Ji boss kehta hai, pehle plan aur risk batata hai; mantra: pehle hifazat phir raftaar'],['Friday',0xdb2777,0x3b2314,0xf0c3a0,1,'Coder','tez, practical aur halka mazaaqiya coder; seedhi baat, chhoti saaf diff; andaz: chalo fix karte hain'],['Omnivex',0x16a34a,0x111111,0xc68a5e,0,'Researcher','gehra, jigyasu, cheezon ko jorne wala; har daawe ka source maangta hai aur anjaan ko anjaan kehta hai'],['Rio',0xea580c,0x3a1d12,0xe8b896,1,'Social','garam-josh, expressive communicator; awaam ki zubaan mein likhti hai; andaz: mazaa aayega'],['Carbon',0x64748b,0x1a1a1a,0xc99068,0,'Memory','shaant yaaddasht ka rakhwala; data aur memory ka maahir; andaz: mujhe yaad hai'],['Neon',0xd946ef,0x2b1b14,0xe8b896,1,'UI/UX','takhleeqi aur nafees designer; crimson glass look ki deewani; andaz: ye aur khoobsurat ho sakta hai'],['Argon',0x0891b2,0x3a2a1a,0xd2996c,0,'QA','sakht lekin dil ka narm bug aur security guardian; bug ko kabhi nahi chhodta, mushkil khabar narmi se deta hai'],['Zaythar AI',0x0f172a,0xf8fafc,0xf1d3b3,0,'Boss','pur-aitemaad, taqatwar, munsif, mehnat ki qadar, ghalti par seedha tok',1]];
+function spr(){const c=document.createElement("canvas");c.width=512;c.height=128;const t=new THREE.CanvasTexture(c);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false,transparent:true}));s.c=c;s.t=t;s.renderOrder=9;return s}
+function draw(s,txt,bg,fg){const x=s.c.getContext("2d");x.clearRect(0,0,512,128);x.fillStyle=bg;x.beginPath();x.moveTo(20,10);x.arcTo(500,10,500,100,24);x.arcTo(500,100,10,100,24);x.arcTo(10,100,10,10,24);x.arcTo(10,10,500,10,24);x.fill();x.fillStyle=fg;x.font="bold 38px sans-serif";x.textAlign="center";x.fillText(txt,256,68,470);s.t.needsUpdate=true}
+const W=NAMES.map((n,i)=>{
+ const [name,shirt,hair,skin,f,role,trait,boss]=n,g=new THREE.Group();
+ const add=(geo,c,x,y,z,p=g)=>{const m=new THREE.Mesh(geo,M(c));m.position.set(x,y,z);m.castShadow=true;p.add(m);return m};
+ add(new THREE.CylinderGeometry(.37,.33,.8,18),shirt,0,1.25,0).scale.z=.62;add(new THREE.CylinderGeometry(.09,.1,.14,10),skin,0,1.7,0);
+ const head=new THREE.Group();head.position.y=1.9;g.add(head);
+ add(new THREE.SphereGeometry(.26,16,12),skin,0,0,0,head);
+ add(new THREE.SphereGeometry(.285,16,12,0,6.3,0,1.8),hair,0,.02,-.02,head);if(boss)for(let k=0;k<10;k++){const a=k*.63,sp=add(new THREE.ConeGeometry(.09,.34,6),0xf8fafc,Math.sin(a)*.17,.32,Math.cos(a)*.17-.02,head);sp.rotation.set(Math.cos(a)*.55,0,-Math.sin(a)*.55)}
+ if(f)add(new THREE.BoxGeometry(.52,.75,.16),hair,0,-.3,-.2,head);
+ const e1=add(new THREE.SphereGeometry(.04,8,8),0x111111,-.09,.03,.24,head),e2=add(new THREE.SphereGeometry(.04,8,8),0x111111,.09,.03,.24,head);add(new THREE.BoxGeometry(.1,.015,.02),f?0xb4535a:0x7a3b2e,0,-.1,.25,head);[-.09,.09].forEach(a=>add(new THREE.BoxGeometry(.1,.02,.02),hair,a,.11,.24,head));if(boss){e1.visible=e2.visible=false;add(new THREE.BoxGeometry(.58,.13,.56),0x0b0b12,0,.04,0,head)}
+ const limb=(x,y,len,c,w,hand)=>{const p=new THREE.Group();p.position.set(x,y,0);g.add(p);add(new THREE.BoxGeometry(w,len,w),c,0,-len/2,0,p);if(hand)add(new THREE.SphereGeometry(.09,8,8),skin,0,-len,0,p);else add(new THREE.BoxGeometry(w+.04,.1,w+.2),0x1f2937,0,-len+.02,.07,p);return p};
+ const aL=limb(-.46,1.6,.7,shirt,.17,1),aR=limb(.46,1.6,.7,shirt,.17,1);if(boss){const ph=add(new THREE.BoxGeometry(.11,.2,.02),0x111111,0,-.72,.09,aR);ph.rotation.x=-.4;const sc=add(new THREE.BoxGeometry(.09,.17,.005),0x7dd3fc,0,-.72,.102,aR);sc.material=new THREE.MeshBasicMaterial({color:0x7dd3fc});sc.rotation.x=-.4}
+ const lL=limb(-.18,.85,.85,f?0x2f3652:0x2b3140,.22),lR=limb(.18,.85,.85,f?0x2f3652:0x2b3140,.22);
+ if(f)add(new THREE.CylinderGeometry(.34,.5,.4,16),shirt,0,.95,0);if(boss)add(new THREE.CylinderGeometry(.17,.2,.3,14),0x0b0b12,0,1.72,0);
+ const nm=spr();draw(nm,(boss?'👑 ':'')+name+' · '+role,boss?'#a16207':'#000000b0','#fff');nm.scale.set(2.4,.6,1);nm.position.y=2.6;g.add(nm);
+ const bb=spr();bb.scale.set(3.4,.85,1);bb.position.y=3.15;bb.visible=false;g.add(bb);
+ g.position.set(boss?0:DX[i],boss?0:-.35,boss?-.6:-3.2);g.rotation.y=boss?0:Math.PI;if(boss)g.scale.setScalar(1.15);scene.add(g);
+ if(!boss)for(const l of [lL,lR])l.rotation.x=-1.5;
+ return {name:name.toLowerCase(),role,trait,boss,nm,eyes:[e1,e2],g,aL,aR,lL,lR,head,bb,home:boss?[0,-.6]:[DX[i],-3.2],steps:[],cur:null,st:0,seated:!boss,bt:0,i}
+});
+function say(w,t){draw(w.bb,t.slice(0,46),"#ffffff","#111827");w.bb.visible=true;w.bt=4}
+function ang(a,b){let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return d}
+function upd(w,dt,t){
+ if(!w.cur&&w.steps.length){w.cur=w.steps.shift();w.st=0;if(w.cur.say)say(w,w.cur.say);
+  if(w.cur.sit!==undefined){const at=w.cur.at||[w.home[0],w.home[1],Math.PI];w.seated=w.cur.sit;if(w.seated){w.g.position.set(at[0],-.35,at[1]);w.g.rotation.y=at[2]}w.cur=null}}
+ let walk=0,pose=w.seated?"type":"idle";const c=w.cur,p=w.g.position;if(w.boss&&!c&&(busy||window.srvBusy))pose="phone";
+ if(c){
+  if(c.go){const dx=c.go[0]-p.x,dz=c.go[1]-p.z,d=Math.hypot(dx,dz);
+   if(d<.08)w.cur=null;else{const sp=(c.run?5:2.4)*dt,m=Math.min(sp,d);p.x+=dx/d*m;p.z+=dz/d*m;w.g.rotation.y+=ang(w.g.rotation.y,Math.atan2(dx,dz))*Math.min(1,dt*10);walk=c.run?1.8:1}}
+  else if(c.face!==undefined){const d=ang(w.g.rotation.y,c.face);w.g.rotation.y+=d*Math.min(1,dt*9);if(Math.abs(d)<.05)w.cur=null}
+  else{w.st+=dt;pose=c.do||pose;if(w.st>=(c.t||0))w.cur=null}}
+ const r=(o,x,z)=>{o.rotation.x=x;o.rotation.z=z};
+ let y=w.seated?-.35:0;
+ r(w.aL,0,0);r(w.aR,0,0);r(w.lL,0,0);r(w.lR,0,0);
+ if(w.seated){w.lL.rotation.x=w.lR.rotation.x=-1.5}
+ if(walk){const s=Math.sin(t*8*walk)*.7*(walk>1?1.3:1);w.lL.rotation.x=s;w.lR.rotation.x=-s;w.aL.rotation.x=-s;w.aR.rotation.x=s;y+=Math.abs(Math.sin(t*8*walk))*.06}
+ else if(pose==="type"){w.aL.rotation.x=-1.25+Math.sin(t*18)*.1;w.aR.rotation.x=-1.25+Math.sin(t*18+2)*.1;w.head.rotation.x=.1}
+ else if(pose==="dance"){y+=Math.abs(Math.sin(t*6))*.25;w.aL.rotation.z=-2.4+Math.sin(t*6)*.5;w.aR.rotation.z=2.4-Math.sin(t*6)*.5;w.lL.rotation.x=Math.sin(t*6)*.5;w.lR.rotation.x=-Math.sin(t*6)*.5;w.g.rotation.y+=dt*3}
+ else if(pose==="wave"){w.aR.rotation.z=2.7+Math.sin(t*10)*.3}
+ else if(pose==="jump"){y+=Math.abs(Math.sin(t*6))*.7;w.aL.rotation.z=-2.6;w.aR.rotation.z=2.6}
+ else if(pose==="drink"){w.aR.rotation.x=-2.3+Math.sin(t*4)*.1}
+ else if(pose==="write"){w.aR.rotation.x=-2.7;w.aR.rotation.z=Math.sin(t*6)*.25}
+ else if(pose==="talk"){w.aL.rotation.x=-.9+Math.sin(t*4)*.4;w.aR.rotation.x=-.9+Math.sin(t*4+1.5)*.4}
+ else if(pose==="phone"){w.aR.rotation.x=-2;w.aR.rotation.z=-.2;w.head.rotation.x=.3}
+ else{w.aL.rotation.z=-.05+Math.sin(t*2)*.03}
+ if(pose!=="type"&&pose!=="phone")w.head.rotation.x=0;
+ p.y=y;w.g.children[0].scale.y=1+Math.sin(t*2+w.i)*.02;const bl=Math.sin(t*1.3+w.i*2)>.985?.1:1;w.eyes.forEach(e=>e.scale.y=bl);
+ if(w.bt>0){w.bt-=dt;if(w.bt<=0)w.bb.visible=false}
+}
+const aisle=w=>[...(w.seated?[{sit:false}]:[]),{go:[w.home[0],-1.8]}];
+const back=w=>[{go:[w.home[0],-1.8]},{go:w.home},{face:Math.PI},{sit:true}];
+const MEET=[[-1.65,.95],[-.55,.95],[.55,.95],[1.65,.95],[-1.1,3.45],[0,3.45],[1.1,3.45]];
+function plan(w,k,raw){
+ const i=w.i,s=[{do:"idle",t:i*.35}];
+ const A=aisle(w),B=back(w);
+ if(k==="chai")return[...s,...A,{go:[6.2,.2+i*.6]},{face:Math.PI/2},{do:"drink",t:3,say:"Ji boss, chai aa gayi ☕"},...B];
+ if(k==="meet")return[...s,...A,{go:[MEET[i][0],MEET[i][1]+(MEET[i][1]<2.2?-.8:.8)]},{sit:true,at:[MEET[i][0],MEET[i][1],MEET[i][1]<2.2?0:Math.PI]},{do:"talk",t:7,say:"Meeting shuru! 📋"},{sit:false},...B];
+ if(k==="dance")return[...s,...A,{do:"dance",t:4.5,say:i<2?"Naach time! 🕺":"Naach time! 💃"},...B];
+ if(k==="wave")return[...s,...(w.seated?[{sit:false}]:[]),{face:0},{do:"wave",t:3,say:"Assalam o Alaikum! 👋"},{face:Math.PI},{sit:true}];
+ if(k==="jump")return[...s,...A,{do:"jump",t:3.5,say:"Yahooo! 🎉"},...B];
+ if(k==="board")return[...s,...A,{go:[-6.8,-1.2+i*.65]},{face:-Math.PI/2},{do:"write",t:5,say:"Plan likh raha hoon ✍️"},...B];
+ if(k==="run")return[...s,...A,{go:[-6,-1.8],run:1},{go:[-6,4.5],run:1},{go:[6,4.5],run:1},{go:[6,-1.8],run:1,say:"Daud lagao! 🏃"},...B];
+ if(k==="sit")return[...s,...B,{do:"type",t:1,say:"Ji, baith gaya 🪑"}];
+ const job=raw.replace(/^\S+\s/,"").slice(0,24)||raw.slice(0,24);
+ return[...s,...(w.seated?[]:B),{do:"type",t:2,say:"Samajh gaya: "+raw.slice(0,20)},{do:"type",t:4,say:"Kaam jari hai… ⚙️"},{do:"type",t:1.5,say:"Ho gaya ✅"}];
+}
+function parse(txt){
+ const l=txt.toLowerCase();
+ const kw=[["chai",/chai|tea|coffee|cofee|kafi/],["meet",/meeting|miting|meet|baithak/],["dance",/dance|nach|naach/],["wave",/salam|hello|hi\b|wave|hey|assalam/],["jump",/jump|uchal|kood|kudo/],["board",/board|plan|likh|write|draw/],["run",/run|bhag|daur|daud|race/],["sit",/baith|sit\b|rest|aram/]];
+ let k="work";for(const [n,re] of kw)if(re.test(l)){k=n;break}
+ let who=W.filter(w=>l.includes(w.name));
+ if(!who.length||/sab|all|everyone|team/.test(l))who=W.filter(w=>!w.boss);
+ return{k,who}
+}
+async function cmd(txt,local){
+ txt=txt.trim();if(!txt)return;if(SAMPLE&&!local&&!/meeting|miting|baithak/i.test(txt)&&await smart2(txt))return;
+ const {k,who}=parse(txt);
+ who.forEach(w=>{w.steps=plan(w,k,txt);w.cur=null});if(k==="meet")bossMeet();
+ document.getElementById("st").textContent="Command: "+txt+" → "+who.map(w=>w.name[0].toUpperCase()+w.name.slice(1)).join(", ");
+}
+const inp=document.getElementById("in");
+document.getElementById("go").onclick=()=>{cmd(inp.value);inp.value=""};
+inp.addEventListener("keydown",e=>{if(e.key==="Enter"){cmd(inp.value);inp.value=""}});
+[["☕ Chai","sab chai lao"],["📋 Meeting","sab meeting karo"],["💃 Dance","sab dance karo"],["👋 Salam","sab salam karo"],["✍️ Board","sab board par plan likho"],["🏃 Daud","sab daud lagao"],["🦘 Jump","sab jump karo"],["💻 Kaam","sab kaam karo"],["🪑 Baitho","sab baith jao"]].forEach(([a,b])=>{const e=document.createElement("b");e.textContent=a;e.onclick=()=>cmd(b,1);document.getElementById("chips").appendChild(e)});
+let lastS=0,SAMPLE=null,busy=false;
+if(window.claude&&claude.use)claude.use("sample").then(s=>{SAMPLE=s}).catch(()=>{});
+const ACTS=["work","chai","meet","dance","wave","jump","board","run","sit"];
+async function smart(txt){
+ if(busy)return true;busy=true;
+ const stEl=document.getElementById("st"),rp=document.getElementById("rp");
+ stEl.textContent="🧠 Agents soch rahe hain…";W.forEach(w=>{w.steps=[];w.cur=null;say(w,"🤔 soch raha hoon…")});
+ try{
+  const r=await SAMPLE.json("Tum ek AI office ke 4 workers ho: Ali (Developer), Usman (Researcher), Sara (Designer), Ayesha (Manager). Boss ne command di: \""+txt.replace(/"/g,"'")+"\"\nSirf valid JSON do, koi markdown nahi, is shape mein: {\"reply\":\"boss ko seedha madadgar jawab, Roman Urdu, max 3 jumlay\",\"workers\":[{\"name\":\"Ali\",\"action\":\"work\",\"say\":\"max 6 lafz Roman Urdu\",\"task\":\"max 8 lafz, kya kar raha hai\"}]} aur workers mein 4 entries do: Ali, Usman, Sara, Ayesha.\naction sirf in mein se: work, chai, meet, dance, wave, jump, board, run, sit. Command ke hisaab se har worker ko uske role ka kaam do (design = Sara board, coding = Ali work, research = Usman work, planning = Ayesha meet ya board). Jisay zaroorat nahi use sit do.");
+  const list=Array.isArray(r&&r.workers)?r.workers:[];
+  W.forEach(w=>{const it=list.find(x=>x&&String(x.name).toLowerCase()===w.name)||{},k=ACTS.includes(it.action)?it.action:"work",s=plan(w,k,txt),sy=s.filter(x=>x.say);
+   if(it.say&&sy[0])sy[0].say=String(it.say);if(k==="work"&&it.task&&sy[1])sy[1].say=String(it.task);w.steps=s;w.cur=null});
+  stEl.textContent="Command: "+txt;rp.style.display="block";rp.textContent="🧠 "+String((r&&r.reply)||"Kaam shuru ho gaya.");
+  busy=false;return true;
+ }catch(e){
+  busy=false;if(e&&e.code==="not_granted")SAMPLE=null;W.forEach(w=>{w.bb.visible=false});
+  stEl.textContent="AI abhi available nahi, basic mode chal raha hai.";return false}
+}
+const AG=W.filter(w=>!w.boss),BOSS=W.find(w=>w.boss);
+const cap=s=>s[0].toUpperCase()+s.slice(1),q=s=>String(s).replace(/"/g,"'"),J=p=>SAMPLE.json(p),byName=n=>AG.find(x=>x.name===String(n).toLowerCase());
+let LS={},nextP=4;try{LS=JSON.parse(localStorage.getItem('office_mem')||'{}')}catch(e){}
+const mem=w=>LS[w.name]||(LS[w.name]={xp:0,lessons:[]}),lvl=w=>1+Math.floor(mem(w).xp/30);
+function tag(w){if(!w.boss)draw(w.nm,cap(w.name)+' · '+w.role+' Lv'+lvl(w),'#000000b0','#fff')}
+function gain(w,n,lesson){const m=mem(w);m.xp+=n;if(lesson)m.lessons=[...m.lessons,String(lesson).slice(0,90)].slice(-6);try{localStorage.setItem('office_mem',JSON.stringify(LS))}catch(e){}window.memSync&&window.memSync(LS);tag(w)}
+AG.forEach(tag);
+const persona=w=>`${cap(w.name)} (${w.role}, Level ${lvl(w)}). Shakhsiyat: ${w.trait}. Lehja hamesha dostana aur narm. Pichli seekhi hui baatein: ${mem(w).lessons.slice(-3).join('; ')||'abhi koi nahi'}.`;
+async function smart2(txt){
+ if(busy)return true;busy=true;
+ const stEl=document.getElementById('st'),rp=document.getElementById('rp'),T=s=>{stEl.textContent=s};
+ try{
+  T('👑 Boss plan bana raha hai…');say(BOSS,'Hmm, sochne do… 🤔');AG.forEach(w=>say(w,'🤔'));
+  const roster=AG.map(w=>`${cap(w.name)} (${w.role}, Lv${lvl(w)}, ${w.trait})`).join('\n');
+  const p0=await J(`Tum Boss Zaythar AI ho, ek AI office ke boss: faisla-saaz, munsif, mehnat ko sarahne wale aur ghalti par seedha tok dene wale. Tumhari team:\n${roster}\nCommand: "${q(txt)}"\nKhud faisla karo kaun kaun is kaam ke liye sahi hai (1 se 4 log, sirf zaroorat ke mutabiq). Sirf JSON: {"boss_say":"max 8 lafz","assign":[{"agent":"Ali","task":"is ka khaas hissa, 1 jumla"}]}`);
+  const asg=(Array.isArray(p0&&p0.assign)?p0.assign:[]).map(a=>({w:byName(a.agent),task:String(a.task||txt)})).filter(a=>a.w).slice(0,4);
+  if(!asg.length)asg.push({w:AG[0],task:txt});
+  const WEB=await(window.webSearch?window.webSearch(txt):'');
+  say(BOSS,String((p0&&p0.boss_say)||'Kaam banta hai!'));
+  AG.forEach(w=>{if(!asg.find(a=>a.w===w))act(w,'sit')});
+  asg.forEach(a=>{act(a.w,'work',a.task);say(a.w,'Ji boss, shuru karta hoon')});
+  T('🛠️ '+asg.map(a=>cap(a.w.name)).join(', ')+' kaam kar rahe hain…');
+  const wk=await Promise.all(asg.map(a=>J(`${persona(a.w)}\nBoss ne tumhe ye kaam diya: "${q(a.task)}" (poora command: "${q(txt)}").${WEB?'\n'+WEB:''}\nApni shakhsiyat ke mutabiq, Roman Urdu mein, mukammal aur ooncha maiyaar ka jawab likho (tafseeli, saaf, ghalti se paak, 4-8 jumlay). Sirf JSON: {"work":"..."}`).then(r=>{a.work=String((r&&r.work)||'(jawab nahi aaya)')}).catch(()=>{a.work='(jawab nahi aa saka)'})));
+  T('👑 Boss kaam parakh raha hai…');say(BOSS,'Dekhta hoon kya banaya 🧐');
+  const rv=await J(`Tum Boss Zaythar AI ho. Insaaf se in agents ka kaam parakho (score 1-10, sakht lekin munsif; 7 ya zyada = acha, 7 se kam = bura). Command: "${q(txt)}"\n${asg.map(a=>cap(a.w.name)+': '+a.work.slice(0,700)).join('\n---\n')}\nSirf JSON: {"reviews":[{"agent":"Ali","score":8,"feedback":"1 jumla","lesson":"seekhne wali baat, 8 lafz"}],"final":"boss ki taraf se insaan ke liye mukammal behtareen jawab, Roman Urdu, 4-8 jumlay","mentor":{"from":"sab se acha agent","to":"sab se kamzor agent","tip":"1 jumla training"}}`);
+  const revs={};(Array.isArray(rv&&rv.reviews)?rv.reviews:[]).forEach(r=>{const w=byName(r.agent);if(w)revs[w.name]=r});
+  const low=[];
+  asg.forEach(a=>{const r=revs[a.w.name]||(revs[a.w.name]={feedback:'Aur behtar karo'});r.score=Number(r.score)||6;
+   if(r.score>=7){gain(a.w,10+r.score,r.lesson);act(a.w,'wave');say(a.w,'Shukriya boss! '+r.score+'/10')}
+   else{gain(a.w,4,r.lesson);low.push(a);say(a.w,'Sudhar karta hoon 💪')}});
+  const m=rv&&rv.mentor,mw=m&&byName(m.from),tw=m&&byName(m.to);
+  if(mw&&tw&&mw!==tw){gain(mw,6);gain(tw,8,m.tip);mw.steps=[...aisle(mw),{go:[tw.home[0]+.9,-2.4]},{face:Math.atan2(-.9,-.8)},{do:'talk',t:5,say:String(m.tip||'Ye tareeqa try karo').slice(0,46)},...back(mw)];mw.cur=null;say(tw,'Shukriya, seekh gaya 📝')}
+  if(low.length){T('🔁 Kamzor kaam dobara behtar ho raha hai…');
+   await Promise.all(low.map(a=>J(`${persona(a.w)}\nBoss ka feedback: ${q(revs[a.w.name].feedback)}\nTumhara pehla jawab: ${q(a.work).slice(0,700)}\nAb isay saaf behtar karke dobara likho (Roman Urdu, 4-8 jumlay). Sirf JSON: {"work":"..."}`).then(n=>{if(n&&n.work){a.work=String(n.work);gain(a.w,8);say(a.w,'Ab behtar hai ✅')}}).catch(()=>{})))}
+  const lines=asg.map(a=>(revs[a.w.name].score>=7?'✅ ':'🔁 ')+cap(a.w.name)+' ('+a.w.role+', '+revs[a.w.name].score+'/10):\n'+a.work);
+  const hw=asg.find(a=>a.w.name==='rio');if(hw&&window.socialQueue&&revs[hw.w.name].score>=7)window.socialQueue(hw.work);window.notifyBoss&&window.notifyBoss(String((rv&&rv.final)||''));
+  rp.style.cssText='display:block;max-height:38vh;white-space:pre-wrap';
+  rp.textContent='👑 Boss Zaythar AI:\n'+String((rv&&rv.final)||'Kaam mukammal.')+'\n\n'+lines.join('\n\n');
+  T('Command: '+txt);window.speakBoss(String((rv&&rv.final)||''));busy=false;return true;
+ }catch(e){
+  busy=false;if(e&&e.code==='not_granted')SAMPLE=null;W.forEach(w=>{w.bb.visible=false});
+  stEl.textContent='AI abhi available nahi, basic mode chal raha hai.';return false}
+}
+const act=(w,k,s)=>{w.steps=plan(w,k,s||'');w.cur=null};
+let VOICE=false;try{VOICE=localStorage.getItem('office_voice')==='1'}catch(e){}
+window.speakBoss=t=>{if(!VOICE||!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(t).slice(0,400));u.lang='ur-PK';speechSynthesis.speak(u)};
+const vb=document.createElement('b'),vl=()=>{vb.textContent=VOICE?'🔊 Awaaz ON':'🔇 Awaaz OFF'};vl();
+vb.onclick=()=>{VOICE=!VOICE;try{localStorage.setItem('office_voice',VOICE?'1':'0')}catch(e){}vl();if(!VOICE&&window.speechSynthesis)speechSynthesis.cancel()};
+document.getElementById('chips').appendChild(vb);
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){const mb=document.createElement("button");mb.textContent="🎤";mb.style.padding="0 14px";document.querySelector(".row").prepend(mb);mb.onclick=()=>{try{const r=new SR();r.lang="ur-PK";r.onresult=e=>cmd(e.results[0][0].transcript);r.start();document.getElementById("st").textContent="Sun raha hoon… boliye 🎤"}catch(e){}}}
+const clk=new THREE.Clock();
+(function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime;if(BOSS&&!BOSS.steps.length&&!BOSS.cur&&!busy&&t>nextP){nextP=t+9+Math.random()*6;const a=AG[Math.floor(Math.random()*AG.length)],L=['Kaam kaisa chal raha hai?','Quality par dhyan do!','Shabash, jari rakho 👍','Deadline yaad hai na?'];BOSS.steps=[{go:[a.home[0]+.6,-2.4]},{face:Math.atan2(-.6,-.8)},{do:'talk',t:3,say:L[Math.floor(Math.random()*4)]},{go:[0,-.6]},{face:0}]}
+core.rotation.y+=dt*.6;ring.rotation.z+=dt*.4;W.forEach(w=>upd(w,dt,t));if(Math.floor(t*8)!==lastS){lastS=Math.floor(t*8);drawScr();if(lastS%8===0){tickClock();drawTV()}}ren.render(scene,cam)})();
+setTimeout(()=>cmd("sab salam karo",1),600);
+</script></body></html>

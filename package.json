@@ -1,13 +1,1 @@
-{
-  "name": "zaythar-ai-firestore-rules-tests",
-  "private": true,
-  "version": "1.0.0",
-  "description": "Firebase Emulator Suite tests for Zaythar AI Firestore security rules",
-  "scripts": {
-    "test:firestore": "node --test firestore.test.js"
-  },
-  "devDependencies": {
-    "@firebase/rules-unit-testing": "6.0.0",
-    "firebase": "13.3.0"
-  }
-}
+{"name":"zaythar-office-server","version":"1.1.0","type":"module","private":true,"engines":{"node":">=18"},"scripts":{"start":"node --env-file=.env index.js","test":"node --test test/tools.test.js"}}

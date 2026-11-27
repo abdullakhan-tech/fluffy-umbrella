@@ -1,0 +1,15 @@
+# Is file ko repo ke .github/workflows/ mein copy karein.
+name: Zaythar Office checks
+on:
+  pull_request:
+    paths: ['zaythar-office/**']
+  push:
+    paths: ['zaythar-office/**']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: cd zaythar-office/server && npm test
