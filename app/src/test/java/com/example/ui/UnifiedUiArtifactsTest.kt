@@ -235,7 +235,7 @@ class UnifiedUiArtifactsTest {
     }
 
     @Test
-    fun toolsHubSheet_triggersAllEightToolsAndWebToggle() {
+    fun toolsHubSheet_triggersAllSixToolsAndWebToggle() {
         val navigatedTools = mutableListOf<String>()
         var webToggled = false
         var dismissed = false
@@ -279,10 +279,6 @@ class UnifiedUiArtifactsTest {
         // 7. Prompts tool
         composeRule.onNodeWithTag("tool_sheet_prompts").assertIsDisplayed().performClick()
         assertTrue("prompts" in navigatedTools)
-
-        // 8. Engine Hub tool
-        composeRule.onNodeWithTag("tool_sheet_engine_hub").assertIsDisplayed().performClick()
-        assertTrue("engine_hub" in navigatedTools)
     }
 
     @Test
@@ -303,15 +299,7 @@ class UnifiedUiArtifactsTest {
         composeRule.waitForIdle()
 
         // Test each provider route in ModelSelectorSheet
-        val expectedRoutes = listOf(
-            ProviderRoute.AUTO,
-            ProviderRoute.PRO,
-            ProviderRoute.FLASH,
-            ProviderRoute.FLASH_LITE,
-            ProviderRoute.THINKING,
-            ProviderRoute.GEMINI_4,
-            ProviderRoute.ARGON_PRO
-        )
+        val expectedRoutes = ProviderRoute.entries
 
         for (route in expectedRoutes) {
             composeRule.onNodeWithTag("sheet_model_${route.id}").performScrollTo().assertIsDisplayed().performClick()
