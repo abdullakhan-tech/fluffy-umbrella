@@ -1,10 +1,17 @@
+import { createRequire } from "node:module";
+import assert from "node:assert/strict";
+import { test, before, after, beforeEach } from "node:test";
+import fs from "node:fs";
+
+// The repository root is an ES module package for the Zaythar Office server.
+// Firebase Rules Unit Testing is installed globally in CI, so use createRequire
+// to retain NODE_PATH-based CommonJS resolution without changing package scope.
+const require = createRequire(import.meta.url);
 const {
   initializeTestEnvironment,
   assertFails,
   assertSucceeds,
 } = require("@firebase/rules-unit-testing");
-const { test, before, after, beforeEach } = require("node:test");
-const fs = require("node:fs");
 
 let testEnv;
 const PROJECT_ID = process.env.GCP_PROJECT || "demo-no-project";
@@ -13,6 +20,12 @@ const BOB_UID = "bob_456";
 
 const [emulatorHost, emulatorPortStr] = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8085").split(":");
 const emulatorPort = parseInt(emulatorPortStr, 10);
+
+test("Firebase Rules Unit Testing helpers load under the repository ESM package mode", () => {
+  assert.equal(typeof initializeTestEnvironment, "function");
+  assert.equal(typeof assertFails, "function");
+  assert.equal(typeof assertSucceeds, "function");
+});
 
 function pastTimestamp(offsetMs = 2000) {
   return new Date(Date.now() - offsetMs);
