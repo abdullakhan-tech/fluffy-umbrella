@@ -233,4 +233,138 @@ class UnifiedUiArtifactsTest {
         composeRule.onNodeWithTag("tool_sheet_code").assertIsDisplayed().performClick()
         assertEquals("code", navigatedTool)
     }
+
+    @Test
+    fun toolsHubSheet_triggersAllEightToolsAndWebToggle() {
+        val navigatedTools = mutableListOf<String>()
+        var webToggled = false
+        var dismissed = false
+
+        composeRule.setContent {
+            ZaytharTheme {
+                ToolsHubSheet(
+                    webConnectEnabled = true,
+                    onToggleWebConnect = { webToggled = true },
+                    onNavigate = { navigatedTools += it },
+                    onDismiss = { dismissed = true }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        // 1. Web grounding toggle
+        composeRule.onNodeWithTag("tool_sheet_web_toggle").assertIsDisplayed().performClick()
+        assertTrue(webToggled)
+
+        // 2. Studio tool
+        composeRule.onNodeWithTag("tool_sheet_studio").assertIsDisplayed().performClick()
+        assertTrue("studio" in navigatedTools)
+
+        // 3. Code tool
+        composeRule.onNodeWithTag("tool_sheet_code").assertIsDisplayed().performClick()
+        assertTrue("code" in navigatedTools)
+
+        // 4. Vision tool
+        composeRule.onNodeWithTag("tool_sheet_vision").assertIsDisplayed().performClick()
+        assertTrue("camera_eyes" in navigatedTools)
+
+        // 5. Brain tool
+        composeRule.onNodeWithTag("tool_sheet_brain").assertIsDisplayed().performClick()
+        assertTrue("brain" in navigatedTools)
+
+        // 6. Plugins tool
+        composeRule.onNodeWithTag("tool_sheet_plugins").assertIsDisplayed().performClick()
+        assertTrue("plugins" in navigatedTools)
+
+        // 7. Prompts tool
+        composeRule.onNodeWithTag("tool_sheet_prompts").assertIsDisplayed().performClick()
+        assertTrue("prompts" in navigatedTools)
+
+        // 8. Engine Hub tool
+        composeRule.onNodeWithTag("tool_sheet_engine_hub").assertIsDisplayed().performClick()
+        assertTrue("engine_hub" in navigatedTools)
+    }
+
+    @Test
+    fun modelSelectorSheet_selectsAllProviderRoutesAndOpensModelMatrix() {
+        val chosenRoutes = mutableListOf<ProviderRoute>()
+        var modelMatrixOpened = false
+
+        composeRule.setContent {
+            ZaytharTheme {
+                ModelSelectorSheet(
+                    currentRoute = ProviderRoute.AUTO,
+                    onSelectRoute = { chosenRoutes += it },
+                    onOpenModelMatrix = { modelMatrixOpened = true },
+                    onDismiss = {}
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        // Test each provider route in ModelSelectorSheet
+        val expectedRoutes = listOf(
+            ProviderRoute.AUTO,
+            ProviderRoute.PRO,
+            ProviderRoute.FLASH,
+            ProviderRoute.FLASH_LITE,
+            ProviderRoute.THINKING,
+            ProviderRoute.GEMINI_4,
+            ProviderRoute.ARGON_PRO
+        )
+
+        for (route in expectedRoutes) {
+            composeRule.onNodeWithTag("sheet_model_${route.id}").performScrollTo().assertIsDisplayed().performClick()
+            composeRule.waitForIdle()
+        }
+        assertEquals(expectedRoutes, chosenRoutes)
+
+        // Compare models button
+        composeRule.onNodeWithTag("compare_models_sheet_button").performScrollTo().assertIsDisplayed().performClick()
+        assertTrue(modelMatrixOpened)
+    }
+
+    @Test
+    fun cyberTopBar_triggersAllActionsAndToggles() {
+        var menuClicked = false
+        var motionToggled = false
+        var themeToggled = false
+        var searchOpened = false
+        var toolsOpened = false
+
+        composeRule.setContent {
+            ZaytharTheme {
+                com.example.ui.components.CyberTopBar(
+                    titlePrefix = "TEST",
+                    titleAccent = "COMMAND",
+                    clockText = "12:00:00 UTC",
+                    motionEnabled = true,
+                    firebaseReady = true,
+                    showMenuButton = true,
+                    onMenuClick = { menuClicked = true },
+                    onToggleMotion = { motionToggled = true },
+                    onToggleTheme = { themeToggled = true },
+                    themeMode = ThemeMode.DARK,
+                    onOpenSearch = { searchOpened = true },
+                    onOpenTools = { toolsOpened = true }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("nav_menu_button").assertIsDisplayed().performClick()
+        assertTrue(menuClicked)
+
+        composeRule.onNodeWithTag("topbar_search_button").assertIsDisplayed().performClick()
+        assertTrue(searchOpened)
+
+        composeRule.onNodeWithTag("topbar_tools_button").assertIsDisplayed().performClick()
+        assertTrue(toolsOpened)
+
+        composeRule.onNodeWithTag("motion_toggle_button").assertIsDisplayed().performClick()
+        assertTrue(motionToggled)
+
+        composeRule.onNodeWithTag("theme_toggle_button").assertIsDisplayed().performClick()
+        assertTrue(themeToggled)
+    }
 }

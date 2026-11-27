@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,41 +14,35 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BrightnessAuto
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.data.local.ZaytharPreferences
+import com.example.domain.ProviderRoute
+import com.example.domain.SupportedLanguage
 import com.example.ui.components.CyberActionButton
 import com.example.ui.components.CyberCard
 import com.example.ui.components.CyberCardHeader
+import com.example.ui.components.CyberSecondaryButton
 import com.example.ui.components.CyberSectionTitle
 import com.example.ui.components.TelemetryBar
+import com.example.ui.components.ZaytharSpiralEmblem
 import com.example.ui.theme.AccentSwatches
 import com.example.ui.theme.LocalCyberColors
-import com.example.ui.theme.ThemeMode
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,9 +50,22 @@ fun SettingsScreen(
     prefs: ZaytharPreferences,
     onUpdatePrefs: ((ZaytharPreferences) -> ZaytharPreferences) -> Unit,
     onSelectAccent: (Long) -> Unit,
-    onToast: (String) -> Unit
+    onToast: (String) -> Unit,
+    onNavigate: (String) -> Unit = {}
 ) {
     val cyber = LocalCyberColors.current
+    var selectedCategory by remember { mutableStateOf(SettingsCategory.ALL) }
+    var langExpanded by remember { mutableStateOf(false) }
+    var modelExpanded by remember { mutableStateOf(false) }
+    val currentLanguage = SupportedLanguage.fromCode(prefs.languageCode)
+    val currentRoute = ProviderRoute.fromId(prefs.selectedProviderRoute)
+
+    val showGeneral = selectedCategory == SettingsCategory.ALL || selectedCategory == SettingsCategory.GENERAL
+    val showAppearance = selectedCategory == SettingsCategory.ALL || selectedCategory == SettingsCategory.APPEARANCE
+    val showPersonalization = selectedCategory == SettingsCategory.ALL || selectedCategory == SettingsCategory.PERSONALIZATION
+    val showVoice = selectedCategory == SettingsCategory.ALL || selectedCategory == SettingsCategory.VOICE
+    val showSecurity = selectedCategory == SettingsCategory.ALL || selectedCategory == SettingsCategory.SECURITY
+    val showAbout = selectedCategory == SettingsCategory.ALL || selectedCategory == SettingsCategory.ABOUT
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -69,9 +74,9 @@ fun SettingsScreen(
     ) {
         item {
             CyberSectionTitle(
-                eyebrow = "NEURAL CONFIGURATION",
-                titlePrefix = "AI Cognitive",
-                titleAccent = "Settings",
+                eyebrow = "ZAYTHAR SETTINGS & APPEARANCE",
+                titlePrefix = "Settings",
+                titleAccent = "Center",
                 trailing = {
                     CyberActionButton(
                         text = "SAVE",
@@ -83,180 +88,249 @@ fun SettingsScreen(
         }
 
         item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(title = "PROCESSING PARAMETERS")
+            SettingsCategoryPills(
+                selected = selectedCategory,
+                onSelect = { selectedCategory = it }
+            )
+        }
 
-                CyberSliderRow(
-                    label = "Processing velocity",
-                    value = prefs.processingVelocity,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(processingVelocity = v) } }
-                )
-                CyberSliderRow(
-                    label = "Synaptic depth",
-                    value = prefs.synapticDepth,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(synapticDepth = v) } }
-                )
-                CyberSliderRow(
-                    label = "Response precision",
-                    value = prefs.responsePrecision,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(responsePrecision = v) } }
-                )
-                CyberSliderRow(
-                    label = "Creativity bias",
-                    value = prefs.creativityBias,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(creativityBias = v) } }
-                )
+        if (showGeneral) {
+            item {
+                CyberCard(modifier = Modifier.fillMaxWidth()) {
+                    CyberCardHeader(title = "GENERAL & COGNITIVE ENGINE", badge = currentRoute.title)
 
-                CyberToggleRow(
-                    label = "Neural overdrive",
-                    checked = prefs.neuralOverdrive,
-                    onCheckedChange = { c -> onUpdatePrefs { it.copy(neuralOverdrive = c) } }
-                )
-                CyberToggleRow(
-                    label = "Holographic interface",
-                    checked = prefs.holographicUi,
-                    onCheckedChange = { c -> onUpdatePrefs { it.copy(holographicUi = c) } }
-                )
-                CyberToggleRow(
-                    label = "Auto cognition",
-                    checked = prefs.autoCognition,
-                    onCheckedChange = { c -> onUpdatePrefs { it.copy(autoCognition = c) } }
-                )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .minimumInteractiveComponentSize()
+                                    .clickable { langExpanded = true }
+                                    .testTag("settings_language_dropdown"),
+                                shape = MaterialTheme.shapes.small,
+                                color = cyber.panelElevated,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("LANGUAGE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(currentLanguage.displayName, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            DropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
+                                SupportedLanguage.entries.forEach { lang ->
+                                    DropdownMenuItem(
+                                        text = { Text(lang.displayName) },
+                                        onClick = {
+                                            onUpdatePrefs { it.copy(languageCode = lang.code) }
+                                            langExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .minimumInteractiveComponentSize()
+                                    .clickable { modelExpanded = true }
+                                    .testTag("settings_model_dropdown"),
+                                shape = MaterialTheme.shapes.small,
+                                color = cyber.panelElevated,
+                                border = BorderStroke(1.dp, cyber.accent.copy(alpha = 0.5f))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("DEFAULT MODEL", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(currentRoute.title, style = MaterialTheme.typography.bodyMedium, color = cyber.accentSoft)
+                                }
+                            }
+                            DropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
+                                ProviderRoute.entries.forEach { route ->
+                                    DropdownMenuItem(
+                                        text = { Text(route.title) },
+                                        onClick = {
+                                            onUpdatePrefs { it.copy(selectedProviderRoute = route.id) }
+                                            modelExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    CyberToggleRow("Deep thinking mode (show reasoning)", prefs.thinkingEnabled, { c ->
+                        onUpdatePrefs { it.copy(thinkingEnabled = c) }
+                    }, testTag = "thinking_mode_settings_switch")
+                    CyberToggleRow("Auto-mirror language (Urdu / Roman Urdu / Multi)", prefs.autoMirrorLanguage, { c ->
+                        onUpdatePrefs { it.copy(autoMirrorLanguage = c) }
+                    }, testTag = "auto_mirror_language_switch")
+                    CyberToggleRow("Neural overdrive", prefs.neuralOverdrive, { c ->
+                        onUpdatePrefs { it.copy(neuralOverdrive = c) }
+                    })
+                    CyberToggleRow("Auto cognition", prefs.autoCognition, { c ->
+                        onUpdatePrefs { it.copy(autoCognition = c) }
+                    })
+                    CyberToggleRow("3D holographic motion effects", prefs.motion3dEnabled, { c ->
+                        onUpdatePrefs { it.copy(motion3dEnabled = c) }
+                    })
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CyberSliderRow("Processing velocity", prefs.processingVelocity) { v ->
+                        onUpdatePrefs { it.copy(processingVelocity = v) }
+                    }
+                    CyberSliderRow("Synaptic depth", prefs.synapticDepth) { v ->
+                        onUpdatePrefs { it.copy(synapticDepth = v) }
+                    }
+                    CyberSliderRow("Response precision", prefs.responsePrecision) { v ->
+                        onUpdatePrefs { it.copy(responsePrecision = v) }
+                    }
+                    CyberSliderRow("Creativity bias", prefs.creativityBias) { v ->
+                        onUpdatePrefs { it.copy(creativityBias = v) }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CyberSecondaryButton(
+                        text = "RESET DEFAULTS",
+                        onClick = {
+                            onUpdatePrefs { ZaytharPreferences() }
+                            onToast("Settings reset to defaults.")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "reset_settings_button"
+                    )
+                }
             }
         }
 
-        item {
-            CyberCard(modifier = Modifier.fillMaxWidth()) {
-                CyberCardHeader(
-                    title = "THEME & VISUALIZER",
-                    badge = prefs.themeMode.label.uppercase()
-                )
+        if (showAppearance) {
+            item {
+                CyberCard(modifier = Modifier.fillMaxWidth(), highlighted = true) {
+                    CyberCardHeader(title = "APPEARANCE & THEME", badge = prefs.themeMode.label.uppercase())
 
-                Text(
-                    text = "CHAT INTERFACE APPEARANCE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    val modes = listOf(
-                        ThemeMode.SYSTEM to Icons.Default.BrightnessAuto,
-                        ThemeMode.LIGHT to Icons.Default.LightMode,
-                        ThemeMode.DARK to Icons.Default.DarkMode
+                    Text(
+                        text = "CHOOSE HOW ZAYTHAR AI LOOKS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    modes.forEachIndexed { index, (mode, icon) ->
-                        val selected = prefs.themeMode == mode
-                        SegmentedButton(
-                            selected = selected,
-                            onClick = {
-                                onUpdatePrefs { it.copy(themeMode = mode) }
-                                onToast("Chat theme set to ${mode.label}.")
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size),
-                            colors = SegmentedButtonDefaults.colors(
-                                activeContainerColor = cyber.accent.copy(alpha = 0.2f),
-                                activeContentColor = cyber.accentSoft,
-                                activeBorderColor = cyber.accent
-                            ),
-                            icon = {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            },
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("theme_mode_${mode.id}")
-                        ) {
-                            Text(
-                                text = when (mode) {
-                                    ThemeMode.SYSTEM -> "System"
-                                    ThemeMode.LIGHT -> "Light"
-                                    ThemeMode.DARK -> "Dark"
-                                },
-                                maxLines = 1
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ThemeVisualPreviewCards(
+                        selectedMode = prefs.themeMode,
+                        onSelectMode = { mode ->
+                            onUpdatePrefs { it.copy(themeMode = mode) }
+                            onToast("Chat theme set to ${mode.label}.")
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "COLOR THEME",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        AccentSwatches.forEach { (hex, name) ->
+                            CircularAccentSwatch(
+                                color = Color(hex),
+                                selected = prefs.accentHex == hex,
+                                name = name,
+                                onClick = { onSelectAccent(hex) }
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    CyberToggleRow("Holographic interface", prefs.holographicUi, { c ->
+                        onUpdatePrefs { it.copy(holographicUi = c) }
+                    })
+                    CyberSliderRow("Secondary glow", prefs.glowStrength) { v ->
+                        onUpdatePrefs { it.copy(glowStrength = v) }
+                    }
+                    CyberSliderRow("Metallic specularity", prefs.metalSpecularity) { v ->
+                        onUpdatePrefs { it.copy(metalSpecularity = v) }
+                    }
+                    CyberSliderRow("Contrast", prefs.contrastStrength) { v ->
+                        onUpdatePrefs { it.copy(contrastStrength = v) }
+                    }
+                    TelemetryBar("Interface glow", "${prefs.glowStrength.toInt()}%", prefs.glowStrength / 100f)
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Follow your device dark/light mode automatically or lock the chat interface to Light or Dark.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(14.dp))
+            }
+        }
 
-                CyberSliderRow(
-                    label = "Secondary glow",
-                    value = prefs.glowStrength,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(glowStrength = v) } }
-                )
-                CyberSliderRow(
-                    label = "Metallic specularity",
-                    value = prefs.metalSpecularity,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(metalSpecularity = v) } }
-                )
-                CyberSliderRow(
-                    label = "Contrast",
-                    value = prefs.contrastStrength,
-                    onValueChange = { v -> onUpdatePrefs { it.copy(contrastStrength = v) } }
-                )
+        if (showPersonalization) {
+            item {
+                CyberCard(modifier = Modifier.fillMaxWidth()) {
+                    CyberCardHeader(title = "PERSONALIZATION & EMPATHY", badge = prefs.personaStyle.uppercase())
+                    Text(
+                        text = "Empathy: ${prefs.empathyRatio.toInt()}% · Cognitive: ${prefs.cognitiveCapacity.toInt()}% · Adaptability: ${prefs.adaptability.toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    CyberSecondaryButton(
+                        text = "OPEN AI PERSONA BUILDER",
+                        onClick = { onNavigate("persona") },
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "settings_open_persona_button"
+                    )
+                }
+            }
+        }
 
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "ACCENT COLOR",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    AccentSwatches.forEach { (hex, name) ->
-                        val selected = prefs.accentHex == hex
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .background(Color(hex), MaterialTheme.shapes.small)
-                                .border(
-                                    width = if (selected) 3.dp else 1.dp,
-                                    color = if (selected) Color.White else MaterialTheme.colorScheme.outline,
-                                    shape = MaterialTheme.shapes.small
-                                )
-                                .clickable { onSelectAccent(hex) }
-                                .testTag("accent_swatch_${name.lowercase()}")
+        if (showVoice) {
+            item {
+                CyberCard(modifier = Modifier.fillMaxWidth()) {
+                    CyberCardHeader(title = "VOICE & SPEECH", badge = "GEMINI 3.8 LIVE")
+                    CyberToggleRow("Read chat replies aloud (TTS)", prefs.speakReplies, { c ->
+                        onUpdatePrefs { it.copy(speakReplies = c) }
+                    })
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CyberSecondaryButton(
+                        text = "OPEN LIVE VOICE & AUDIO NEXUS",
+                        onClick = { onNavigate("voice_audio") },
+                        modifier = Modifier.fillMaxWidth(),
+                        testTag = "settings_open_voice_button"
+                    )
+                }
+            }
+        }
+
+        if (showSecurity || showAbout) {
+            item {
+                CyberCard(modifier = Modifier.fillMaxWidth()) {
+                    CyberCardHeader(title = "DATA, SECURITY & ABOUT", badge = "v2.0.0")
+                    Text(
+                        text = "Operator: ${prefs.operatorName} · Cloud Firestore UID-scoped storage + Firebase App Check.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CyberSecondaryButton(
+                            text = "SECURITY",
+                            onClick = { onNavigate("security") },
+                            modifier = Modifier.weight(1f),
+                            testTag = "settings_open_security_button"
+                        )
+                        CyberSecondaryButton(
+                            text = "LIBRARY & RAG",
+                            onClick = { onNavigate("library") },
+                            modifier = Modifier.weight(1f),
+                            testTag = "settings_open_library_button"
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Selected: " + (AccentSwatches.firstOrNull { it.first == prefs.accentHex }?.second ?: "Custom"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = cyber.accentSoft
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Select an accent color to personalize the command interface.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                TelemetryBar(
-                    label = "Interface glow",
-                    statusText = "${prefs.glowStrength.toInt()}%",
-                    progress = prefs.glowStrength / 100f
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                TelemetryBar(
-                    label = "Metallic contrast",
-                    statusText = "${prefs.contrastStrength.toInt()}%",
-                    progress = prefs.contrastStrength / 100f
-                )
             }
         }
     }

@@ -261,4 +261,113 @@ class ChatGroundingAndMarkdownUiTest {
         composeRule.waitForIdle()
         assertEquals(1, clearedCount)
     }
+
+        @Test
+    fun geminiChatView_markdownNodesVisibilityAndComposeScrolling_regressionTest() {
+        val longMarkdownContent = """
+            # Header Level 1
+            
+            This is a paragraph with **bold text**, *italic text*, and `inline code`.
+            
+            ## Architecture Details
+            
+            Here are key requirements:
+            - Client-side input validation
+            - Realtime stream handling
+            - Zero-Trust security rules
+            
+            ### Code Snippet
+            
+            ```kotlin
+            fun calculateChecksum(input: String): Long {
+                return input.fold(0L) { acc, char -> acc * 31 + char.code }
+            }
+            ```
+            
+            > Caution: Always verify authentication tokens before processing sensitive payload.
+            
+            1. First step in initialization
+            2. Second step in verification
+        """.trimIndent()
+
+        val messages = listOf(
+            ChatMessage(
+                id = "msg_user_prompt",
+                text = "Explain the system architecture and implementation details with code examples.",
+                isFromUser = true,
+                timestampMillis = 1000L
+            ),
+            ChatMessage(
+                id = "msg_ai_markdown",
+                text = longMarkdownContent,
+                isFromUser = false,
+                timestampMillis = 2000L,
+                modelLabel = "gemini-3.8-flash"
+            ),
+            ChatMessage(
+                id = "msg_user_followup",
+                text = "Can you summarize the security guarantees?",
+                isFromUser = true,
+                timestampMillis = 3000L
+            ),
+            ChatMessage(
+                id = "msg_ai_summary",
+                text = "Security is guaranteed via cryptographic App Check and Firestore security rules.",
+                isFromUser = false,
+                timestampMillis = 4000L,
+                modelLabel = "gemini-3.8-flash"
+            )
+        )
+
+        var themeMode by mutableStateOf(ThemeMode.DARK)
+
+        composeRule.setContent {
+            ZaytharTheme(themeMode = themeMode) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    GeminiChatView(
+                        messages = messages,
+                        inputText = "",
+                        onInputChange = {},
+                        onSendMessage = {},
+                        listState = rememberLazyListState()
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        // 1. Verify user prompt is in semantics tree and scrolled properly
+        composeRule.onNodeWithTag("chat_message_msg_user_prompt").performScrollTo().assertExists()
+        composeRule.onNodeWithText("Explain the system architecture", substring = true).assertExists()
+
+        // 2. Scroll to markdown message host and verify all headings, lists, and code blocks exist
+        composeRule.onNodeWithTag("chat_message_msg_ai_markdown").performScrollTo().assertExists()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithContentDescription("Header Level 1", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Architecture Details", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Client-side input validation", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Realtime stream handling", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("fun calculateChecksum", substring = true).assertExists()
+        composeRule.onNodeWithContentDescription("Always verify authentication tokens", substring = true).assertExists()
+
+        // 3. Scroll to copy button, verify it exists and performs copy
+        composeRule.onNodeWithTag("copy_message_msg_ai_markdown").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val clipboard = app.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        assertEquals(longMarkdownContent, clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+
+        // 4. Scroll down to follow-up messages
+        composeRule.onNodeWithTag("chat_message_msg_user_followup").performScrollTo().assertExists()
+        composeRule.onNodeWithTag("chat_message_msg_ai_summary").performScrollTo().assertExists()
+        composeRule.onNodeWithText("Security is guaranteed via cryptographic App Check", substring = true).assertExists()
+
+        // 5. Test theme change during scrolled position without dropping markdown nodes
+        themeMode = ThemeMode.LIGHT
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("chat_message_msg_ai_markdown").performScrollTo().assertExists()
+        composeRule.onNodeWithContentDescription("Architecture Details", substring = true).assertExists()
+    }
 }
