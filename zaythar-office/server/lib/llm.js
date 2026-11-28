@@ -25,11 +25,11 @@ export async function ask(system, user, max = 1500) {
   const latestUser = turns.filter(m => m.role === 'user').at(-1).content;
   // 1. Google Gemini API (Zaythar AI engine primary)
   if (geminiKey) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
     const r = await fetch(url, {
       method: 'POST',
       signal: AbortSignal.timeout(60000),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': geminiKey },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: system }] },
         contents: turns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
