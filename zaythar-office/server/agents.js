@@ -60,8 +60,15 @@ export async function runJob(text, d, job) {
 // Kisi bhi agent se seedhi baat-cheet: apni shakhsiyat, yaaddasht aur pichli baatein saath.
 export async function chat(name, textIn) {
   const A = ROSTER[name], S = agentStore(name), mem = S.memory(), db = S.db();
-  const hist = (db.chat || []).slice(-6).map(m => m.role + ': ' + m.text).join('\n');
-  const r = await askJson(`Tum ${cap(name)} ho (${A.role}). ${A.persona}\n${RULES}\nYaaddasht: ${mem.facts.slice(-8).join('; ') || 'khali'}. Seekhi baatein: ${mem.lessons.slice(-5).join('; ') || 'khali'}.\nAb tak ki baat:\n${hist}\nJSON: {"reply":"chhota dostana jawab, Roman Urdu","remember":"kaam ki baat jo yaad rakhni ho, warna khali"}`, 'Insaan: ' + textIn, 700);
+  const history = (db.chat || []).slice(-12).map(m => ({
+    role: m.role === 'insaan' ? 'user' : 'assistant',
+    content: String(m.text || '').slice(0, 1500)
+  }));
+  const r = await askJson(
+    `Tum ${cap(name)} ho (${A.role}). ${A.persona}\n${RULES}\nYaaddasht: ${mem.facts.slice(-8).join('; ') || 'khali'}. Seekhi baatein: ${mem.lessons.slice(-5).join('; ') || 'khali'}.\nJawab JSON mein do: {"reply":"chhota dostana jawab, Roman Urdu","remember":"kaam ki baat jo yaad rakhni ho, warna khali"}`,
+    [...history, { role: 'user', content: textIn }],
+    700
+  );
   const reply = String(r.reply || '').slice(0, 1500);
   db.chat = [...(db.chat || []), { role: 'insaan', text: textIn.slice(0, 300) }, { role: name, text: reply.slice(0, 300) }].slice(-30); S.saveDb(db);
   if (r.remember) { const m = S.memory(); m.facts = [...m.facts, String(r.remember).slice(0, 120)].slice(-30); m.xp += 2; S.saveMemory(m); }
