@@ -84,6 +84,33 @@ class AgentTaskResponse(BaseModel):
     actions_taken: List[str] = Field(default_factory=list, description="Step-by-step actions executed")
 
 
+class DecisionRequest(BaseModel):
+    question: str = Field(..., min_length=5, max_length=2000, description="Decision or problem to evaluate")
+    options: List[str] = Field(..., min_length=2, max_length=8, description="Candidate options to compare")
+    criteria: List[str] = Field(default_factory=list, max_length=12, description="Optional decision criteria")
+    context: Optional[str] = Field(default="", max_length=10000, description="Supporting evidence, treated as untrusted reference data")
+    risk_tolerance: str = Field(default="balanced", max_length=30, description="Conservative, balanced, or aggressive")
+    language: Optional[str] = Field(default=None, max_length=40, description="Optional response language")
+
+
+class StudyMode(str, Enum):
+    SUMMARY = "summary"
+    NOTES = "notes"
+    FLASHCARDS = "flashcards"
+    MCQ = "mcq"
+    QUIZ = "quiz"
+    STUDY_GUIDE = "study_guide"
+
+
+class StudyRequest(BaseModel):
+    document_text: str = Field(..., min_length=1, max_length=50000, description="Extracted document text; treated as untrusted source material")
+    mode: StudyMode = Field(default=StudyMode.STUDY_GUIDE, description="Study output to generate")
+    language: Optional[str] = Field(default=None, max_length=40, description="Optional output language")
+    question_count: int = Field(default=10, ge=3, le=25, description="Number of MCQs or quiz questions")
+    provider: Optional[str] = Field(default="auto", description="Preferred configured AI provider")
+    model: Optional[str] = Field(default=None, max_length=60, description="Optional provider model override")
+
+
 class SessionSummary(BaseModel):
     session_id: str = Field(..., description="Unique session ID")
     message_count: int = Field(..., description="Number of stored messages")
