@@ -33,7 +33,6 @@ export async function ask(system, user, max = 1500) {
       body: JSON.stringify({
         system_instruction: { parts: [{ text: system }] },
         contents: turns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        
         generationConfig: { maxOutputTokens: max, temperature: 0.7 }
       })
     });
@@ -49,7 +48,7 @@ export async function ask(system, user, max = 1500) {
       signal: AbortSignal.timeout(60000),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        message: `${system}\n\nConversation:\n${turns.map(m => (m.role === 'assistant' ? 'Assistant: ' : 'User: ') + m.content).join('\n\n')}`, 
+        message: `${system}\n\nConversation:\n${turns.map(m => (m.role === 'assistant' ? 'Assistant: ' : 'User: ') + m.content).join('\n\n'`)`,
         session_id: 'office-agents'
       })
     });
@@ -106,14 +105,14 @@ export async function ask(system, user, max = 1500) {
   // Fallback offline mock for tests or environments without live API credentials
   if (latestUser.includes('Sirf valid JSON do')) {
     return JSON.stringify({
-      final: 'Zaythar AI engine connected. Offline fallback operational.',
-      reply: 'Ji boss, sab tayyar hai.',
+      final: 'Zaythar AI offline fallback operational; live model credentials are not configured.',
+      reply: 'Ji boss, offline fallback chal raha hai. Live AI provider abhi configure nahi.',
       boss_say: 'Kaam banta hai.',
       assign: [{ agent: 'friday', task: 'Task assigned' }],
       reviews: [{ agent: 'friday', score: 8, feedback: 'Bohat acha', lesson: 'Hifazat pehle' }]
     });
   }
-  return 'Zaythar AI Office engine ready.';
+  return 'Zaythar AI offline fallback. Live model provider is not configured.';
 }
 
 export async function askJson(system, user, max) {
