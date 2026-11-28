@@ -48,7 +48,7 @@ export async function ask(system, user, max = 1500) {
       signal: AbortSignal.timeout(60000),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        message: `${system}\n\nConversation:\n${turns.map(m => (m.role === 'assistant' ? 'Assistant: ' : 'User: ') + m.content).join('\n\n'`)`,
+        message: `${system}\n\nConversation:\n${turns.map(m => (m.role === 'assistant' ? 'Assistant: ' : 'User: ') + m.content).join('\n\n')}`,
         session_id: 'office-agents'
       })
     });
