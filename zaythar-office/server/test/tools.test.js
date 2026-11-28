@@ -80,3 +80,21 @@ test('firebase status checks do not throw', () => {
   assert.equal(typeof firebaseReady(), 'boolean');
   assert.equal(typeof firecrawlReady(), 'boolean');
 });
+
+test('agent LLM accepts native multi-turn conversation history', async () => {
+  const { askJson } = await import('../lib/llm.js');
+  const result = await askJson('agent system prompt', [
+    { role: 'user', content: 'Mera naam kya hai?' },
+    { role: 'assistant', content: 'Aap ne abhi naam nahi bataya.' },
+    { role: 'user', content: 'Sirf valid JSON do' }
+  ], 300);
+  assert.ok(result.reply || result.final);
+});
+
+test('agent LLM rejects a conversation without a user turn', async () => {
+  const { ask } = await import('../lib/llm.js');
+  await assert.rejects(
+    ask('agent system prompt', [{ role: 'assistant', content: 'hello' }]),
+    /user message required/
+  );
+});
