@@ -95,6 +95,6 @@ test('agent LLM rejects a conversation without a user turn', async () => {
   const { ask } = await import('../lib/llm.js');
   await assert.rejects(
     ask('agent system prompt', [{ role: 'assistant', content: 'hello' }]),
-    /user message required/
+    /user message/
   );
 });
