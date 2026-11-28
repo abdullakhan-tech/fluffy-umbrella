@@ -20,6 +20,9 @@ const geminiKey = GEMINI_API_KEY || GOOGLE_API_KEY;
 export const llmReady = () => !!(geminiKey || ZAYTHAR_BACKEND_URL || ANTHROPIC_API_KEY || OPENAI_API_KEY);
 
 export async function ask(system, user, max = 1500) {
+  const turns = Array.isArray(user) ? user.filter(m => m && ['user', 'assistant'].includes(m.role) && String(m.content || '').trim()).slice(-24) : [{ role: 'user', content: String(user) }];
+  if (!turns.length || !turns.some(m => m.role === 'user')) throw Error('at least one user message is required');
+  const latestUser = turns.filter(m => m.role === 'user').at(-1).content;
   // 1. Google Gemini API (Zaythar AI engine primary)
   if (geminiKey) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`;
@@ -29,7 +32,8 @@ export async function ask(system, user, max = 1500) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: system }] },
-        contents: [{ role: 'user', parts: [{ text: user }] }],
+        contents: turns.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        
         generationConfig: { maxOutputTokens: max, temperature: 0.7 }
       })
     });
@@ -45,7 +49,7 @@ export async function ask(system, user, max = 1500) {
       signal: AbortSignal.timeout(60000),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        message: `${system}\n\nTask:\n${user}`,
+        message: `${system}\n\nConversation:\n${turns.map(m => (m.role === 'assistant' ? 'Assistant: ' : 'User: ') + m.content).join('\n\n')}`, 
         session_id: 'office-agents'
       })
     });
@@ -68,7 +72,7 @@ export async function ask(system, user, max = 1500) {
         model: ANTHROPIC_MODEL,
         max_tokens: max,
         system,
-        messages: [{ role: 'user', content: user }]
+        messages: turns
       })
     });
     const j = await r.json();
@@ -90,7 +94,7 @@ export async function ask(system, user, max = 1500) {
         max_tokens: max,
         messages: [
           { role: 'system', content: system },
-          { role: 'user', content: user }
+          ...turns
         ]
       })
     });
@@ -100,7 +104,7 @@ export async function ask(system, user, max = 1500) {
   }
 
   // Fallback offline mock for tests or environments without live API credentials
-  if (user.includes('Sirf valid JSON do')) {
+  if (latestUser.includes('Sirf valid JSON do')) {
     return JSON.stringify({
       final: 'Zaythar AI engine connected. Offline fallback operational.',
       reply: 'Ji boss, sab tayyar hai.',
@@ -113,7 +117,16 @@ export async function ask(system, user, max = 1500) {
 }
 
 export async function askJson(system, user, max) {
-  const t = await ask(system, user + '\nSirf valid JSON do, koi markdown nahi.', max);
+  let input;
+  if (Array.isArray(user)) {
+    input = user.map(m => ({ ...m }));
+    const i = input.map(m => m.role).lastIndexOf('user');
+    if (i < 0) throw Error('at least one user message is required');
+    input[i].content += '\nSirf valid JSON do, koi markdown nahi.';
+  } else {
+    input = String(user) + '\nSirf valid JSON do, koi markdown nahi.';
+  }
+  const t = await ask(system, input, max);
   const m = t.match(/\{[\s\S]*\}/);
   if (!m) throw Error('model ne JSON nahi diya');
   return JSON.parse(m[0]);
